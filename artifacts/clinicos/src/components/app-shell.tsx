@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Activity, ArrowUpLeft, BarChart3, Bell, Bot, BriefcaseMedical, CalendarClock,
@@ -31,7 +31,19 @@ const workspaceNav = [
 export function AppShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { language, theme, dir, t, toggleLanguage, toggleTheme } = usePreferences();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const hasMounted = useRef(false);
+  const { language, theme, t, toggleLanguage, toggleTheme } = usePreferences();
+
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    setIsNavigating(true);
+    const timeout = window.setTimeout(() => setIsNavigating(false), 420);
+    return () => window.clearTimeout(timeout);
+  }, [location]);
   const navItem = (item: (typeof primaryNav)[number]) => {
     const Icon = item.icon;
     const active = location === item.href || (item.href === "/dashboard" && location === "/");
@@ -53,11 +65,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   };
   return (
-    <div dir={dir} className="clinic-shell text-[hsl(var(--foreground))]">
-      <button aria-label={language === "ar" ? "فتح القائمة" : "Open menu"} data-testid="button-open-mobile-nav" className={`fixed ${dir === "rtl" ? "right-4" : "left-4"} top-4 z-30 rounded-xl bg-[hsl(var(--sidebar))] p-2.5 text-white shadow-lg md:hidden`} onClick={() => setMobileOpen(true)}>
+    <div dir="ltr" aria-busy={isNavigating} className="clinic-shell text-[hsl(var(--foreground))]">
+      {isNavigating && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-1 overflow-hidden bg-[hsl(var(--primary)/.15)]" role="status" aria-label={language === "ar" ? "جارٍ تحميل الصفحة" : "Loading page"}>
+          <div className="h-full w-2/5 animate-[loading-slide_0.9s_ease-in-out_infinite] rounded-full bg-[hsl(var(--primary))]" />
+        </div>
+      )}
+      <button aria-label={language === "ar" ? "فتح القائمة" : "Open menu"} data-testid="button-open-mobile-nav" className={`fixed left-4 top-4 z-30 rounded-xl bg-[hsl(var(--sidebar))] p-2.5 text-white shadow-lg md:hidden`} onClick={() => setMobileOpen(true)}>
         <Menu size={20} />
       </button>
-      <aside className={`sidebar fixed inset-y-0 z-40 flex w-[258px] flex-col px-4 py-5 transition-transform duration-300 ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"} border-white/10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : dir === "rtl" ? "translate-x-full" : "-translate-x-full"}`}>
+      <aside className={`sidebar fixed inset-y-0 z-40 flex w-[258px] flex-col px-4 py-5 transition-transform duration-300 left-0 border-r border-white/10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="mb-8 flex items-center justify-between px-2">
           <Link href="/dashboard" data-testid="link-logo" className="flex items-center gap-2.5">
             <span className="grid size-9 place-items-center rounded-xl bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] shadow-[0_5px_18px_hsl(var(--sidebar-primary)/.25)]"><Activity size={19} strokeWidth={2.5} /></span>
@@ -84,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       {mobileOpen && <button aria-label="إغلاق الخلفية" data-testid="button-close-backdrop" className="fixed inset-0 z-30 bg-[#102c32]/40 md:hidden" onClick={() => setMobileOpen(false)} />}
-      <main className={`min-h-[100dvh] ${dir === "rtl" ? "md:mr-[258px]" : "md:ml-[258px]"}`}>
+      <main className="min-h-[100dvh] md:ml-[258px]">
         <header className="sticky top-0 z-20 flex h-[70px] items-center gap-4 border-b border-[hsl(var(--border)/.7)] bg-[hsl(var(--background)/.94)] px-5 backdrop-blur-md md:px-8">
           <div className="flex-1"><p className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))]">{language === "ar" ? "الثلاثاء، ١٨ يونيو ٢٠٢٤" : "Tuesday, June 18, 2024"}</p><p className="mt-0.5 text-sm font-bold">{t("goodMorning")} <span className="mr-1 text-[hsl(var(--accent))]">—</span></p></div>
           <div className="hidden items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted-foreground))] sm:flex"><span className="size-2 rounded-full bg-[hsl(var(--primary))]" /> {t("branch")} <ChevronLeft size={14} className="rotate-[-90deg]" /></div>
