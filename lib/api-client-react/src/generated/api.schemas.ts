@@ -19,6 +19,25 @@ export interface LoginInput {
   password: string;
 }
 
+export interface PasswordRecoveryInput {
+  email: string;
+}
+
+export interface PasswordRecoveryResponse {
+  message: string;
+}
+
+export interface ResetPasswordInput {
+  /** @minLength 20 */
+  accessToken: string;
+  /** @minLength 8 */
+  password: string;
+}
+
+export interface PasswordResetResponse {
+  message: string;
+}
+
 export interface RegisterInput {
   /** @minLength 2 */
   fullName: string;

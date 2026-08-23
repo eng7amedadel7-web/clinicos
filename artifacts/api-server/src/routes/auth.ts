@@ -15,6 +15,15 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+const passwordRecoverySchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  accessToken: z.string().min(20),
+  password: z.string().min(8),
+});
+
 const registerSchema = z.object({
   fullName: z.string().trim().min(2),
   clinicName: z.string().trim().min(2),
@@ -158,6 +167,10 @@ function sessionFor(
   };
 }
 
+function publicAppOrigin() {
+  return process.env.PUBLIC_APP_URL?.trim().replace(/\/+$/, "") || "https://clinicos-ashy-one.vercel.app";
+}
+
 function safeSlug(value: string, fallback: string) {
   const slug = value
     .toLowerCase()
@@ -167,6 +180,52 @@ function safeSlug(value: string, fallback: string) {
     .slice(0, 48);
   return slug || fallback;
 }
+
+router.post("/forgot-password", async (req, res) => {
+  const parsed = passwordRecoverySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Please enter a valid email address." });
+    return;
+  }
+
+  const origin = publicAppOrigin();
+  const result = await supabaseAuthRequest<{ message?: string }>(
+    "/auth/v1/recover",
+    {
+      email: parsed.data.email.trim().toLowerCase(),
+      ...(origin ? { options: { redirectTo: `${origin}/reset-password` } } : {}),
+    },
+  );
+
+  // Keep the response generic so this endpoint cannot be used for account enumeration.
+  if (!result.ok) {
+    res.json({ message: "If an account exists for that email, a recovery link will be sent." });
+    return;
+  }
+  res.json({ message: "If an account exists for that email, a recovery link will be sent." });
+});
+
+router.post("/reset-password", async (req, res) => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Use a valid recovery link and a password of 8+ characters." });
+    return;
+  }
+
+  const result = await supabaseRequest<{ id?: string }>("/auth/v1/user", {
+    method: "PUT",
+    headers: {
+      ...restHeaders(parsed.data.accessToken),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password: parsed.data.password }),
+  });
+  if (!result.ok || !result.data?.id) {
+    res.status(400).json({ error: "This recovery link is invalid or expired. Request a new one." });
+    return;
+  }
+  res.json({ message: "Password updated successfully." });
+});
 
 router.post("/login", async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);

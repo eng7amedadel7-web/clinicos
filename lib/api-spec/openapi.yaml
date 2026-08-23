@@ -70,6 +70,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /auth/forgot-password:
+    post:
+      operationId: recoverPassword
+      tags: [auth]
+      summary: Send a password recovery email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRecoveryInput"
+      responses:
+        "200":
+          description: Recovery request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordRecoveryResponse"
+        "400":
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password using a recovery token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetResponse"
+        "400":
+          description: Invalid or expired recovery token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/register:
     post:
       operationId: register
@@ -191,6 +239,34 @@ components:
           type: string
           minLength: 6
       required: [email, password]
+    PasswordRecoveryInput:
+      type: object
+      properties:
+        email:
+          type: string
+      required: [email]
+    PasswordRecoveryResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+    ResetPasswordInput:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          minLength: 20
+        password:
+          type: string
+          minLength: 8
+      required: [accessToken, password]
+    PasswordResetResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
     RegisterInput:
       type: object
       properties:

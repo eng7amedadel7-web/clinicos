@@ -40,6 +40,8 @@ import {
   useLogin,
   useLogout,
   useRegister,
+  useRecoverPassword,
+  useResetPassword,
   useUpdateClinicSettings,
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
@@ -113,11 +115,93 @@ function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | '
   );
 }
 
+type RecoveryValues = { email: string };
+type ResetValues = { password: string; confirmPassword: string };
+
+function useRecoveryAccessToken() {
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const queryToken = new URLSearchParams(window.location.search).get('access_token');
+    const hashToken = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('access_token');
+    const accessToken = queryToken || hashToken;
+    if (!accessToken) return;
+
+    setToken(accessToken);
+    const cleanUrl = new URL(window.location.href);
+    ['access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'].forEach(key => cleanUrl.searchParams.delete(key));
+    cleanUrl.hash = '';
+    window.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}`);
+  }, []);
+
+  return token;
+}
+
+function RecoveryPage({ onBack }: { onBack: () => void }) {
+  const recovery = useRecoverPassword();
+  const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
+  const apiError = getApiErrorMessage(recovery.error);
+
+  const submit = (values: RecoveryValues) => {
+    recovery.mutate({ data: { email: values.email.trim() } });
+  };
+
+  return (
+    <AuthLayout mode="login">
+      <div className="animate-rise">
+        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">استعادة الوصول</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">نسيت كلمة المرور؟</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أدخل بريد الحساب وسنرسل رابطًا آمنًا لإعادة تعيين كلمة المرور.</p></div>
+        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-recovery-error">{apiError}</div> : null}
+        {recovery.isSuccess ? (
+          <div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-recovery-success">إذا كان البريد مرتبطًا بحساب، فسيصلك رابط استعادة خلال دقائق. افحص البريد الوارد ومجلد الرسائل غير المرغوب فيها.</div>
+        ) : (
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate>
+            <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message} hint="استخدم البريد المرتبط بحسابك">
+              <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\\S+@\\S+\\.\\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-recovery-email" /></div>
+            </Field>
+            <button className="primary-button w-full" type="submit" disabled={recovery.isPending} data-testid="button-recovery">{recovery.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ إرسال الرابط...</> : <>إرسال رابط الاستعادة <ArrowLeft size={17} /></>}</button>
+          </form>
+        )}
+        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-[#3c7e93]" onClick={onBack} data-testid="button-back-to-login">العودة إلى تسجيل الدخول</button>
+      </div>
+    </AuthLayout>
+  );
+}
+
+function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDone: () => void }) {
+  const reset = useResetPassword();
+  const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
+  const apiError = getApiErrorMessage(reset.error);
+
+  const submit = (values: ResetValues) => {
+    reset.mutate({ data: { accessToken, password: values.password } });
+  };
+
+  return (
+    <AuthLayout mode="login">
+      <div className="animate-rise">
+        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">كلمة مرور جديدة</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">إعادة تعيين كلمة المرور</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أنشئ كلمة مرور جديدة من 8 أحرف على الأقل.</p></div>
+        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-reset-error">{apiError}</div> : null}
+        {reset.isSuccess ? (
+          <div className="space-y-5"><div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-reset-success">تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.</div><button type="button" className="primary-button w-full" onClick={onDone} data-testid="button-reset-done">العودة إلى تسجيل الدخول <ArrowLeft size={17} /></button></div>
+        ) : (
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate>
+            <Field label="كلمة المرور الجديدة" error={form.formState.errors.password?.message}><input {...form.register('password', { required: 'أدخل كلمة المرور الجديدة', minLength: { value: 8, message: 'يجب أن تتكون من 8 أحرف على الأقل' } })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" /></Field>
+            <Field label="تأكيد كلمة المرور" error={form.formState.errors.confirmPassword?.message}><input {...form.register('confirmPassword', { required: 'أكد كلمة المرور', validate: value => value === form.getValues('password') || 'كلمتا المرور غير متطابقتين' })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" /></Field>
+            <button className="primary-button w-full" type="submit" disabled={reset.isPending} data-testid="button-reset-password">{reset.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ تحديث كلمة المرور...</> : <>تحديث كلمة المرور <ArrowLeft size={17} /></>}</button>
+          </form>
+        )}
+      </div>
+    </AuthLayout>
+  );
+}
+
 function LoginPage() {
   const [, setLocation] = useLocation();
   const client = useQueryClient();
   const login = useLogin();
-  const health = useHealthCheck({ query: { retry: false, queryKey: getHealthCheckQueryKey() } });
+  const recoveryToken = useRecoveryAccessToken();
+  const [showRecovery, setShowRecovery] = useState(false);
+  const health = useHealthCheck({ query: { retry: false, enabled: !showRecovery && !recoveryToken, queryKey: getHealthCheckQueryKey() } });
   const form = useForm<LoginValues>({ defaultValues: { email: '', password: '' }, mode: 'onTouched' });
   const [showPassword, setShowPassword] = useState(false);
   const onSubmit = (values: LoginValues) => {
@@ -130,6 +214,8 @@ function LoginPage() {
     });
   };
   const apiError = getApiErrorMessage(login.error);
+  if (recoveryToken) return <ResetPasswordPage accessToken={recoveryToken} onDone={() => { window.history.replaceState(null, '', '/login'); setShowRecovery(false); window.location.reload(); }} />;
+  if (showRecovery) return <RecoveryPage onBack={() => setShowRecovery(false)} />;
   return (
     <AuthLayout mode="login">
       <div className="animate-rise">
@@ -142,7 +228,7 @@ function LoginPage() {
           <Field label="كلمة المرور" error={form.formState.errors.password?.message}>
             <div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 6, message: 'يجب أن تتكون من 6 أحرف على الأقل' } })} className="input-field pl-11 pr-11 text-left" dir="ltr" type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" data-testid="input-login-password" /><button type="button" className="absolute left-3.5 top-3.5 text-[#8196a1]" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} data-testid="button-toggle-password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
           </Field>
-          <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> تذكرني على هذا الجهاز</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => toast.info('تواصل مع مسؤول العيادة لإعادة ضبط كلمة المرور')} data-testid="button-forgot-password">نسيت كلمة المرور؟</button></div>
+          <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> تذكرني على هذا الجهاز</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => { login.reset(); setShowRecovery(true); }} data-testid="button-forgot-password">نسيت كلمة المرور؟</button></div>
           <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ التحقق...</> : <>دخول إلى كلينكوس <ArrowLeft size={17} /></>}</button>
         </form>
         <div className="mt-8 flex items-center gap-3 text-xs text-[#8a9ba4]"><div className="h-px flex-1 bg-[#d9e3e8]" /> أو <div className="h-px flex-1 bg-[#d9e3e8]" /></div>
@@ -272,8 +358,8 @@ function NotFound() {
 
 function Router() {
   const [location] = useLocation();
-  const publicRoute = location === '/' || location === '/login' || location === '/register';
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={LoginPage} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
+  const publicRoute = location === '/' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={LoginPage} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
 }
 
 function App() {

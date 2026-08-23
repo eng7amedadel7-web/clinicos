@@ -65,6 +65,37 @@ export const LoginResponse = zod.object({
 
 
 /**
+ * @summary Send a password recovery email
+ */
+export const RecoverPasswordBody = zod.object({
+  "email": zod.string()
+})
+
+export const RecoverPasswordResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Set a new password using a recovery token
+ */
+export const resetPasswordBodyAccessTokenMin = 20;
+
+export const resetPasswordBodyPasswordMin = 8;
+
+
+
+export const ResetPasswordBody = zod.object({
+  "accessToken": zod.string().min(resetPasswordBodyAccessTokenMin),
+  "password": zod.string().min(resetPasswordBodyPasswordMin)
+})
+
+export const ResetPasswordResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Register a new clinic owner account
  */
 export const registerBodyFullNameMin = 2;
