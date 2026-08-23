@@ -1,4 +1,10 @@
 {
   "buildCommand": "pnpm run build:vercel",
-  "outputDirectory": "artifacts/clinicos/dist/public"
+  "outputDirectory": "artifacts/clinicos/dist/public",
+  "rewrites": [
+    {
+      "source": "/((?!api(?:/|$)).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
