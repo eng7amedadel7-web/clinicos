@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ClinicOS"
+description = "A polished Arabic-first SaaS frontend for clinic operations, combining appointments, patient management, AI receptionist, voice agent workflows, follow-ups, and no-show prevention in one workspace."
+version = "1.0.0"
+id = "artifacts/clinicos"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23675
+
+[services.development]
+run = "pnpm --filter @workspace/clinicos run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/clinicos", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/clinicos/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23675"
+BASE_PATH = "/"

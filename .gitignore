@@ -1,0 +1,9 @@
+node_modules/
+.local/
+.agents/
+attached_assets/
+.env
+.env.*
+*.log
+dist/
+build/
