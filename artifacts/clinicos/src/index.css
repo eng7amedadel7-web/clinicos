@@ -61,3 +61,4 @@
 .mono { font-family: var(--app-font-mono); }
 .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 20px; }
+@keyframes loading-slide { 0% { transform: translateX(-120%); } 50% { transform: translateX(180%); } 100% { transform: translateX(320%); } }
