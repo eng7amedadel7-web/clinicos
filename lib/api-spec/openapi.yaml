@@ -102,6 +102,53 @@ paths:
       responses:
         "204":
           description: Signed out
+  /settings:
+    get:
+      operationId: getClinicSettings
+      tags: [auth]
+      summary: Get the current clinic settings
+      responses:
+        "200":
+          description: Current clinic settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateClinicSettings
+      tags: [auth]
+      summary: Update the current clinic settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClinicSettingsInput"
+      responses:
+        "200":
+          description: Updated clinic settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          description: Invalid settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /dashboard/summary:
     get:
       operationId: getDashboardSummary
@@ -192,6 +239,21 @@ components:
         city:
           type: string
       required: [id, name, status, city]
+    UpdateClinicSettingsInput:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 160
+        clinicName:
+          type: string
+          minLength: 2
+          maxLength: 160
+        city:
+          type: string
+          maxLength: 120
+      required: [fullName, clinicName, city]
     DashboardSummary:
       type: object
       properties:

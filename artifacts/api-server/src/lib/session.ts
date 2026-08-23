@@ -7,13 +7,23 @@ export type SessionPayload = {
   refreshToken?: string;
   userId: string;
   email: string;
+  clinicId: string;
 };
 
 export function readSession(req: Request): SessionPayload | null {
   const value = req.signedCookies?.[SESSION_COOKIE];
   if (!value || typeof value !== "string") return null;
   try {
-    return JSON.parse(value) as SessionPayload;
+    const parsed = JSON.parse(value) as Partial<SessionPayload>;
+    if (
+      typeof parsed.accessToken !== "string" ||
+      typeof parsed.userId !== "string" ||
+      typeof parsed.email !== "string" ||
+      typeof parsed.clinicId !== "string"
+    ) {
+      return null;
+    }
+    return parsed as SessionPayload;
   } catch {
     return null;
   }

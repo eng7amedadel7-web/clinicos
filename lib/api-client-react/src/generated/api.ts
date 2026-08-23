@@ -25,7 +25,8 @@ import type {
   ErrorResponse,
   HealthStatus,
   LoginInput,
-  RegisterInput
+  RegisterInput,
+  UpdateClinicSettingsInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -421,6 +422,154 @@ export const useLogout = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLogoutMutationOptions(options));
+    }
+
+export const getGetClinicSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Get the current clinic settings
+ */
+export const getClinicSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuthSession> => {
+
+  return customFetch<AuthSession>(getGetClinicSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClinicSettingsQueryKey = () => {
+    return [
+    `/api/settings`
+    ] as const;
+    }
+
+
+export const getGetClinicSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getClinicSettings>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClinicSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClinicSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClinicSettings>>> = ({ signal }) => getClinicSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClinicSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClinicSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getClinicSettings>>>
+export type GetClinicSettingsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the current clinic settings
+ */
+
+export function useGetClinicSettings<TData = Awaited<ReturnType<typeof getClinicSettings>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClinicSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClinicSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateClinicSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Update the current clinic settings
+ */
+export const updateClinicSettings = async (updateClinicSettingsInput: UpdateClinicSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<AuthSession> => {
+
+  return customFetch<AuthSession>(getUpdateClinicSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateClinicSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateClinicSettingsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClinicSettings>>, TError,{data: BodyType<UpdateClinicSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClinicSettings>>, TError,{data: BodyType<UpdateClinicSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateClinicSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClinicSettings>>, {data: BodyType<UpdateClinicSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateClinicSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClinicSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateClinicSettings>>>
+    export type UpdateClinicSettingsMutationBody = BodyType<UpdateClinicSettingsInput>
+    export type UpdateClinicSettingsMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update the current clinic settings
+ */
+export const useUpdateClinicSettings = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClinicSettings>>, TError,{data: BodyType<UpdateClinicSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClinicSettings>>,
+        TError,
+        {data: BodyType<UpdateClinicSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateClinicSettingsMutationOptions(options));
     }
 
 export const getGetDashboardSummaryUrl = () => {

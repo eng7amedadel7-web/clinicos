@@ -56,6 +56,21 @@ export interface AuthSession {
   clinic: Clinic;
 }
 
+export interface UpdateClinicSettingsInput {
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  fullName: string;
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  clinicName: string;
+  /** @maxLength 120 */
+  city: string;
+}
+
 export type DashboardStatTone = typeof DashboardStatTone[keyof typeof DashboardStatTone];
 
 

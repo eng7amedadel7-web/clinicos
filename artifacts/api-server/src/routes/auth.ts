@@ -16,8 +16,8 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  fullName: z.string().min(2),
-  clinicName: z.string().min(2),
+  fullName: z.string().trim().min(2),
+  clinicName: z.string().trim().min(2),
   email: z.string().email(),
   password: z.string().min(8),
 });
@@ -29,76 +29,143 @@ type SupabaseAuthUser = {
 };
 
 type SupabaseAuthResult = {
-  access_token: string;
+  access_token?: string;
   refresh_token?: string;
   user: SupabaseAuthUser;
 };
 
-type UserRecord = {
+type PublicUserRecord = {
   id?: string;
-  user_id?: string;
-  auth_user_id?: string;
-  email?: string;
   full_name?: string;
-  role?: string;
+  display_name?: string;
+};
+
+type MembershipRecord = {
   clinic_id?: string;
-  clinic?: { id?: string; name?: string; status?: string; city?: string };
+  role_id?: string;
+  branch_id?: string | null;
+  expires_at?: string | null;
+};
+
+type StaffRecord = {
+  role?: string;
+};
+
+type RoleRecord = {
+  name?: string;
 };
 
 type ClinicRecord = {
   id?: string;
   name?: string;
   status?: string;
-  city?: string;
+  timezone?: string;
+  location_config?: Record<string, unknown>;
 };
 
-async function getProfile(user: SupabaseAuthUser, accessToken: string) {
-  const headers = { Authorization: `Bearer ${accessToken}` };
-  const profile = await supabaseRequest<UserRecord[]>(
-    `/rest/v1/clinic_users?select=*&auth_user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
-    { headers },
-  );
-  let record = profile.ok ? profile.data?.[0] : undefined;
-  if (!record) {
-    const fallback = await supabaseRequest<UserRecord[]>(
-      `/rest/v1/clinic_users?select=*&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+function restHeaders(accessToken: string) {
+  return { Authorization: `Bearer ${accessToken}` };
+}
+
+function clinicCity(clinic: ClinicRecord) {
+  const configuredCity = clinic.location_config?.city;
+  return typeof configuredCity === "string" && configuredCity.trim()
+    ? configuredCity
+    : "—";
+}
+
+export async function getProfile(user: SupabaseAuthUser, accessToken: string) {
+  const headers = restHeaders(accessToken);
+  const [userResult, membershipResult] = await Promise.all([
+    supabaseRequest<PublicUserRecord[]>(
+      `/rest/v1/users?select=id,full_name,display_name&id=eq.${encodeURIComponent(user.id)}&limit=1`,
       { headers },
-    );
-    record = fallback.ok ? fallback.data?.[0] : undefined;
-  }
-  if (!record || !["owner", "admin"].includes(record.role ?? "")) {
-    return null;
-  }
-  let clinic: ClinicRecord | undefined = record?.clinic;
-  if (!clinic && record?.clinic_id) {
-    const clinicResult = await supabaseRequest<ClinicRecord[]>(
-      `/rest/v1/clinics?select=*&id=eq.${encodeURIComponent(record.clinic_id)}&limit=1`,
+    ),
+    supabaseRequest<MembershipRecord[]>(
+      `/rest/v1/user_roles?select=clinic_id,role_id,branch_id,expires_at&user_id=eq.${encodeURIComponent(user.id)}&limit=50`,
       { headers },
-    );
-    clinic = clinicResult.ok ? clinicResult.data?.[0] : undefined;
-  }
+    ),
+  ]);
+
+  const activeMembership = (membershipResult.ok ? membershipResult.data ?? [] : [])
+    .filter((membership) => {
+      if (!membership.clinic_id) return false;
+      return !membership.expires_at || new Date(membership.expires_at) > new Date();
+    })
+    .sort((a, b) => (a.branch_id ? 1 : 0) - (b.branch_id ? 1 : 0))[0];
+
+  if (!activeMembership?.clinic_id || !activeMembership.role_id) return null;
+
+  const [roleResult, staffResult, clinicResult] = await Promise.all([
+    supabaseRequest<RoleRecord[]>(
+      `/rest/v1/roles?select=name&id=eq.${encodeURIComponent(activeMembership.role_id)}&limit=1`,
+      { headers },
+    ),
+    supabaseRequest<StaffRecord[]>(
+      `/rest/v1/clinic_staff?select=role&clinic_id=eq.${encodeURIComponent(activeMembership.clinic_id)}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+      { headers },
+    ),
+    supabaseRequest<ClinicRecord[]>(
+      `/rest/v1/clinics?select=id,name,status,timezone,location_config&id=eq.${encodeURIComponent(activeMembership.clinic_id)}&deleted_at=is.null&limit=1`,
+      { headers },
+    ),
+  ]);
+
+  const clinic = clinicResult.ok ? clinicResult.data?.[0] : undefined;
+  if (!clinic?.id || !clinic.name || clinic.status === "suspended") return null;
+
+  const roleName = String(roleResult.ok ? roleResult.data?.[0]?.name ?? "" : "").toLowerCase();
+  const staffRole = String(staffResult.ok ? staffResult.data?.[0]?.role ?? "" : "").toLowerCase();
+  const role = staffRole === "owner" ? "owner" : roleName === "admin" ? "admin" : null;
+  if (!role) return null;
+
+  const publicUser = userResult.ok ? userResult.data?.[0] : undefined;
+  const fullName =
+    publicUser?.full_name?.trim() ||
+    publicUser?.display_name?.trim() ||
+    user.user_metadata?.full_name?.trim() ||
+    user.email?.split("@")[0] ||
+    "Clinic admin";
 
   return {
     user: {
       id: user.id,
-      email: user.email ?? record?.email ?? "",
-      fullName:
-        record?.full_name ??
-        user.user_metadata?.full_name ??
-        user.email?.split("@")[0] ??
-        "Clinic admin",
-      role: record?.role === "admin" ? "admin" : "owner",
+      email: user.email ?? "",
+      fullName,
+      role,
     },
     clinic: {
-      id: clinic?.id ?? record?.clinic_id ?? "unassigned",
-      name:
-        clinic?.name ??
-        user.user_metadata?.clinic_name ??
-        "Your clinic",
-      status: clinic?.status ?? "active",
-      city: clinic?.city ?? "—",
+      id: clinic.id,
+      name: clinic.name,
+      status: clinic.status ?? "active",
+      city: clinicCity(clinic),
     },
   };
+}
+
+function sessionFor(
+  auth: SupabaseAuthResult,
+  email: string,
+  clinicId: string,
+): SessionPayload | null {
+  if (!auth.access_token || !auth.user?.id) return null;
+  return {
+    accessToken: auth.access_token,
+    refreshToken: auth.refresh_token,
+    userId: auth.user.id,
+    email: auth.user.email ?? email,
+    clinicId,
+  };
+}
+
+function safeSlug(value: string, fallback: string) {
+  const slug = value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return slug || fallback;
 }
 
 router.post("/login", async (req, res) => {
@@ -117,19 +184,18 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  const session: SessionPayload = {
-    accessToken: result.data.access_token,
-    refreshToken: result.data.refresh_token,
-    userId: result.data.user.id,
-    email: result.data.user.email ?? parsed.data.email,
-  };
-  writeSession(res, session);
   const profile = await getProfile(result.data.user, result.data.access_token);
   if (!profile) {
-    clearSession(res);
-    res.status(403).json({ error: "This account is not assigned to a clinic owner or admin role." });
+    res.status(403).json({ error: "This account is not assigned to an active clinic owner or admin role." });
     return;
   }
+
+  const session = sessionFor(result.data, parsed.data.email, profile.clinic.id);
+  if (!session) {
+    res.status(401).json({ error: "The authenticated session could not be created." });
+    return;
+  }
+  writeSession(res, session);
   res.json(profile);
 });
 
@@ -147,10 +213,7 @@ router.post("/register", async (req, res) => {
     {
       email: parsed.data.email,
       password: parsed.data.password,
-      data: {
-        full_name: parsed.data.fullName,
-        clinic_name: parsed.data.clinicName,
-      },
+      data: { full_name: parsed.data.fullName, clinic_name: parsed.data.clinicName },
     },
   );
   if (!result.ok || !result.data?.user) {
@@ -165,48 +228,47 @@ router.post("/register", async (req, res) => {
     return;
   }
 
-  const headers = {
-    Authorization: `Bearer ${result.data.access_token}`,
-    "Content-Type": "application/json",
-    Prefer: "return=minimal",
-  };
-  const clinicResult = await supabaseRequest<ClinicRecord[]>("/rest/v1/clinics", {
-    method: "POST",
-    headers: { ...headers, Prefer: "return=representation" },
-    body: JSON.stringify({
-      name: parsed.data.clinicName,
-      status: "active",
-    }),
-  });
-  const clinicId = clinicResult.ok ? clinicResult.data?.[0]?.id : undefined;
-  if (clinicId) {
-    await supabaseRequest("/rest/v1/clinic_users", {
+  const suffix = result.data.user.id.slice(0, 8);
+  const clinicSlug = safeSlug(parsed.data.clinicName, `clinic-${suffix}`);
+  const organizationSlug = safeSlug(`${parsed.data.clinicName}-org`, `organization-${suffix}`);
+  const onboarding = await supabaseRequest<{ clinic_id?: string }>(
+    "/rest/v1/rpc/app_onboard_clinic",
+    {
       method: "POST",
-      headers,
+      headers: { ...restHeaders(result.data.access_token), "Content-Type": "application/json" },
       body: JSON.stringify({
-        auth_user_id: result.data.user.id,
-        user_id: result.data.user.id,
-        clinic_id: clinicId,
-        email: parsed.data.email,
-        full_name: parsed.data.fullName,
-        role: "owner",
+        p_organization_name: `${parsed.data.clinicName} Organization`,
+        p_organization_slug: `${organizationSlug}-${suffix}`.slice(0, 63),
+        p_clinic_name: parsed.data.clinicName,
+        p_clinic_slug: `${clinicSlug}-${suffix}`.slice(0, 63),
+        p_timezone: "Asia/Riyadh",
+        p_clinic_type: "general",
+        p_channels: [],
+        p_primary_branch_name: "الفرع الرئيسي",
+        p_primary_branch_address: null,
+        p_primary_branch_phone: null,
+        p_founder_id: result.data.user.id,
       }),
-    });
-  }
+    },
+  );
 
-  const session: SessionPayload = {
-    accessToken: result.data.access_token,
-    refreshToken: result.data.refresh_token,
-    userId: result.data.user.id,
-    email: result.data.user.email ?? parsed.data.email,
-  };
-  writeSession(res, session);
-  const profile = await getProfile(result.data.user, result.data.access_token);
-  if (!profile) {
-    clearSession(res);
+  if (!onboarding.ok || !onboarding.data?.clinic_id) {
     res.status(400).json({ error: "Account created, but the clinic owner profile could not be completed." });
     return;
   }
+
+  const profile = await getProfile(result.data.user, result.data.access_token);
+  if (!profile) {
+    res.status(400).json({ error: "Account created, but the clinic owner profile could not be loaded." });
+    return;
+  }
+
+  const session = sessionFor(result.data, parsed.data.email, profile.clinic.id);
+  if (!session) {
+    res.status(401).json({ error: "The authenticated session could not be created." });
+    return;
+  }
+  writeSession(res, session);
   res.status(201).json(profile);
 });
 
@@ -219,17 +281,18 @@ router.get("/session", async (req, res) => {
 
   const userResult = await supabaseRequest<SupabaseAuthUser>(
     "/auth/v1/user",
-    { headers: { Authorization: `Bearer ${session.accessToken}` } },
+    { headers: restHeaders(session.accessToken) },
   );
-  if (!userResult.ok || !userResult.data?.id) {
+  if (!userResult.ok || !userResult.data?.id || userResult.data.id !== session.userId) {
     clearSession(res);
     res.status(401).json({ error: "Your session has expired. Please sign in again." });
     return;
   }
+
   const profile = await getProfile(userResult.data, session.accessToken);
-  if (!profile) {
+  if (!profile || profile.clinic.id !== session.clinicId) {
     clearSession(res);
-    res.status(403).json({ error: "This account is not assigned to a clinic owner or admin role." });
+    res.status(403).json({ error: "This account is no longer assigned to the selected clinic." });
     return;
   }
   res.json(profile);

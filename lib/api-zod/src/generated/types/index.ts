@@ -19,3 +19,4 @@ export * from './errorResponse';
 export * from './healthStatus';
 export * from './loginInput';
 export * from './registerInput';
+export * from './updateClinicSettingsInput';

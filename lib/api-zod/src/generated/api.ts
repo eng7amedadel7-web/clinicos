@@ -105,6 +105,60 @@ export const LogoutResponse = zod.void()
 
 
 /**
+ * @summary Get the current clinic settings
+ */
+export const GetClinicSettingsResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "email": zod.string(),
+  "fullName": zod.string(),
+  "role": zod.enum(['owner', 'admin'])
+}),
+  "clinic": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "city": zod.string()
+})
+})
+
+
+/**
+ * @summary Update the current clinic settings
+ */
+export const updateClinicSettingsBodyFullNameMin = 2;
+export const updateClinicSettingsBodyFullNameMax = 160;
+
+export const updateClinicSettingsBodyClinicNameMin = 2;
+export const updateClinicSettingsBodyClinicNameMax = 160;
+
+export const updateClinicSettingsBodyCityMax = 120;
+
+
+
+export const UpdateClinicSettingsBody = zod.object({
+  "fullName": zod.string().min(updateClinicSettingsBodyFullNameMin).max(updateClinicSettingsBodyFullNameMax),
+  "clinicName": zod.string().min(updateClinicSettingsBodyClinicNameMin).max(updateClinicSettingsBodyClinicNameMax),
+  "city": zod.string().max(updateClinicSettingsBodyCityMax)
+})
+
+export const UpdateClinicSettingsResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "email": zod.string(),
+  "fullName": zod.string(),
+  "role": zod.enum(['owner', 'admin'])
+}),
+  "clinic": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "city": zod.string()
+})
+})
+
+
+/**
  * @summary Get the clinic dashboard summary
  */
 export const GetDashboardSummaryResponse = zod.object({
