@@ -62,7 +62,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.lang = language;
-    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
     window.localStorage.setItem("clinicos-theme", theme);
     window.localStorage.setItem("clinicos-language", language);
   }, [language, theme]);
@@ -70,7 +69,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PreferencesContextValue>(() => ({
     language,
     theme,
-    dir: language === "ar" ? "rtl" : "ltr",
+    dir: "ltr",
     t: (key) => translations[language][key],
     toggleLanguage: () => setLanguage((current) => current === "ar" ? "en" : "ar"),
     toggleTheme: () => setTheme((current) => current === "light" ? "dark" : "light"),
