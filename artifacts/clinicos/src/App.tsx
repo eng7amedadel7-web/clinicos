@@ -45,6 +45,7 @@ import {
   useUpdateClinicSettings,
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
+import { PatientsPage, AppointmentsPage } from '@/pages/operations-pages';
 
 const queryClient = new QueryClient();
 
@@ -55,7 +56,7 @@ function Logo({ dark = false }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-2" data-testid="brand-logo">
       <div className="brand-mark" aria-hidden="true"><span /></div>
-      <div className={`brand-wordmark ${dark ? '!text-[#0b2940]' : ''}`}>MERU<span>NA</span></div>
+      <div className={`brand-wordmark ${dark ? '!text-[#0b2940]' : ''}`}>MERUNA <span className="brand-system">SYSTEM</span></div>
     </div>
   );
 }
@@ -102,14 +103,14 @@ function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | '
         <div className="relative z-10 max-w-[410px] text-right">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><ShieldCheck size={14} /> منصة موثوقة لإدارة يومك</div>
           <h1 className="ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{mode === 'login' ? 'كل ما يحتاج انتباهك، في مكان واحد.' : 'ابدأ تنظيم عيادتك بثقة.'}</h1>
-          <p className="ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">كلينكوس يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.</p>
+          <p className="ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">MERUNA SYSTEM يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.</p>
         </div>
-        <div className="relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2025 Meruna</span><span>خصوصيتك أولًا</span></div>
+        <div className="relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>خصوصيتك أولًا</span></div>
       </section>
       <section className="flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
         <div className="flex items-center justify-between lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? 'إنشاء حساب' : 'تسجيل الدخول'}</Link></div>
         <div className="m-auto w-full max-w-[445px] py-12">{children}</div>
-        <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>Meruna Clinicos</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> اتصال آمن ومشفّر</span></div>
+        <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> اتصال آمن ومشفّر</span></div>
       </section>
     </main>
   );
@@ -229,7 +230,7 @@ function LoginPage() {
             <div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 6, message: 'يجب أن تتكون من 6 أحرف على الأقل' } })} className="input-field pl-11 pr-11 text-left" dir="ltr" type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" data-testid="input-login-password" /><button type="button" className="absolute left-3.5 top-3.5 text-[#8196a1]" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} data-testid="button-toggle-password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
           </Field>
           <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> تذكرني على هذا الجهاز</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => { login.reset(); setShowRecovery(true); }} data-testid="button-forgot-password">نسيت كلمة المرور؟</button></div>
-          <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ التحقق...</> : <>دخول إلى كلينكوس <ArrowLeft size={17} /></>}</button>
+          <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ التحقق...</> : <>دخول إلى MERUNA SYSTEM <ArrowLeft size={17} /></>}</button>
         </form>
         <div className="mt-8 flex items-center gap-3 text-xs text-[#8a9ba4]"><div className="h-px flex-1 bg-[#d9e3e8]" /> أو <div className="h-px flex-1 bg-[#d9e3e8]" /></div>
         <p className="mt-7 text-center text-sm text-[#718591]">ليس لديك حساب؟ <Link href="/register" className="font-bold text-[#3c7e93]" data-testid="link-register">أنشئ عيادتك الآن</Link></p>
@@ -256,7 +257,7 @@ function RegisterPage() {
           <Field label="اسم العيادة" error={form.formState.errors.clinicName?.message}><div className="relative"><Building2 size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('clinicName', { required: 'أدخل اسم العيادة', minLength: { value: 2, message: 'أدخل اسمًا صحيحًا' } })} className="input-field pr-11" placeholder="عيادة مدار الصحية" data-testid="input-register-clinic-name" /></div></Field>
           <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message}><div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\S+@\S+\.\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-register-email" /></div></Field>
           <Field label="كلمة المرور" error={form.formState.errors.password?.message} hint="ثمانية أحرف على الأقل"><div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 8, message: 'يجب أن تتكون من 8 أحرف على الأقل' } })} className="input-field pr-11 text-left" dir="ltr" type="password" placeholder="••••••••" autoComplete="new-password" data-testid="input-register-password" /></div></Field>
-          <label className="flex items-start gap-2 pt-1 text-xs leading-5 text-[#718591]"><input type="checkbox" required className="mt-1 h-4 w-4 accent-[#174963]" data-testid="input-terms" /> أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بكلينكوس.</label>
+          <label className="flex items-start gap-2 pt-1 text-xs leading-5 text-[#718591]"><input type="checkbox" required className="mt-1 h-4 w-4 accent-[#174963]" data-testid="input-terms" /> أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بMERUNA SYSTEM.</label>
           <button className="primary-button mt-2 w-full" type="submit" disabled={register.isPending} data-testid="button-register">{register.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ إنشاء المساحة...</> : <>إنشاء حسابي <ArrowLeft size={17} /></>}</button>
         </form>
         <p className="mt-7 text-center text-sm text-[#718591]">لديك حساب بالفعل؟ <Link href="/login" className="font-bold text-[#3c7e93]" data-testid="link-login">سجل الدخول</Link></p>
@@ -268,7 +269,7 @@ function RegisterPage() {
 function Sidebar({ clinicName, userName }: { clinicName: string; userName: string }) {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
-  const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
+  const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/patients', label: 'المرضى', icon: UsersRound }, { href: '/appointments', label: 'المواعيد', icon: Clock3 }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
   const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
   return (
     <aside className="sidebar flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[248px] md:shrink-0 md:px-5 md:py-7" dir="rtl">
@@ -299,7 +300,7 @@ function DashboardPage({ session }: { session: { user: { fullName: string }; cli
   return <div className="main-content min-w-0 flex-1" dir="rtl">
     <header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 backdrop-blur md:px-9"><div><p className="text-xs font-semibold text-[#78909c]" data-testid="text-current-date">{dateLabel}</p><h1 className="ar mt-1 text-xl font-bold text-[#15364b]" data-testid="heading-dashboard">صباح الخير، {firstName}</h1></div><div className="flex items-center gap-2"><button className="quiet-button hidden sm:inline-flex" onClick={() => toast.info('لا توجد إشعارات جديدة')} data-testid="button-notifications"><Bell size={18} /><span className="text-xs">الإشعارات</span></button><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#c9dce3] text-sm font-bold text-[#1c4b61]" data-testid="avatar-user">{firstName.slice(0, 1)}</div></div></header>
     <div className="mx-auto max-w-[1450px] space-y-7 p-5 md:p-9">
-      <div className="animate-rise relative overflow-hidden rounded-2xl bg-[#0c2b41] px-6 py-7 text-[#edf7f8] shadow-[0_16px_32px_rgba(17,55,74,.12)] md:px-8 md:py-8"><div className="relative z-10 max-w-xl"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#9ec8d3]"><span className="status-dot" /> لوحة عيادتك اليوم</div><h2 className="ar text-2xl font-bold leading-relaxed md:text-3xl">هذه هي الصورة الكاملة لعيادتك.</h2><p className="ar mt-2 text-sm leading-7 text-[#aac1ca]">ابدأ بالأهم، واترك الباقي لكلينكوس.</p></div><div className="absolute -left-8 -top-20 h-64 w-64 rounded-full border border-[#80b6c7]/20" /><div className="absolute -left-16 -top-28 h-80 w-80 rounded-full border border-[#80b6c7]/10" /><div className="absolute bottom-0 left-12 hidden h-20 w-20 rotate-45 border border-[#80b6c7]/20 md:block" /></div>
+      <div className="animate-rise relative overflow-hidden rounded-2xl bg-[#0c2b41] px-6 py-7 text-[#edf7f8] shadow-[0_16px_32px_rgba(17,55,74,.12)] md:px-8 md:py-8"><div className="relative z-10 max-w-xl"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#9ec8d3]"><span className="status-dot" /> لوحة عيادتك اليوم</div><h2 className="ar text-2xl font-bold leading-relaxed md:text-3xl">هذه هي الصورة الكاملة لعيادتك.</h2><p className="ar mt-2 text-sm leading-7 text-[#aac1ca]">ابدأ بالأهم، واترك الباقي لMERUNA SYSTEM.</p></div><div className="absolute -left-8 -top-20 h-64 w-64 rounded-full border border-[#80b6c7]/20" /><div className="absolute -left-16 -top-28 h-80 w-80 rounded-full border border-[#80b6c7]/10" /><div className="absolute bottom-0 left-12 hidden h-20 w-20 rotate-45 border border-[#80b6c7]/20 md:block" /></div>
       {summaryQuery.isLoading ? <DashboardSkeleton /> : summaryQuery.isError ? <ErrorMessage onRetry={() => summaryQuery.refetch()} /> : summary ? <><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{summary.stats.map((stat, i) => <StatCard {...stat} index={i} key={`${stat.label}-${i}`} />)}</section><section className="grid gap-6 xl:grid-cols-[1.25fr_.75fr]"><div className="surface animate-rise delay-2 p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="font-bold text-[#18374d]">آخر النشاطات</h2><p className="mt-1 text-xs text-[#8496a0]">ما تم إنجازه مؤخرًا في العيادة</p></div><button className="quiet-button text-xs" onClick={() => toast.info('أنت ترى آخر النشاطات بالفعل')} data-testid="button-view-activity">عرض الكل <ArrowLeft size={14} /></button></div>{activities.length ? <div className="divide-y divide-[#edf1f3]">{activities.map((item) => <div className="animate-sweep flex gap-4 py-4 first:pt-0 last:pb-0" key={item.id} data-testid={`activity-${item.id}`}><div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e8f2f4] text-[#4c8b9e]"><Activity size={17} /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold text-[#28495b]" data-testid={`text-activity-title-${item.id}`}>{item.title}</h3><time className="text-[.68rem] text-[#99a8af]" dateTime={item.createdAt}>{new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'short' }).format(new Date(item.createdAt))}</time></div><p className="mt-1 text-xs leading-6 text-[#7f919a]" data-testid={`text-activity-description-${item.id}`}>{item.description}</p></div></div>)}</div> : <div className="flex flex-col items-center py-10 text-center" data-testid="state-empty-activity"><div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#edf4f5] text-[#789daa]"><FileText size={20} /></div><p className="text-sm font-bold text-[#527080]">لا توجد نشاطات بعد</p><p className="mt-1 text-xs text-[#95a4ab]">ستظهر هنا آخر مستجدات عيادتك.</p></div>}</div><div className="surface animate-rise delay-3 p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="font-bold text-[#18374d]">نبض العيادة</h2><p className="mt-1 text-xs text-[#8496a0]">مؤشرات تساعدك على القرار</p></div><Sparkles size={19} className="text-[#77a5b2]" /></div><div className="space-y-5"><div className="rounded-xl bg-[#f1f7f7] p-4"><div className="flex items-center justify-between text-xs"><span className="font-bold text-[#3c6f79]">جاهزية اليوم</span><span className="font-extrabold text-[#3d8a72]">مستقرة</span></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#d7e8e7]"><div className="h-full w-[82%] rounded-full bg-[#66a898]" /></div><p className="mt-2 text-[.68rem] text-[#80969a]">كل ما يلزم فريقك واضح الآن</p></div><div className="flex items-start gap-3 border-b border-[#edf1f3] pb-4"><Clock3 size={17} className="mt-0.5 text-[#ad8248]" /><div><p className="text-xs font-bold text-[#355467]">الوقت في صفك</p><p className="mt-1 text-xs leading-5 text-[#8b9aa2]">استغل هدوء بداية اليوم لمراجعة الأولويات.</p></div></div><div className="flex items-start gap-3"><UsersRound size={17} className="mt-0.5 text-[#6f69a0]" /><div><p className="text-xs font-bold text-[#355467]">فريقك متصل</p><p className="mt-1 text-xs leading-5 text-[#8b9aa2]">تابع العمل من لوحة واحدة.</p></div></div></div></div></section></> : <div className="surface p-10 text-center" data-testid="state-empty-dashboard"><Building2 className="mx-auto mb-3 text-[#7d9eaa]" /><p className="font-bold text-[#36596d]">لا توجد بيانات للعيادة</p></div>}
     </div>
   </div>;
@@ -348,7 +349,7 @@ function ProtectedShell() {
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (sessionQuery.isError || !sessionQuery.data) { if (location !== '/login') setLocation('/login'); return null; }
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : <DashboardPage session={session} />}</div>;
+  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <PatientsPage /> : location === '/appointments' ? <AppointmentsPage /> : <DashboardPage session={session} />}</div>;
 }
 
 function NotFound() {
@@ -359,7 +360,7 @@ function NotFound() {
 function Router() {
   const [location] = useLocation();
   const publicRoute = location === '/' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={LoginPage} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={LoginPage} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
 }
 
 function App() {
