@@ -79,6 +79,19 @@ function Field({ label, error, children, hint }: { label: string; error?: string
   );
 }
 
+function getApiErrorMessage(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const candidate = error as { data?: unknown; error?: unknown; message?: unknown };
+  const data = candidate.data;
+  if (data && typeof data === 'object') {
+    const nestedError = (data as { error?: unknown }).error;
+    if (typeof nestedError === 'string' && nestedError.trim()) return nestedError;
+  }
+  if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error;
+  if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message;
+  return undefined;
+}
+
 function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | 'register' }) {
   return (
     <main className="noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="rtl">
@@ -116,7 +129,7 @@ function LoginPage() {
       },
     });
   };
-  const apiError = (login.error as { error?: string } | null)?.error;
+  const apiError = getApiErrorMessage(login.error);
   return (
     <AuthLayout mode="login">
       <div className="animate-rise">
@@ -146,7 +159,7 @@ function RegisterPage() {
   const register = useRegister();
   const form = useForm<RegisterValues>({ defaultValues: { fullName: '', clinicName: '', email: '', password: '' }, mode: 'onTouched' });
   const onSubmit = (values: RegisterValues) => register.mutate({ data: values }, { onSuccess: (session) => { client.setQueryData(getGetAuthSessionQueryKey(), session); toast.success('تم إنشاء عيادتك'); setLocation('/dashboard'); } });
-  const apiError = (register.error as { error?: string } | null)?.error;
+  const apiError = getApiErrorMessage(register.error);
   return (
     <AuthLayout mode="register">
       <div className="animate-rise">
