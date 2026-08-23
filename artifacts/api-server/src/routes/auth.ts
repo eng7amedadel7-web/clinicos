@@ -66,6 +66,9 @@ async function getProfile(user: SupabaseAuthUser, accessToken: string) {
     );
     record = fallback.ok ? fallback.data?.[0] : undefined;
   }
+  if (!record || !["owner", "admin"].includes(record.role ?? "")) {
+    return null;
+  }
   let clinic: ClinicRecord | undefined = record?.clinic;
   if (!clinic && record?.clinic_id) {
     const clinicResult = await supabaseRequest<ClinicRecord[]>(
@@ -121,7 +124,13 @@ router.post("/login", async (req, res) => {
     email: result.data.user.email ?? parsed.data.email,
   };
   writeSession(res, session);
-  res.json(await getProfile(result.data.user, result.data.access_token));
+  const profile = await getProfile(result.data.user, result.data.access_token);
+  if (!profile) {
+    clearSession(res);
+    res.status(403).json({ error: "This account is not assigned to a clinic owner or admin role." });
+    return;
+  }
+  res.json(profile);
 });
 
 router.post("/register", async (req, res) => {
@@ -192,7 +201,13 @@ router.post("/register", async (req, res) => {
     email: result.data.user.email ?? parsed.data.email,
   };
   writeSession(res, session);
-  res.status(201).json(await getProfile(result.data.user, result.data.access_token));
+  const profile = await getProfile(result.data.user, result.data.access_token);
+  if (!profile) {
+    clearSession(res);
+    res.status(400).json({ error: "Account created, but the clinic owner profile could not be completed." });
+    return;
+  }
+  res.status(201).json(profile);
 });
 
 router.get("/session", async (req, res) => {
@@ -211,7 +226,13 @@ router.get("/session", async (req, res) => {
     res.status(401).json({ error: "Your session has expired. Please sign in again." });
     return;
   }
-  res.json(await getProfile(userResult.data, session.accessToken));
+  const profile = await getProfile(userResult.data, session.accessToken);
+  if (!profile) {
+    clearSession(res);
+    res.status(403).json({ error: "This account is not assigned to a clinic owner or admin role." });
+    return;
+  }
+  res.json(profile);
 });
 
 router.post("/logout", (_req, res) => {
