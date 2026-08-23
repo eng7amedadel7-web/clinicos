@@ -1,6 +1,6 @@
-# ClinicOS
+# [Project name]
 
-ClinicOS is an Arabic-first clinic operations workspace for appointments, patient records, AI reception, voice calls, follow-ups, and no-show prevention.
+_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
 
 ## Run & Operate
 
@@ -22,20 +22,15 @@ ClinicOS is an Arabic-first clinic operations workspace for appointments, patien
 
 ## Where things live
 
-- `artifacts/clinicos/src/components/app-shell.tsx` — persistent RTL workspace shell and navigation.
-- `artifacts/clinicos/src/pages/dashboard.tsx` — operational overview focused on today's schedule and action-required items.
-- `artifacts/clinicos/src/pages/operations-pages.tsx` — interactive frontend-first operations surfaces.
-- `artifacts/clinicos/src/index.css` — ClinicOS theme tokens, typography, and responsive styling.
+_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
 
 ## Architecture decisions
 
-- The first release is frontend-first with local demo state so the core workflow can be validated before connecting production services.
-- The primary dashboard is operational rather than analytics-heavy: it surfaces what the reception team needs to do next.
-- The app is Arabic-first and RTL, with navigation organized around operations, communication, and clinic management.
+_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
 
 ## Product
 
-The current frontend includes the operational dashboard, appointment management, patient search and profiles, inbox with AI/human handling, tasks, waitlist, follow-ups, AI receptionist controls, voice-agent call views, clinic management pages, and settings.
+_Describe the high-level user-facing capabilities of this app once they exist._
 
 ## User preferences
 

@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Clinic owner authentication
+  - name: dashboard
+    description: Clinic operations overview
 paths:
   /healthz:
     get:
@@ -24,6 +28,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [auth]
+      summary: Get the current clinic user session
+      responses:
+        "200":
+          description: Current authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in a clinic owner or admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new clinic owner account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Registered clinic owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          description: Registration failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Sign out the current user
+      responses:
+        "204":
+          description: Signed out
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get the clinic dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +129,109 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 6
+      required: [email, password]
+    RegisterInput:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+        clinicName:
+          type: string
+          minLength: 2
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+      required: [fullName, clinicName, email, password]
+    AuthSession:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/ClinicUser"
+        clinic:
+          $ref: "#/components/schemas/Clinic"
+      required: [user, clinic]
+    ClinicUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin]
+      required: [id, email, fullName, role]
+    Clinic:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        city:
+          type: string
+      required: [id, name, status, city]
+    DashboardSummary:
+      type: object
+      properties:
+        clinic:
+          $ref: "#/components/schemas/Clinic"
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardStat"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+      required: [clinic, stats, recentActivity]
+    DashboardStat:
+      type: object
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        helper:
+          type: string
+        tone:
+          type: string
+          enum: [blue, green, amber, violet]
+      required: [label, value, helper, tone]
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+        tone:
+          type: string
+          enum: [blue, green, amber, violet]
+      required: [id, title, description, createdAt, tone]
 
