@@ -152,3 +152,5 @@
   .brand-lockup { display: none; }
   .main-content { padding-bottom: 5.5rem; }
 }
+
+.brand-system { font-size: .42em; letter-spacing: .18em; font-weight: 800; opacity: .8; vertical-align: middle; }
