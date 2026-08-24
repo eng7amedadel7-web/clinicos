@@ -222,3 +222,24 @@
   .auth-rail-copy,
   .auth-trust-badge { animation: none; }
 }
+
+/* Focused motion for the dark brand rail: layered, slow, and directional. */
+@keyframes auth-title-drift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0) scale(1.012); } }
+@keyframes auth-copy-drift { 0%, 100% { transform: translate3d(0, 0, 0); opacity: .86; } 50% { transform: translate3d(-8px, 3px, 0); opacity: 1; } }
+@keyframes auth-ring-drift { 0% { transform: rotate(0deg) translate3d(0, 0, 0); } 50% { transform: rotate(7deg) translate3d(10px, -6px, 0); } 100% { transform: rotate(14deg) translate3d(0, 0, 0); } }
+@keyframes auth-footer-drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+.auth-rail-title { animation: auth-title-drift 5.5s ease-in-out infinite; transform-origin: 90% 50%; }
+.auth-rail-description { animation: auth-copy-drift 6.8s ease-in-out .3s infinite; }
+.auth-rail .auth-brand-lockup { animation: auth-logo-float 4s ease-in-out infinite; }
+.auth-rail .auth-trust-badge { transform-origin: 88% 50%; }
+.auth-rail::before { animation: auth-ring-drift 11s ease-in-out infinite; }
+.auth-rail::after { animation: auth-glow 5.5s ease-in-out infinite, auth-ring-drift 17s ease-in-out infinite reverse; }
+.auth-rail-footer { animation: auth-footer-drift 7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-rail-title,
+  .auth-rail-description,
+  .auth-rail .auth-brand-lockup,
+  .auth-rail::before,
+  .auth-rail::after,
+  .auth-rail-footer { animation: none; }
+}

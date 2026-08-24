@@ -109,8 +109,8 @@ function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | '
         <div className="auth-brand-lockup relative z-10"><Logo /></div>
         <div className="auth-rail-copy relative z-10 max-w-[410px] text-right">
           <div className="auth-trust-badge mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><span className="auth-badge-dot" aria-hidden="true" /><ShieldCheck size={14} /> منصة موثوقة لإدارة يومك</div>
-          <h1 className="ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{mode === 'login' ? 'كل ما يحتاج انتباهك، في مكان واحد.' : 'ابدأ تنظيم عيادتك بثقة.'}</h1>
-          <p className="ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">MERUNA SYSTEM يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.</p>
+          <h1 className="auth-rail-title ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{mode === 'login' ? 'كل ما يحتاج انتباهك، في مكان واحد.' : 'ابدأ تنظيم عيادتك بثقة.'}</h1>
+          <p className="auth-rail-description ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">MERUNA SYSTEM يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.</p>
         </div>
         <div className="auth-rail-footer relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>خصوصيتك أولًا</span></div>
       </section>
