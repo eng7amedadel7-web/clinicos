@@ -101,8 +101,8 @@ function getApiErrorMessage(error: unknown): string | undefined {
 
 function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | 'register' }) {
   return (
-    <main className="noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="rtl">
-      <section className="auth-rail hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16">
+    <main className="auth-layout noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="ltr">
+      <section className="auth-rail auth-panel-enter hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16" dir="rtl">
         <div className="relative z-10"><Logo /></div>
         <div className="relative z-10 max-w-[410px] text-right">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><ShieldCheck size={14} /> منصة موثوقة لإدارة يومك</div>
@@ -111,7 +111,7 @@ function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | '
         </div>
         <div className="relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>خصوصيتك أولًا</span></div>
       </section>
-      <section className="flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
+      <section className="auth-form-pane flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
         <div className="flex items-center justify-between lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? 'إنشاء حساب' : 'تسجيل الدخول'}</Link></div>
         <div className="m-auto w-full max-w-[445px] py-12">{children}</div>
         <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> اتصال آمن ومشفّر</span></div>
