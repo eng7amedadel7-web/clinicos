@@ -1,374 +1,211 @@
-import { type ReactNode, useEffect, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  Activity,
-  ArrowLeft,
-  ArrowRight,
-  Bell,
-  Building2,
-  Check,
-  ChevronDown,
-  CircleHelp,
-  Clock3,
-  Eye,
-  EyeOff,
-  FileText,
-  Home,
-  Inbox,
-  LogOut,
-  Mail,
-  MapPin,
-  RefreshCw,
-  Settings2,
-  ShieldCheck,
-  Sparkles,
-  UserRound,
-  UsersRound,
-  X,
+  ArrowLeft, ArrowUpLeft, Bell, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Clock3, Headphones, Inbox, Instagram, LayoutDashboard, Link2, LockKeyhole, Menu, MessageCircle,
+  MessageSquareText, MoreHorizontal, PhoneCall, Plus, Search, Send, Settings2, ShieldCheck, Sparkles,
+  Stethoscope, Target, TrendingUp, UserRound, UsersRound, WandSparkles, X, Zap,
 } from 'lucide-react';
-import {
-  getGetAuthSessionQueryKey,
-  getGetDashboardSummaryQueryKey,
-  getHealthCheckQueryKey,
-  getGetClinicSettingsQueryKey,
-  useGetAuthSession,
-  useGetClinicSettings,
-  useGetDashboardSummary,
-  useHealthCheck,
-  useLogin,
-  useLogout,
-  useRegister,
-  useRecoverPassword,
-  useResetPassword,
-  useUpdateClinicSettings,
-} from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { AppointmentsPage, InboxPage, PatientsPage } from '@/pages/operations-pages';
-import MerunaHome from '@/pages/meruna-home';
-import CurrentMerunaHome from '@/pages/meruna-home-current';
-import MergedMerunaHome from '@/pages/meruna-home-merged';
 
 const queryClient = new QueryClient();
 
-type LoginValues = { email: string; password: string };
-type RegisterValues = { fullName: string; clinicName: string; email: string; password: string };
+const Logo = ({ light = false }: { light?: boolean }) => (
+  <Link href="/" className="brand" data-testid="link-brand">
+    <span className="brand-mark">C</span>
+    <span style={light ? { color: 'hsl(var(--sidebar-foreground))' } : undefined}>ClinicOS</span>
+  </Link>
+);
 
-function Logo({ dark = false }: { dark?: boolean }) {
+function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="flex items-center gap-2" data-testid="brand-logo">
-      <div className="brand-mark" aria-hidden="true"><span /></div>
-      <div className={`brand-wordmark ${dark ? '!text-[#0b2940]' : ''}`}>MERUNA <span className="brand-system">SYSTEM</span></div>
-    </div>
-  );
-}
-
-function ErrorMessage({ onRetry, compact = false }: { onRetry: () => void; compact?: boolean }) {
-  return (
-    <div className={`surface flex flex-col items-center justify-center text-center ${compact ? 'p-6' : 'min-h-[360px] p-10'}`} data-testid="state-error">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f9e9e7] text-[#ad514a]"><RefreshCw size={20} /></div>
-      <h2 className="text-lg font-bold text-[#18374d]">تعذّر تحميل البيانات</h2>
-      <p className="mt-1 max-w-sm text-sm leading-6 text-[#718591]">حدث خلل مؤقت. حاول مرة أخرى، وسنستأنف من حيث توقفت.</p>
-      <button className="primary-button mt-5" onClick={onRetry} data-testid="button-retry"><RefreshCw size={16} /> إعادة المحاولة</button>
-    </div>
-  );
-}
-
-function Field({ label, error, children, hint }: { label: string; error?: string; hint?: string; children: ReactNode }) {
-  return (
-    <label className="block text-right">
-      <span className="mb-2 block text-[.78rem] font-bold text-[#36596d]">{label}</span>
-      {children}
-      {error ? <span className="mt-1.5 block text-xs font-semibold text-[#b24e49]" data-testid="text-field-error">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-[#8496a0]">{hint}</span> : null}
-    </label>
-  );
-}
-
-function getApiErrorMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object') return undefined;
-  const candidate = error as { data?: unknown; error?: unknown; message?: unknown };
-  const data = candidate.data;
-  if (data && typeof data === 'object') {
-    const nestedError = (data as { error?: unknown }).error;
-    if (typeof nestedError === 'string' && nestedError.trim()) return nestedError;
-  }
-  if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error;
-  if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message;
-  return undefined;
-}
-
-function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | 'register' }) {
-  return (
-    <main className="noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="rtl">
-      <section className="auth-rail hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16">
-        <div className="relative z-10"><Logo /></div>
-        <div className="relative z-10 max-w-[410px] text-right">
-          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><ShieldCheck size={14} /> منصة موثوقة لإدارة يومك</div>
-          <h1 className="ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{mode === 'login' ? 'كل ما يحتاج انتباهك، في مكان واحد.' : 'ابدأ تنظيم عيادتك بثقة.'}</h1>
-          <p className="ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">MERUNA SYSTEM يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.</p>
+    <header className="header">
+      <div className="container-wide header-inner">
+        <Logo />
+        <nav className={`nav-links ${menuOpen ? 'mobile-open' : ''}`} aria-label="التنقل الرئيسي">
+          <a href="#platform" data-testid="link-platform">المنصة</a>
+          <a href="#journey" data-testid="link-journey">كيف تعمل</a>
+          <Link href="/pricing" data-testid="link-pricing">الأسعار</Link>
+          <a href="#faq" data-testid="link-faq">الأسئلة الشائعة</a>
+        </nav>
+        <div className="header-actions">
+          <Link href="/login" className="button button-ghost" data-testid="link-login">تسجيل الدخول</Link>
+          <Link href="/trial" className="button button-primary" data-testid="link-start-trial">ابدأ تجربتك</Link>
+          <button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="فتح القائمة" data-testid="button-mobile-menu">
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
-        <div className="relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>خصوصيتك أولًا</span></div>
-      </section>
-      <section className="flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
-        <div className="flex items-center justify-between lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? 'إنشاء حساب' : 'تسجيل الدخول'}</Link></div>
-        <div className="m-auto w-full max-w-[445px] py-12">{children}</div>
-        <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> اتصال آمن ومشفّر</span></div>
-      </section>
-    </main>
-  );
-}
-
-type RecoveryValues = { email: string };
-type ResetValues = { password: string; confirmPassword: string };
-
-function useRecoveryAccessToken() {
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    const queryToken = new URLSearchParams(window.location.search).get('access_token');
-    const hashToken = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('access_token');
-    const accessToken = queryToken || hashToken;
-    if (!accessToken) return;
-
-    setToken(accessToken);
-    const cleanUrl = new URL(window.location.href);
-    ['access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type', 'type'].forEach(key => cleanUrl.searchParams.delete(key));
-    cleanUrl.hash = '';
-    window.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}`);
-  }, []);
-
-  return token;
-}
-
-function RecoveryPage({ onBack }: { onBack: () => void }) {
-  const recovery = useRecoverPassword();
-  const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
-  const apiError = getApiErrorMessage(recovery.error);
-
-  const submit = (values: RecoveryValues) => {
-    recovery.mutate({ data: { email: values.email.trim() } });
-  };
-
-  return (
-    <AuthLayout mode="login">
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">استعادة الوصول</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">نسيت كلمة المرور؟</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أدخل بريد الحساب وسنرسل رابطًا آمنًا لإعادة تعيين كلمة المرور.</p></div>
-        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-recovery-error">{apiError}</div> : null}
-        {recovery.isSuccess ? (
-          <div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-recovery-success">إذا كان البريد مرتبطًا بحساب، فسيصلك رابط استعادة خلال دقائق. افحص البريد الوارد ومجلد الرسائل غير المرغوب فيها.</div>
-        ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate>
-            <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message} hint="استخدم البريد المرتبط بحسابك">
-              <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\\S+@\\S+\\.\\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-recovery-email" /></div>
-            </Field>
-            <button className="primary-button w-full" type="submit" disabled={recovery.isPending} data-testid="button-recovery">{recovery.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ إرسال الرابط...</> : <>إرسال رابط الاستعادة <ArrowLeft size={17} /></>}</button>
-          </form>
-        )}
-        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-[#3c7e93]" onClick={onBack} data-testid="button-back-to-login">العودة إلى تسجيل الدخول</button>
       </div>
-    </AuthLayout>
+    </header>
   );
 }
 
-function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDone: () => void }) {
-  const reset = useResetPassword();
-  const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
-  const apiError = getApiErrorMessage(reset.error);
-
-  const submit = (values: ResetValues) => {
-    reset.mutate({ data: { accessToken, password: values.password } });
-  };
-
+function Footer() {
   return (
-    <AuthLayout mode="login">
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">كلمة مرور جديدة</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">إعادة تعيين كلمة المرور</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أنشئ كلمة مرور جديدة من 8 أحرف على الأقل.</p></div>
-        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-reset-error">{apiError}</div> : null}
-        {reset.isSuccess ? (
-          <div className="space-y-5"><div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-reset-success">تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.</div><button type="button" className="primary-button w-full" onClick={onDone} data-testid="button-reset-done">العودة إلى تسجيل الدخول <ArrowLeft size={17} /></button></div>
-        ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate>
-            <Field label="كلمة المرور الجديدة" error={form.formState.errors.password?.message}><input {...form.register('password', { required: 'أدخل كلمة المرور الجديدة', minLength: { value: 8, message: 'يجب أن تتكون من 8 أحرف على الأقل' } })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" /></Field>
-            <Field label="تأكيد كلمة المرور" error={form.formState.errors.confirmPassword?.message}><input {...form.register('confirmPassword', { required: 'أكد كلمة المرور', validate: value => value === form.getValues('password') || 'كلمتا المرور غير متطابقتين' })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" /></Field>
-            <button className="primary-button w-full" type="submit" disabled={reset.isPending} data-testid="button-reset-password">{reset.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ تحديث كلمة المرور...</> : <>تحديث كلمة المرور <ArrowLeft size={17} /></>}</button>
-          </form>
-        )}
+    <footer className="footer">
+      <div className="container-wide footer-row">
+        <div><Logo /><p>نظام التشغيل الذي يمنح عيادتك وقتاً أكبر للعناية.</p></div>
+        <div className="footer-links">
+          <Link href="/pricing" data-testid="link-footer-pricing">الأسعار</Link>
+          <Link href="/trial" data-testid="link-footer-trial">ابدأ التجربة</Link>
+          <a href="mailto:hello@clinicos.co" data-testid="link-footer-email">تواصل معنا</a>
+        </div>
       </div>
-    </AuthLayout>
+    </footer>
   );
 }
 
-function LoginPage() {
-  const [, setLocation] = useLocation();
-  const client = useQueryClient();
-  const login = useLogin();
-  const recoveryToken = useRecoveryAccessToken();
-  const [showRecovery, setShowRecovery] = useState(false);
-  const health = useHealthCheck({ query: { retry: false, enabled: !showRecovery && !recoveryToken, queryKey: getHealthCheckQueryKey() } });
-  const form = useForm<LoginValues>({ defaultValues: { email: '', password: '' }, mode: 'onTouched' });
-  const [showPassword, setShowPassword] = useState(false);
-  const onSubmit = (values: LoginValues) => {
-    login.mutate({ data: values }, {
-      onSuccess: (session) => {
-        client.setQueryData(getGetAuthSessionQueryKey(), session);
-        toast.success('مرحبًا بعودتك');
-        setLocation('/dashboard');
-      },
-    });
-  };
-  const apiError = getApiErrorMessage(login.error);
-  if (recoveryToken) return <ResetPasswordPage accessToken={recoveryToken} onDone={() => { window.history.replaceState(null, '', '/login'); setShowRecovery(false); window.location.reload(); }} />;
-  if (showRecovery) return <RecoveryPage onBack={() => setShowRecovery(false)} />;
+function Home() {
+  const [openFaq, setOpenFaq] = useState(0);
+  const faqs = [
+    ['هل أحتاج إلى تغيير أدواتي الحالية؟', 'لا. يتصل ClinicOS بقنواتك الحالية ويجمعها في مساحة واحدة. يمكنك البدء بالحجز والرسائل، ثم إضافة الأتمتة والتحليلات تدريجياً دون توقف عمل العيادة.'],
+    ['هل يتحدث المساعد الذكي العربية؟', 'نعم. يفهم اللهجات العربية الشائعة ويتنقل بين العربية والإنجليزية في نفس المحادثة، مع تحويل المحادثة لموظفك في أي لحظة.'],
+    ['ماذا يحدث بعد انتهاء التجربة؟', 'تبقى بياناتك محفوظة، وتختار الخطة المناسبة لك. لا نطلب بطاقة ائتمانية للبدء ولا نفعّل أي اشتراك تلقائياً.'],
+    ['هل يدعم أكثر من فرع؟', 'تبدأ الفروع المتعددة في خطة Pro، مع صلاحيات مستقلة، تقارير موحدة، وجدول مركزي لكل فريقك.'],
+  ];
   return (
-    <AuthLayout mode="login">
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">مساء الخير</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-login">تسجيل الدخول</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أدخل بياناتك للوصول إلى لوحة عيادتك.</p></div>
-        {apiError ? <div className="mb-5 flex items-start gap-2 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-login-error"><X size={17} className="mt-1 shrink-0" /> {apiError}</div> : null}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
-          <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message} hint="استخدم البريد المرتبط بحسابك">
-            <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\S+@\S+\.\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-login-email" /></div>
-          </Field>
-          <Field label="كلمة المرور" error={form.formState.errors.password?.message}>
-            <div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 6, message: 'يجب أن تتكون من 6 أحرف على الأقل' } })} className="input-field pl-11 pr-11 text-left" dir="ltr" type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" data-testid="input-login-password" /><button type="button" className="absolute left-3.5 top-3.5 text-[#8196a1]" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} data-testid="button-toggle-password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-          </Field>
-          <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> تذكرني على هذا الجهاز</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => { login.reset(); setShowRecovery(true); }} data-testid="button-forgot-password">نسيت كلمة المرور؟</button></div>
-          <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ التحقق...</> : <>دخول إلى MERUNA SYSTEM <ArrowLeft size={17} /></>}</button>
-        </form>
-        <div className="mt-8 flex items-center gap-3 text-xs text-[#8a9ba4]"><div className="h-px flex-1 bg-[#d9e3e8]" /> أو <div className="h-px flex-1 bg-[#d9e3e8]" /></div>
-        <p className="mt-7 text-center text-sm text-[#718591]">ليس لديك حساب؟ <Link href="/register" className="font-bold text-[#3c7e93]" data-testid="link-register">أنشئ عيادتك الآن</Link></p>
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-[.7rem] text-[#a0adb3]" data-testid="status-api"><span className={`status-dot ${health.isError ? '!bg-[#c67870]' : ''}`} /> {health.isError ? 'الخدمة تواجه ضغطًا مؤقتًا' : 'الأنظمة تعمل بشكل طبيعي'}</p>
-      </div>
-    </AuthLayout>
-  );
-}
-
-function RegisterPage() {
-  const [, setLocation] = useLocation();
-  const client = useQueryClient();
-  const register = useRegister();
-  const form = useForm<RegisterValues>({ defaultValues: { fullName: '', clinicName: '', email: '', password: '' }, mode: 'onTouched' });
-  const onSubmit = (values: RegisterValues) => register.mutate({ data: values }, { onSuccess: (session) => { client.setQueryData(getGetAuthSessionQueryKey(), session); toast.success('تم إنشاء عيادتك'); setLocation('/dashboard'); } });
-  const apiError = getApiErrorMessage(register.error);
-  return (
-    <AuthLayout mode="register">
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">خطوة واحدة ونبدأ</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-register">إنشاء حساب المالك</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أخبرنا عنك وعن عيادتك لنجهز مساحتك الخاصة.</p></div>
-        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-register-error">{apiError}</div> : null}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <Field label="الاسم الكامل" error={form.formState.errors.fullName?.message}><div className="relative"><UserRound size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('fullName', { required: 'أدخل الاسم الكامل', minLength: { value: 2, message: 'أدخل اسمًا صحيحًا' } })} className="input-field pr-11" placeholder="د. سارة أحمد" autoComplete="name" data-testid="input-register-full-name" /></div></Field>
-          <Field label="اسم العيادة" error={form.formState.errors.clinicName?.message}><div className="relative"><Building2 size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('clinicName', { required: 'أدخل اسم العيادة', minLength: { value: 2, message: 'أدخل اسمًا صحيحًا' } })} className="input-field pr-11" placeholder="عيادة مدار الصحية" data-testid="input-register-clinic-name" /></div></Field>
-          <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message}><div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\S+@\S+\.\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-register-email" /></div></Field>
-          <Field label="كلمة المرور" error={form.formState.errors.password?.message} hint="ثمانية أحرف على الأقل"><div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 8, message: 'يجب أن تتكون من 8 أحرف على الأقل' } })} className="input-field pr-11 text-left" dir="ltr" type="password" placeholder="••••••••" autoComplete="new-password" data-testid="input-register-password" /></div></Field>
-          <label className="flex items-start gap-2 pt-1 text-xs leading-5 text-[#718591]"><input type="checkbox" required className="mt-1 h-4 w-4 accent-[#174963]" data-testid="input-terms" /> أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بMERUNA SYSTEM.</label>
-          <button className="primary-button mt-2 w-full" type="submit" disabled={register.isPending} data-testid="button-register">{register.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ إنشاء المساحة...</> : <>إنشاء حسابي <ArrowLeft size={17} /></>}</button>
-        </form>
-        <p className="mt-7 text-center text-sm text-[#718591]">لديك حساب بالفعل؟ <Link href="/login" className="font-bold text-[#3c7e93]" data-testid="link-login">سجل الدخول</Link></p>
-      </div>
-    </AuthLayout>
-  );
-}
-
-function Sidebar({ clinicName, userName }: { clinicName: string; userName: string }) {
-  const [location, setLocation] = useLocation();
-  const logout = useLogout();
-  const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/patients', label: 'المرضى', icon: UsersRound }, { href: '/appointments', label: 'المواعيد', icon: Clock3 }, { href: '/inbox', label: 'صندوق الوارد', icon: Inbox }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
-  const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
-  return (
-    <aside className="sidebar flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[248px] md:shrink-0 md:px-5 md:py-7" dir="rtl">
-      <div className="brand-lockup mb-12 px-2"><Logo /></div>
-      <div className="sidebar-clinic mb-7 flex items-center gap-3 rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#8fbaca]/15 text-[#9cc6d3]"><Building2 size={18} /></div><div className="min-w-0"><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> مفتوحة اليوم</p></div><ChevronDown size={14} className="mr-auto text-[#7895a2]" /></div>
-      <nav className="sidebar-nav space-y-1" aria-label="التنقل الرئيسي">{links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`sidebar-link px-3 py-3 text-sm font-semibold ${location === href ? 'active' : ''}`} data-testid={`link-nav-${label}`}><Icon size={18} strokeWidth={1.8} /><span>{label}</span></Link>)}</nav>
-      <div className="sidebar-footer mt-auto border-t border-[#688b9c]/15 pt-5"><div className="mb-4 flex items-center gap-3 px-2"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className="min-w-0"><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">مالك العيادة</p></div></div><button onClick={doLogout} disabled={logout.isPending} className="sidebar-link w-full px-3 py-3 text-sm font-semibold" data-testid="button-logout"><LogOut size={18} /><span>{logout.isPending ? 'جارٍ الخروج...' : 'تسجيل الخروج'}</span></button></div>
-    </aside>
-  );
-}
-
-function DashboardSkeleton() {
-  return <div className="space-y-6" data-testid="state-loading"><div className="skeleton h-32 w-full" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map(i => <div className="skeleton h-36" key={i} />)}</div><div className="skeleton h-64 w-full" /></div>;
-}
-
-function StatCard({ label, value, helper, tone, index }: { label: string; value: string; helper: string; tone: string; index: number }) {
-  const palette: Record<string, string> = { blue: '#347b98', green: '#3d8a72', amber: '#a6773a', violet: '#7568a0' };
-  const color = palette[tone] ?? palette.blue;
-  return <article className="surface stat-card animate-rise p-5" style={{ color, animationDelay: `${index * 70}ms` }} data-testid={`card-stat-${index}`}><div className="mb-6 flex items-start justify-between"><span className="text-[.78rem] font-bold text-[#66808e]" data-testid={`text-stat-label-${index}`}>{label}</span><span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} /></div><p className="text-3xl font-extrabold tracking-tight text-[#18374d]" data-testid={`text-stat-value-${index}`}>{value}</p><p className="mt-2 text-xs text-[#8a9ba4]" data-testid={`text-stat-helper-${index}`}>{helper}</p></article>;
-}
-
-function DashboardPage({ session }: { session: { user: { fullName: string }; clinic: { name: string; city: string } } }) {
-  const summaryQuery = useGetDashboardSummary({ query: { retry: 1, queryKey: getGetDashboardSummaryQueryKey() } });
-  const summary = summaryQuery.data;
-  const firstName = session.user.fullName.split(' ')[0];
-  const activities = summary?.recentActivity ?? [];
-  const dateLabel = new Intl.DateTimeFormat('ar-SA', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
-  return <div className="main-content min-w-0 flex-1" dir="rtl">
-    <header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 backdrop-blur md:px-9"><div><p className="text-xs font-semibold text-[#78909c]" data-testid="text-current-date">{dateLabel}</p><h1 className="ar mt-1 text-xl font-bold text-[#15364b]" data-testid="heading-dashboard">صباح الخير، {firstName}</h1></div><div className="flex items-center gap-2"><button className="quiet-button hidden sm:inline-flex" onClick={() => toast.info('لا توجد إشعارات جديدة')} data-testid="button-notifications"><Bell size={18} /><span className="text-xs">الإشعارات</span></button><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#c9dce3] text-sm font-bold text-[#1c4b61]" data-testid="avatar-user">{firstName.slice(0, 1)}</div></div></header>
-    <div className="mx-auto max-w-[1450px] space-y-7 p-5 md:p-9">
-      <div className="animate-rise relative overflow-hidden rounded-2xl bg-[#0c2b41] px-6 py-7 text-[#edf7f8] shadow-[0_16px_32px_rgba(17,55,74,.12)] md:px-8 md:py-8"><div className="relative z-10 max-w-xl"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#9ec8d3]"><span className="status-dot" /> لوحة عيادتك اليوم</div><h2 className="ar text-2xl font-bold leading-relaxed md:text-3xl">هذه هي الصورة الكاملة لعيادتك.</h2><p className="ar mt-2 text-sm leading-7 text-[#aac1ca]">ابدأ بالأهم، واترك الباقي لMERUNA SYSTEM.</p></div><div className="absolute -left-8 -top-20 h-64 w-64 rounded-full border border-[#80b6c7]/20" /><div className="absolute -left-16 -top-28 h-80 w-80 rounded-full border border-[#80b6c7]/10" /><div className="absolute bottom-0 left-12 hidden h-20 w-20 rotate-45 border border-[#80b6c7]/20 md:block" /></div>
-      {summaryQuery.isLoading ? <DashboardSkeleton /> : summaryQuery.isError ? <ErrorMessage onRetry={() => summaryQuery.refetch()} /> : summary ? <><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{summary.stats.map((stat, i) => <StatCard {...stat} index={i} key={`${stat.label}-${i}`} />)}</section><section className="grid gap-6 xl:grid-cols-[1.25fr_.75fr]"><div className="surface animate-rise delay-2 p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="font-bold text-[#18374d]">آخر النشاطات</h2><p className="mt-1 text-xs text-[#8496a0]">ما تم إنجازه مؤخرًا في العيادة</p></div><button className="quiet-button text-xs" onClick={() => toast.info('أنت ترى آخر النشاطات بالفعل')} data-testid="button-view-activity">عرض الكل <ArrowLeft size={14} /></button></div>{activities.length ? <div className="divide-y divide-[#edf1f3]">{activities.map((item) => <div className="animate-sweep flex gap-4 py-4 first:pt-0 last:pb-0" key={item.id} data-testid={`activity-${item.id}`}><div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e8f2f4] text-[#4c8b9e]"><Activity size={17} /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold text-[#28495b]" data-testid={`text-activity-title-${item.id}`}>{item.title}</h3><time className="text-[.68rem] text-[#99a8af]" dateTime={item.createdAt}>{new Intl.DateTimeFormat('ar-SA', { day: 'numeric', month: 'short' }).format(new Date(item.createdAt))}</time></div><p className="mt-1 text-xs leading-6 text-[#7f919a]" data-testid={`text-activity-description-${item.id}`}>{item.description}</p></div></div>)}</div> : <div className="flex flex-col items-center py-10 text-center" data-testid="state-empty-activity"><div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#edf4f5] text-[#789daa]"><FileText size={20} /></div><p className="text-sm font-bold text-[#527080]">لا توجد نشاطات بعد</p><p className="mt-1 text-xs text-[#95a4ab]">ستظهر هنا آخر مستجدات عيادتك.</p></div>}</div><div className="surface animate-rise delay-3 p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="font-bold text-[#18374d]">نبض العيادة</h2><p className="mt-1 text-xs text-[#8496a0]">مؤشرات تساعدك على القرار</p></div><Sparkles size={19} className="text-[#77a5b2]" /></div><div className="space-y-5"><div className="rounded-xl bg-[#f1f7f7] p-4"><div className="flex items-center justify-between text-xs"><span className="font-bold text-[#3c6f79]">جاهزية اليوم</span><span className="font-extrabold text-[#3d8a72]">مستقرة</span></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#d7e8e7]"><div className="h-full w-[82%] rounded-full bg-[#66a898]" /></div><p className="mt-2 text-[.68rem] text-[#80969a]">كل ما يلزم فريقك واضح الآن</p></div><div className="flex items-start gap-3 border-b border-[#edf1f3] pb-4"><Clock3 size={17} className="mt-0.5 text-[#ad8248]" /><div><p className="text-xs font-bold text-[#355467]">الوقت في صفك</p><p className="mt-1 text-xs leading-5 text-[#8b9aa2]">استغل هدوء بداية اليوم لمراجعة الأولويات.</p></div></div><div className="flex items-start gap-3"><UsersRound size={17} className="mt-0.5 text-[#6f69a0]" /><div><p className="text-xs font-bold text-[#355467]">فريقك متصل</p><p className="mt-1 text-xs leading-5 text-[#8b9aa2]">تابع العمل من لوحة واحدة.</p></div></div></div></div></section></> : <div className="surface p-10 text-center" data-testid="state-empty-dashboard"><Building2 className="mx-auto mb-3 text-[#7d9eaa]" /><p className="font-bold text-[#36596d]">لا توجد بيانات للعيادة</p></div>}
+    <div className="site-shell" dir="rtl">
+      <Header />
+      <main>
+        <section className="hero">
+          <div className="container-wide hero-grid">
+            <div className="reveal">
+              <span className="eyebrow">نظام تشغيل العيادات الذكي</span>
+              <h1 className="display">عيادتك تعمل.<br /><em>وأنت تطوّرها.</em></h1>
+              <p className="hero-copy">ClinicOS يوحّد الحجوزات، المحادثات، المتابعة، والبيانات في نظام واحد يفهم إيقاع عيادتك — ليقضي فريقك وقتاً أكبر مع المرضى.</p>
+              <div className="hero-actions">
+                <Link href="/trial" className="button button-primary" data-testid="button-hero-trial">ابدأ 10 أيام مجاناً <ArrowLeft size={16} /></Link>
+                <a href="#platform" className="button button-ghost" data-testid="link-hero-platform">اكتشف المنصة <ArrowUpLeft size={16} /></a>
+              </div>
+              <div className="hero-note"><ShieldCheck size={15} /> لا تحتاج بطاقة ائتمانية <span>·</span> إعداد في دقائق</div>
+            </div>
+            <div className="hero-visual reveal delay-2" aria-label="معاينة لوحة ClinicOS">
+              <div className="orbit" />
+              <div className="float-chip chip-one"><Bot size={16} /> الذكاء الاصطناعي متاح</div>
+              <div className="float-chip chip-two"><TrendingUp size={16} /> +18% حجوزات هذا الشهر</div>
+              <div className="float-chip chip-three"><Clock3 size={16} /> تذكير أُرسل تلقائياً</div>
+              <div className="hero-panel">
+                <div className="panel-top"><strong>صباح الخير، د. ليان</strong><span className="live-dot" /></div>
+                <div className="panel-summary"><div><span>حجوزات اليوم</span><b>47</b></div><span>الثلاثاء، 14 مايو</span></div>
+                <div className="sparkline" aria-label="رسم بياني للحجوزات">{[38,52,45,71,57,82,93,74,100].map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div>
+                <div className="inbox-card"><div className="inbox-avatar">ن</div><div><b>نورا تسأل عن موعد متاح</b><p>رد ذكي مقترح · واتساب</p></div><ChevronLeft size={15} /></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="logo-strip">
+          <div className="container-wide"><p>موثوق من فرق الرعاية التي ترفض أن تضيع أي فرصة</p><div className="logos"><span>مركز توازن</span><span>العيادة 23</span><span>نواة الطبية</span><span>NOOR CLINIC</span><span>د.سارة</span></div></div>
+        </section>
+        <section id="platform" className="section-pad">
+          <div className="container-wide">
+            <div className="section-heading"><div><span className="eyebrow">كل شيء في مكانه</span><h2>من أول رسالة<br />إلى عودة المريض.</h2></div><p>بدلاً من سبع أدوات لا تتحدث مع بعضها، مساحة واحدة تجعل كل تفاعل واضحاً وقابلاً للتطوير.</p></div>
+            <div className="feature-layout">
+              <article className="feature-card large"><div className="feature-icon"><Bot size={22} /></div><h3>الذكاء الاصطناعي،<br />مع لمسة إنسانية.</h3><p>يجيب ClinicOS على الأسئلة المتكررة، يقترح المواعيد، ويجمع المعلومات قبل الزيارة. وعندما يحتاج المريض إنساناً، ينتقل الحوار بسلاسة إلى فريقك.</p><div className="thread"><div className="thread-row"><div className="thread-bullet">م</div><div><b>مريم · قبل دقيقة</b><p>أحتاج موعداً لتنظيف الأسنان هذا الأسبوع</p></div></div><div className="thread-row ai"><div className="thread-bullet"><Sparkles size={13} /></div><div><b>ClinicOS · اقتراح ذكي</b><p>أهلاً مريم، لدينا الخميس 5:30 أو السبت 11:00. أيهما يناسبك؟</p></div></div></div><ArrowLeft className="feature-arrow" size={19} /></article>
+              <article className="feature-card"><div className="feature-icon"><CalendarDays size={21} /></div><h3>حجز بلا احتكاك</h3><p>جدول حيّ، تذكيرات تلقائية، واسترداد ذكي للمواعيد الملغاة.</p><ArrowLeft className="feature-arrow" size={19} /></article>
+              <article className="feature-card"><div className="feature-icon"><MessageSquareText size={21} /></div><h3>صندوق وارد موحّد</h3><p>واتساب، إنستغرام، ماسنجر وتلغرام في محادثة واحدة.</p><ArrowLeft className="feature-arrow" size={19} /></article>
+              <article className="feature-card"><div className="feature-icon"><PhoneCall size={21} /></div><h3>وكيل صوتي لا ينام</h3><p>يرد على المكالمات، يؤكد الموعد، ويرسل الموقع بعد الحجز.</p><ArrowLeft className="feature-arrow" size={19} /></article>
+              <article className="feature-card"><div className="feature-icon"><Target size={21} /></div><h3>رحلات متابعة</h3><p>تذكير، متابعة، وتقييم في اللحظة التي تصنع الفرق.</p><ArrowLeft className="feature-arrow" size={19} /></article>
+            </div>
+          </div>
+        </section>
+        <div className="marquee-wrap" aria-hidden="true"><div className="marquee"><span>احجز بذكاء</span><span>تابع بإنسانية</span><span>انمُ بثقة</span><span>احجز بذكاء</span><span>تابع بإنسانية</span><span>انمُ بثقة</span></div></div>
+        <section id="journey" className="section-pad journey">
+          <div className="container-wide journey-grid">
+            <div className="journey-statement"><span className="eyebrow">تجربة المريض</span><h2>كل تفصيلة تقول: نحن نهتم.</h2><p>الثقة لا تبدأ عند باب العيادة. تبدأ من سرعة الرد، وضوح الموعد، ورسالة صغيرة تصل في الوقت الصحيح.</p><Link href="/trial" className="button button-dark" data-testid="button-journey-trial">جرّب ClinicOS الآن <ArrowLeft size={16} /></Link></div>
+            <div className="steps">
+              <div className="step"><div className="step-number">01</div><div><h3>استقبل من أي قناة</h3><p>يصل المريض من واتساب أو إنستغرام أو مكالمة. يظهر كل شيء لفريقك في ملف واحد، مع تاريخ المحادثة كاملاً.</p></div></div>
+              <div className="step"><div className="step-number">02</div><div><h3>دع الذكاء يرتّب الأولويات</h3><p>يفهم ClinicOS نية المريض، يصنّف المحادثة، ويقترح أفضل رد أو موعد — مع إشراف فريقك دائماً.</p></div></div>
+              <div className="step"><div className="step-number">03</div><div><h3>اجعل العودة عادة</h3><p>بعد الحجز، يُرسل الموقع تلقائياً. وبعد الزيارة، تبدأ رحلة متابعة مصممة على نوع الخدمة.</p></div></div>
+            </div>
+          </div>
+        </section>
+        <section className="section-pad">
+          <div className="container-wide">
+            <div className="section-heading"><div><span className="eyebrow">قنواتك، بصوت واحد</span><h2>لا تجعل المريض<br />يبحث عنك.</h2></div><p>اجعل الوصول إليك سهلاً أينما بدأ الحوار. رد واحد، سجل واحد، وفريق واحد.</p></div>
+            <div className="channels-grid">
+              {[['واتساب','المحادثات التي تتحول إلى مواعيد',MessageCircle],['إنستغرام','اجعل كل تعليق بداية',Instagram],['ماسنجر','رد أسرع، ثقة أكبر',MessageSquareText],['تلغرام','موجودون حيث هم',Send]].map(([name, desc, Icon], i) => { const ChannelIcon = Icon as typeof MessageCircle; return <div className="channel" key={i}><div className="channel-icon"><ChannelIcon size={18} /></div><b>{name as string}</b><span>{desc as string}</span></div>; })}
+            </div>
+          </div>
+        </section>
+        <section className="dashboard-showcase">
+          <div className="container-wide">
+            <div className="dash-copy"><div><span className="eyebrow" style={{ color: 'hsl(var(--sidebar-primary))' }}>وضوح في كل قرار</span><h2>لوحة واحدة تجعل يومك أهدأ.</h2></div><p>مؤشرات مباشرة، فريق يعرف ما عليه فعله، ومحادثات لا تسقط بين الشقوق.</p></div>
+            <div className="dashboard-frame"><DashboardWindow /></div>
+          </div>
+        </section>
+        <section className="section-pad">
+          <div className="container-wide testimonial-grid"><div className="quote-card"><blockquote>«لأول مرة أشعر أن فريق الاستقبال يعمل من نفس الصفحة. لم نعد نطارد الرسائل، بل نعتني بالمرضى.»</blockquote><div className="quote-author"><div className="quote-avatar">ل</div><div><b>د. ليان الحربي</b><small>مؤسسة مركز توازن الطبي · الرياض</small></div></div></div><div className="metric-card"><span className="eyebrow">الأثر في أول شهر</span><b>+31%</b><p>زيادة في الحجوزات المكتملة بعد تفعيل التذكيرات واسترداد المواعيد.</p></div></div>
+        </section>
+        <section id="faq" className="section-pad" style={{ paddingTop: 20 }}>
+          <div className="container-narrow"><div className="section-heading" style={{ display: 'block', marginBottom: 35 }}><span className="eyebrow">أسئلة واضحة</span><h2>قبل أن تبدأ،<br />نعطيك الإجابة.</h2></div><div className="faq-list">{faqs.map(([q, a], i) => <div className="faq-item" key={q}><button className="faq-q" onClick={() => setOpenFaq(openFaq === i ? -1 : i)} data-testid={`button-faq-${i}`}><span>{q}</span>{openFaq === i ? <ChevronDown size={18} /> : <ChevronLeft size={18} />}</button>{openFaq === i && <div className="faq-a" data-testid={`text-faq-answer-${i}`}>{a}</div>}</div>)}</div></div>
+        </section>
+        <section className="cta"><div className="container-wide"><div className="cta-box"><h2>عيادة أفضل تبدأ<br />بقرار واحد واضح.</h2><Link href="/trial" className="button button-dark" data-testid="button-cta-trial">ابدأ تجربتك المجانية <ArrowLeft size={16} /></Link></div></div></section>
+      </main>
+      <Footer />
     </div>
-  </div>;
+  );
 }
 
-function SettingsPage({ session }: { session: { user: { fullName: string; email: string; role: string }; clinic: { name: string; city: string; status: string } } }) {
-  const client = useQueryClient();
-  const settingsQuery = useGetClinicSettings();
-  const updateSettings = useUpdateClinicSettings();
-  const [saved, setSaved] = useState(false);
-  const form = useForm({ defaultValues: { fullName: session.user.fullName, email: session.user.email, clinicName: session.clinic.name, city: session.clinic.city } });
-
-  useEffect(() => {
-    if (settingsQuery.data) {
-      form.reset({
-        fullName: settingsQuery.data.user.fullName,
-        email: settingsQuery.data.user.email,
-        clinicName: settingsQuery.data.clinic.name,
-        city: settingsQuery.data.clinic.city === '—' ? '' : settingsQuery.data.clinic.city,
-      });
-    }
-  }, [settingsQuery.data, form]);
-
-  const save = (values: Record<string, string>) => {
-    updateSettings.mutate({ data: { fullName: values.fullName, clinicName: values.clinicName, city: values.city } }, {
-      onSuccess: (data) => {
-        client.setQueryData(getGetAuthSessionQueryKey(), data);
-        client.setQueryData(getGetClinicSettingsQueryKey(), data);
-        form.reset({ fullName: data.user.fullName, email: data.user.email, clinicName: data.clinic.name, city: data.clinic.city === '—' ? '' : data.clinic.city });
-        setSaved(true);
-        toast.success('تم حفظ التغييرات');
-        window.setTimeout(() => setSaved(false), 2200);
-      },
-    });
-  };
-
-  if (settingsQuery.isLoading) return <div className="main-content min-w-0 flex-1 p-9" dir="rtl"><DashboardSkeleton /></div>;
-  if (settingsQuery.isError) return <div className="main-content min-w-0 flex-1 p-9" dir="rtl"><ErrorMessage onRetry={() => settingsQuery.refetch()} /></div>;
-
-  return <div className="main-content min-w-0 flex-1" dir="rtl"><header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 md:px-9"><div><p className="text-xs font-semibold text-[#78909c]">مساحتك الخاصة</p><h1 className="ar mt-1 text-xl font-bold text-[#15364b]" data-testid="heading-settings">الإعدادات</h1></div><button className="quiet-button" onClick={() => form.reset()} data-testid="button-reset-settings"><RefreshCw size={17} /> إعادة الضبط</button></header><div className="mx-auto max-w-[1020px] space-y-6 p-5 md:p-9"><div className="animate-rise rounded-2xl bg-[#dcebef] p-6 md:p-8"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f2fafb] text-[#4c8a9b]"><Settings2 size={22} /></div><div><h2 className="ar text-xl font-bold text-[#173f54]">تفاصيل الحساب والعيادة</h2><p className="mt-1 text-sm leading-6 text-[#587785]">حدّث معلوماتك الأساسية لتبقى مساحة العمل دقيقة وواضحة لفريقك.</p></div></div></div>{updateSettings.error ? <div className="surface rounded-xl border-[#edc4c0] bg-[#fff7f6] p-3 text-sm text-[#a54c46]" data-testid="alert-settings-error">تعذر حفظ التغييرات. حاول مرة أخرى.</div> : null}<form onSubmit={form.handleSubmit(save)} className="space-y-6"><section className="surface animate-rise delay-1 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5"><UserRound size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b]">بيانات المسؤول</h2><p className="mt-1 text-xs text-[#8999a1]">بيانات تسجيل الدخول والهوية</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label="الاسم الكامل"><input {...form.register('fullName')} className="input-field" data-testid="input-settings-full-name" /></Field><Field label="البريد الإلكتروني"><input {...form.register('email')} className="input-field text-left bg-[#f3f6f7]" dir="ltr" type="email" readOnly data-testid="input-settings-email" /></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b]"><ShieldCheck size={15} /> صلاحية الحساب: <strong className="text-[#3d7587]">{session.user.role === 'owner' ? 'مالك العيادة' : 'مدير'}</strong></div></section><section className="surface animate-rise delay-2 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5"><Building2 size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b]">معلومات العيادة</h2><p className="mt-1 text-xs text-[#8999a1]">تظهر هذه المعلومات لفريقك</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label="اسم العيادة"><input {...form.register('clinicName')} className="input-field" data-testid="input-settings-clinic-name" /></Field><Field label="المدينة"><div className="relative"><MapPin size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('city')} className="input-field pr-11" data-testid="input-settings-city" /></div></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b]"><span className="status-dot" /> حالة العيادة: <strong className="text-[#3d7587]">{session.clinic.status || 'نشطة'}</strong></div></section><div className="flex items-center justify-end gap-3"><span className={`text-xs font-bold text-[#4d967f] transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} data-testid="text-settings-saved"><Check size={14} className="inline" /> تم الحفظ</span><button type="submit" className="primary-button" disabled={updateSettings.isPending} data-testid="button-save-settings"><Check size={17} /> {updateSettings.isPending ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}</button></div></form></div></div>;
+function DashboardWindow() {
+  return <div className="dash-window" dir="ltr"><aside className="dash-sidebar"><div className="dash-side-brand"><i>C</i> ClinicOS</div><div className="dash-nav"><div className="active"><LayoutDashboard size={13} /> نظرة عامة</div><div><CalendarDays size={13} /> الحجوزات</div><div><Inbox size={13} /> صندوق الوارد <span style={{ marginRight: 'auto', color: 'hsl(var(--accent))' }}>6</span></div><div><UsersRound size={13} /> المرضى</div><div><TrendingUp size={13} /> التقارير</div></div></aside><div className="dash-main"><div className="dash-main-top"><div><h3>نظرة عامة</h3><p>الثلاثاء، 14 مايو 2024</p></div><div className="dash-actions"><div className="dash-mini"><CalendarDays size={12} /> هذا الأسبوع</div><div className="dash-mini filled"><Plus size={13} /> حجز جديد</div></div></div><div className="dash-cards"><div className="dash-stat"><span>مواعيد اليوم</span><b>47</b><em>↑ 12%</em></div><div className="dash-stat"><span>نسبة الحضور</span><b>93.4%</b><em>↑ 4.2%</em></div><div className="dash-stat"><span>محادثات مفتوحة</span><b>18</b><em>6 تحتاج رداً</em></div></div><div className="dash-table"><div className="dash-table-head"><span>المريض</span><span>الخدمة</span><span>الوقت</span><span>الحالة</span></div>{[['نورة العتيبي','استشارة جلدية','09:30','مؤكد'],['عبدالله سالم','تنظيف أسنان','10:15','قيد الانتظار'],['سارة منصور','متابعة تقويم','11:00','مؤكد']].map(([name, service, time, status], i) => <div className="dash-table-row" key={i}><div className="patient"><div className="patient-dot">{name[0]}</div>{name}</div><span>{service}</span><span className="mono">{time}</span><span className="status">{status}</span></div>)}</div></div></div>;
 }
 
-function ProtectedShell() {
-  const sessionQuery = useGetAuthSession({ query: { retry: false, queryKey: getGetAuthSessionQueryKey() } });
-  const [location, setLocation] = useLocation();
-  if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
-  if (sessionQuery.isError || !sessionQuery.data) { if (location !== '/login') setLocation('/login'); return null; }
-  const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <PatientsPage /> : location === '/appointments' ? <AppointmentsPage /> : location === '/inbox' ? <InboxPage /> : <DashboardPage session={session} />}</div>;
+const plans = [
+  { name: 'Starter', arabic: 'للبداية المنظمة', monthly: 79, description: 'كل الأساسيات لعيادة تنمو بثبات.', features: ['حجوزات وتذكيرات ذكية', 'صندوق وارد موحّد لقناتين', 'ملفات المرضى والفريق', 'تقارير شهرية'] },
+  { name: 'Growth', arabic: 'للنمو المقصود', monthly: 179, description: 'الأدوات التي تحول الزيارات إلى علاقة.', features: ['كل ما في Starter', 'كل القنوات: واتساب وإنستغرام وغيرها', 'رحلات متابعة واسترداد الغياب', 'وكيل صوتي بـ 250 دقيقة', 'تحليلات المحادثات والسمعة'], featured: true },
+  { name: 'Pro', arabic: 'للتشغيل الكامل', monthly: 349, description: 'قوة ClinicOS كاملة لفرق متعددة الفروع.', features: ['كل ما في Growth', 'فروع وصلاحيات غير محدودة', 'وكيل صوتي بـ 1,000 دقيقة', 'أتمتة مخصصة وواجهة API', 'مدير نجاح مخصص'] },
+];
+
+function Pricing() {
+  const [annual, setAnnual] = useState(true);
+  return <div className="site-shell" dir="rtl"><Header /><main><section className="page-hero"><span className="eyebrow">أسعار بسيطة، قيمة واضحة</span><h1 className="display">اختر مساحة<br /><em style={{ color: 'hsl(var(--primary))' }}>لنمو عيادتك.</em></h1><p>ابدأ بلا بطاقة ائتمانية. غيّر خطتك عندما يتغير احتياجك. كل خطة تشمل تجربة كاملة لمدة 10 أيام.</p><div className="billing-toggle"><button className={!annual ? 'active' : ''} onClick={() => setAnnual(false)} data-testid="button-billing-monthly">شهري</button><button className={annual ? 'active' : ''} onClick={() => setAnnual(true)} data-testid="button-billing-annual">سنوي <span className="save-pill">وفّر 20%</span></button></div></section><section className="container-wide"><div className="pricing-grid">{plans.map((plan) => { const price = annual ? Math.round(plan.monthly * .8) : plan.monthly; return <article className={`price-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <span className="choice-badge">اختيار العيادات الأكثر نمواً</span>}<span className="eyebrow">{plan.arabic}</span><h3>{plan.name}</h3><p className="desc">{plan.description}</p><div className="price">${price}<small> / شهر</small></div><div className="annual-note">{annual ? `يُدفع سنوياً · ${price * 12}$ سنوياً` : 'مرونة شهرية كاملة'}</div><div className="feature-list">{plan.features.map((feature) => <div key={feature}><Check size={15} /> <span>{feature}</span></div>)}</div><Link href="/trial" className={`button ${plan.featured ? 'button-primary' : 'button-ghost'}`} data-testid={`button-plan-${plan.name.toLowerCase()}`}>ابدأ تجربتك <ArrowLeft size={15} /></Link></article>; })}</div></section><section className="section-pad" style={{ paddingTop: 20 }}><div className="container-narrow"><div className="faq-list"><div className="faq-item"><div className="faq-q"><span>هل هناك رسوم إعداد؟</span><Check size={18} /></div><div className="faq-a">لا توجد رسوم إعداد. نساعدك على نقل فريقك وقنواتك خلال التجربة المجانية.</div></div><div className="faq-item"><div className="faq-q"><span>هل يمكنني الإلغاء في أي وقت؟</span><Check size={18} /></div><div className="faq-a">نعم، يمكنك الإلغاء أو تغيير الخطة من إعدادات حسابك دون التزام طويل.</div></div></div></div></section></main><Footer /></div>;
+}
+
+function Trial() {
+  const [step, setStep] = useState(1);
+  const [done, setDone] = useState(() => localStorage.getItem('clinicos-trial-started') === 'true');
+  const [form, setForm] = useState({ name: '', email: '', clinic: '', specialty: 'عيادة أسنان', size: '1–5' });
+  const update = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [key]: event.target.value });
+  const finish = (event: React.FormEvent) => { event.preventDefault(); if (step < 2) setStep(2); else { localStorage.setItem('clinicos-trial-started', 'true'); setDone(true); } };
+  return <div className="trial-page" dir="rtl"><aside className="trial-aside"><Logo light /><h1>10 أيام لترى<br />الفرق بنفسك.</h1><p>جهّز عيادتك في دقائق، واكتشف كيف يصبح التشغيل اليومي أخف وأكثر وضوحاً.</p><div className="trial-benefits"><div className="trial-benefit"><Check size={16} /> وصول كامل لكل الميزات</div><div className="trial-benefit"><Check size={16} /> بدون بطاقة ائتمانية</div><div className="trial-benefit"><Check size={16} /> بياناتك تبقى لك</div></div></aside><main className="trial-main"><div className="trial-top"><Link href="/" className="button button-ghost" style={{ padding: '8px 12px' }} data-testid="link-trial-back"><ChevronRight size={15} /> العودة</Link><span className="mono" style={{ fontSize: '.68rem', color: 'hsl(var(--muted-foreground))' }}>CLINICOS / START</span></div>{done ? <div className="trial-success"><div className="success-mark"><Check size={31} /></div><h2>أهلاً بك في ClinicOS.</h2><p>حسابك جاهز. سنبدأ معك بإعداد بسيط يجعل أول يوم مفيداً، وليس مزدحماً.</p><div className="setup-card"><div className="setup-row"><Check size={16} /> مساحة <b>{form.clinic || 'عيادتك'}</b> تم إنشاؤها</div><div className="setup-row"><Check size={16} /> التجربة الكاملة تنتهي بعد 10 أيام</div><div className="setup-row"><Sparkles size={16} /> نوصي بالبدء بإضافة ساعات العمل</div></div><Link href="/app" className="button button-primary" style={{ marginTop: 25, width: '100%' }} data-testid="button-enter-app">ادخل إلى لوحة العيادة <ArrowLeft size={16} /></Link></div> : <><div className="progress" aria-label="تقدم التسجيل"><span className="active" /><span className={step === 2 ? 'active' : ''} /></div><form className="trial-form" onSubmit={finish}>{step === 1 ? <><span className="eyebrow">الخطوة الأولى من اثنتين</span><h2>لنبدأ من الأساس.</h2><p>أخبرنا عنك، لنصمم أول شاشة بما يناسب عيادتك.</p><div className="form-grid"><div className="field"><label htmlFor="name">اسمك الكامل</label><input id="name" required value={form.name} onChange={update('name')} placeholder="مثال: د. ليان الحربي" data-testid="input-trial-name" /></div><div className="field"><label htmlFor="email">البريد الإلكتروني</label><input id="email" type="email" required value={form.email} onChange={update('email')} placeholder="name@clinic.com" data-testid="input-trial-email" /></div><div className="field full"><label htmlFor="clinic">اسم العيادة</label><input id="clinic" required value={form.clinic} onChange={update('clinic')} placeholder="مثال: مركز توازن الطبي" data-testid="input-trial-clinic" /></div></div></> : <><span className="eyebrow">الخطوة الثانية من اثنتين</span><h2>صمّم أول يوم لك.</h2><p>خطوتان صغيرتان تساعدان ClinicOS على أن يكون مفيداً من اللحظة الأولى.</p><div className="form-grid"><div className="field"><label htmlFor="specialty">نوع العيادة</label><select id="specialty" value={form.specialty} onChange={update('specialty')} data-testid="select-trial-specialty"><option>عيادة أسنان</option><option>جلدية وتجميل</option><option>عيادة عامة</option><option>علاج طبيعي</option><option>تخصص آخر</option></select></div><div className="field"><label htmlFor="size">حجم الفريق</label><select id="size" value={form.size} onChange={update('size')} data-testid="select-trial-size"><option>1–5</option><option>6–15</option><option>16–40</option><option>أكثر من 40</option></select></div></div></>}<div className="form-foot"><small>بالاستمرار، أنت توافق على شروط الاستخدام<br />ونتعهد ألا نرسل لك ما لا تحتاجه.</small><button type="submit" className="button button-primary" data-testid="button-trial-next">{step === 1 ? 'التالي' : 'أنشئ حسابي المجاني'} <ArrowLeft size={16} /></button></div></form></>}</main></div>;
+}
+
+function Login() {
+  const [, setLocation] = useLocation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const submit = (event: React.FormEvent) => { event.preventDefault(); setSubmitted(true); setTimeout(() => setLocation('/app'), 550); };
+  return <div className="auth-page" dir="rtl"><div className="auth-card reveal"><Logo /><h1>مرحباً بعودتك.</h1><p>أكمل يومك من حيث توقفت.</p>{submitted ? <div className="app-empty" style={{ minHeight: 150 }}><Sparkles size={24} /><p>جارٍ فتح مساحة عيادتك...</p></div> : <form className="auth-form" onSubmit={submit}><div className="field"><label htmlFor="login-email">البريد الإلكتروني</label><input id="login-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@clinic.com" data-testid="input-login-email" /></div><div className="field"><label htmlFor="login-password">كلمة المرور</label><input id="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" data-testid="input-login-password" /></div><div style={{ textAlign: 'left' }}><a href="mailto:support@clinicos.co" className="text-muted" style={{ fontSize: '.7rem' }} data-testid="link-forgot-password">نسيت كلمة المرور؟</a></div><button type="submit" className="button button-primary" data-testid="button-login-submit">دخول إلى ClinicOS <ArrowLeft size={16} /></button></form>}<p className="auth-switch">ليس لديك حساب؟ <Link href="/trial" data-testid="link-login-trial">ابدأ تجربتك المجانية</Link></p></div></div>;
+}
+
+function AppDashboard() {
+  const [active, setActive] = useState('overview');
+  const [toast, setToast] = useState('');
+  const navItems: [string, string, typeof LayoutDashboard][] = [['overview', 'نظرة عامة', LayoutDashboard], ['bookings', 'الحجوزات', CalendarDays], ['inbox', 'صندوق الوارد', Inbox], ['patients', 'المرضى', UsersRound], ['reports', 'التقارير', TrendingUp], ['settings', 'الإعدادات', Settings2]];
+  const notify = (text: string) => { setToast(text); setTimeout(() => setToast(''), 2200); };
+  return <div className="app-layout" dir="rtl"><aside className="app-sidebar"><Logo light /><span className="app-label">مساحة العيادة</span><nav className="app-nav">{navItems.map(([key, label, Icon]) => <button className={active === key ? 'active' : ''} onClick={() => { setActive(key); notify(`تم فتح ${label}`); }} key={key} data-testid={`button-app-${key}`}><Icon size={16} /><span>{label}</span>{key === 'inbox' && <small style={{ marginRight: 'auto', color: 'hsl(var(--accent))' }}>6</small>}</button>)}</nav><div className="app-sidebar-bottom"><div className="clinic-switch"><div className="clinic-avatar">ت</div><div><strong>مركز توازن الطبي</strong><small>الفرع الرئيسي</small></div><MoreHorizontal size={14} style={{ marginRight: 'auto' }} /></div></div></aside><main className="app-main"><div className="app-top"><div><h1>{active === 'overview' ? 'نظرة عامة' : navItems.find((item) => item[0] === active)?.[1]}</h1><p>صباح هادئ، د. ليان. إليك ما يحدث في عيادتك اليوم.</p></div><div className="app-top-actions"><button className="icon-button" onClick={() => notify('لا توجد تنبيهات جديدة')} data-testid="button-app-notifications"><Bell size={17} /></button><button className="button button-primary" onClick={() => notify('تم فتح نموذج حجز جديد')} data-testid="button-app-new-booking"><Plus size={16} /> حجز جديد</button></div></div>{active === 'overview' ? <><div className="app-overview"><div className="overview-card"><header><span>مواعيد اليوم</span><CalendarDays size={15} /></header><b>47</b><small>↑ 12% من الأسبوع الماضي</small></div><div className="overview-card"><header><span>نسبة الحضور</span><ShieldCheck size={15} /></header><b>93.4%</b><small>↑ 4.2% هذا الشهر</small></div><div className="overview-card"><header><span>محادثات مفتوحة</span><Inbox size={15} /></header><b>18</b><small>6 تحتاج رداً</small></div><div className="overview-card"><header><span>تقييم العيادة</span><Sparkles size={15} /></header><b>4.8</b><small>من 126 تقييماً</small></div></div><div className="app-content-grid"><section className="app-panel"><header><h2>المواعيد القادمة</h2><button onClick={() => notify('تم فتح كل المواعيد')} data-testid="button-view-all-appointments">عرض الكل <ChevronLeft size={12} /></button></header>{[['09:30','نورة العتيبي','استشارة جلدية','مؤكد'],['10:15','عبدالله سالم','تنظيف أسنان','قيد الانتظار'],['11:00','سارة منصور','متابعة تقويم','مؤكد'],['12:30','خالد يوسف','فحص أولي','مؤكد']].map(([time, name, service, status], i) => <div className="appointment" key={i}><span className="appointment-time">{time}</span><div className="appointment-info"><strong>{name}</strong><span>{service}</span></div><span className={`appointment-status ${status === 'قيد الانتظار' ? 'pending' : ''}`}>{status}</span></div>)}</section><section className="app-panel"><header><h2>آخر المحادثات</h2><button onClick={() => { setActive('inbox'); notify('تم فتح صندوق الوارد'); }} data-testid="button-view-inbox">صندوق الوارد <ChevronLeft size={12} /></button></header><div className="inbox-preview"><div className="inbox-card"><div className="inbox-avatar">ن</div><div><b>نورا العتيبي</b><p>هل يمكنني تغيير موعدي إلى...</p></div><span className="channel-label">واتساب</span></div><div className="inbox-card"><div className="inbox-avatar" style={{ background: 'hsl(var(--secondary))' }}>م</div><div><b>مريم السالم</b><p>شكراً، أراكِ الخميس.</p></div><span className="channel-label">إنستغرام</span></div><div className="inbox-card"><div className="inbox-avatar" style={{ background: 'hsl(var(--primary)/.18)', color: 'hsl(var(--primary))' }}><Bot size={15} /></div><div><b>ClinicOS</b><p>تم إرسال موقع العيادة تلقائياً</p></div><span className="channel-label">آلي</span></div></div></section></div></> : <div className="app-empty"><Inbox size={30} /><h2>{navItems.find((item) => item[0] === active)?.[1]}</h2><p>هذه المساحة جاهزة لفريقك. عد إلى النظرة العامة لترى ملخص يومك.</p><button className="button button-primary" onClick={() => setActive('overview')} data-testid="button-back-overview">العودة للنظرة العامة</button></div>}{toast && <div style={{ position: 'fixed', bottom: 24, left: 24, background: 'hsl(var(--sidebar))', color: 'hsl(var(--sidebar-foreground))', borderRadius: 10, padding: '12px 16px', fontSize: '.78rem', boxShadow: 'var(--shadow-md)' }} data-testid="status-app-toast">{toast}</div>}</main></div>;
 }
 
 function NotFound() {
-  const [, setLocation] = useLocation();
-  return <main className="noise flex min-h-[100dvh] items-center justify-center bg-[#eef3f7] p-6" dir="rtl"><div className="surface w-full max-w-[520px] rounded-2xl p-8 text-center md:p-12"><div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#dbecef] text-[#528b9b]"><CircleHelp size={29} /></div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#75a0ae]">404 / الصفحة غير موجودة</p><h1 className="ar mt-3 text-2xl font-bold text-[#173c52]">هذه الصفحة أخذت استراحة.</h1><p className="mt-2 text-sm leading-7 text-[#7b8f99]">الرابط الذي تتبعه غير متاح. عد إلى لوحة العيادة لنكمل يومك.</p><button className="primary-button mt-7" onClick={() => setLocation('/dashboard')} data-testid="button-go-dashboard"><ArrowRight size={17} /> العودة إلى الرئيسية</button></div></main>;
+  return <div className="notfound" dir="rtl"><div><Logo light /><h1>404</h1><p>هذه الصفحة أخذت استراحة قصيرة.</p><Link href="/" className="button button-primary" data-testid="link-notfound-home">العودة إلى ClinicOS <ArrowLeft size={16} /></Link></div></div>;
+}
+
+function RoutedErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
 function Router() {
-  const [location] = useLocation();
-  const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
+  return <RoutedErrorBoundary><Switch><Route path="/" component={Home} /><Route path="/pricing" component={Pricing} /><Route path="/trial" component={Trial} /><Route path="/login" component={Login} /><Route path="/app" component={AppDashboard} /><Route path="/faq" component={Home} /><Route component={NotFound} /></Switch></RoutedErrorBoundary>;
 }
 
 function App() {
-  return <QueryClientProvider client={queryClient}><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster position="bottom-left" richColors /></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
 }
 
 export default App;
