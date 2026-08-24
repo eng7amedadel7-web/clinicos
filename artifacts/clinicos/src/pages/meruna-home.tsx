@@ -135,7 +135,7 @@ const tabIcons: Record<DemoTab, LucideIcon> = { capture: MessageCircle, book: Ca
 function BrandMark() {
   return (
     <span className="flex items-center gap-3" dir="ltr">
-      <img src="/meruna-mark.svg" alt="" aria-hidden="true" className="meruna-brand-mark" />
+      <img src="/meruna-mark-square.png" alt="" aria-hidden="true" className="meruna-brand-mark" />
       <span className="cf-display meruna-brand-wordmark text-[18px] font-extrabold">MERUNA <span className="text-[hsl(var(--primary))]">SYSTEM</span></span>
     </span>
   );

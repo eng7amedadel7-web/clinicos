@@ -84,7 +84,7 @@
 .landing-home .cf-modal-backdrop { background: hsl(var(--navy) / .72); }
 .landing-home .cf-modal { background: hsl(var(--card)); color: hsl(var(--card-foreground)); border-color: hsl(var(--card-border)); }
 .landing-home .cf-chat-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
-.landing-home .meruna-brand-mark { width: 42px; height: 32px; object-fit: contain; }
+.landing-home .meruna-brand-mark { width: 38px; height: 38px; object-fit: cover; border-radius: 9px; flex: 0 0 auto; }
 .landing-home .meruna-brand-wordmark { letter-spacing: -.04em; }
 
 @media (max-width: 767px) {
