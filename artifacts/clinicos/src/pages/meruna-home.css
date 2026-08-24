@@ -343,3 +343,54 @@
 @media (prefers-reduced-motion: reduce) {
   .landing-home .meruna-momentum-track { animation: none; }
 }
+
+/* Theme-aware overrides: cf-navy is dark by default, but must become a light surface in Light mode. */
+.landing-home:not(.is-dark) .cf-navy {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+.landing-home:not(.is-dark) .cf-navy-grid {
+  background-image: linear-gradient(hsl(var(--hero-grid) / .55) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--hero-grid) / .55) 1px, transparent 1px);
+}
+.landing-home:not(.is-dark) .cf-navy .cf-body-muted,
+.landing-home:not(.is-dark) .cf-navy p {
+  color: hsl(var(--muted-foreground));
+}
+.landing-home:not(.is-dark) .cf-navy h2,
+.landing-home:not(.is-dark) .cf-navy h3,
+.landing-home:not(.is-dark) .cf-navy blockquote {
+  color: hsl(var(--foreground));
+}
+.landing-home:not(.is-dark) .cf-navy article {
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+}
+.landing-home:not(.is-dark) .cf-navy blockquote footer,
+.landing-home:not(.is-dark) .cf-navy blockquote footer strong {
+  color: hsl(var(--muted-foreground));
+}
+.landing-home:not(.is-dark) .cf-navy blockquote footer strong {
+  color: hsl(var(--foreground));
+}
+.landing-home:not(.is-dark) .cf-navy .cf-mono {
+  color: hsl(var(--primary));
+}
+.landing-home:not(.is-dark) .meruna-final-cta {
+  background: hsl(var(--tint));
+  color: hsl(var(--foreground));
+}
+.landing-home:not(.is-dark) .meruna-final-cta .cf-body-muted {
+  color: hsl(var(--muted-foreground));
+}
+.landing-home:not(.is-dark) .meruna-final-cta .cf-button-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.landing-home:not(.is-dark) .meruna-final-cta .cf-button-ghost {
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.landing-home:not(.is-dark) .meruna-final-cta .cf-button-ghost:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / .08);
+}
