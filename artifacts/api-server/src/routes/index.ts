@@ -5,6 +5,7 @@ import dashboardRouter from "./dashboard";
 import settingsRouter from "./settings";
 import patientsRouter from "./patients";
 import appointmentsRouter from "./appointments";
+import inboxRouter from "./inbox";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use("/dashboard", dashboardRouter);
 router.use(settingsRouter);
 router.use(patientsRouter);
 router.use(appointmentsRouter);
+router.use(inboxRouter);
 
 export default router;
