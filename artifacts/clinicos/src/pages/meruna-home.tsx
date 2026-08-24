@@ -205,6 +205,32 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const root = document.querySelector<HTMLElement>('.landing-home');
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('main > section, main > .meruna-channel-section, main > .cf-container > .meruna-live-pulse, main + footer, .meruna-channel-card, .meruna-journey-step, .cf-hover-lift'));
+    if (!root || !targets.length) return;
+    const directionByIndex = ['up', 'left', 'right', 'scale'] as const;
+    targets.forEach((target, index) => {
+      target.dataset.reveal = directionByIndex[index % directionByIndex.length];
+      target.style.setProperty('--reveal-delay', `${(index % 4) * 90}ms`);
+    });
+    root.classList.add('reveal-ready');
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach((target) => target.classList.add('reveal-visible'));
+      return () => { root.classList.remove('reveal-ready'); targets.forEach((target) => { delete target.dataset.reveal; target.classList.remove('reveal-visible'); target.style.removeProperty('--reveal-delay'); }); };
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('reveal-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    targets.forEach((target) => observer.observe(target));
+    return () => { observer.disconnect(); root.classList.remove('reveal-ready'); targets.forEach((target) => { delete target.dataset.reveal; target.classList.remove('reveal-visible'); target.style.removeProperty('--reveal-delay'); }); };
+  }, []);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(''), 3200);
     return () => window.clearTimeout(timer);

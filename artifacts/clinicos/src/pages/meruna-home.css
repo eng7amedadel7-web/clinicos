@@ -510,3 +510,20 @@
 @media (prefers-reduced-motion: reduce) {
   .landing-home .meruna-thinking span { animation: none; }
 }
+
+/* Scroll reveal: sections and cards enter as they reach the viewport. */
+.landing-home.reveal-ready [data-reveal] {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: opacity .78s cubic-bezier(.22,.75,.24,1), transform .78s cubic-bezier(.22,.75,.24,1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.landing-home.reveal-ready [data-reveal="up"] { transform: translate3d(0, 48px, 0); }
+.landing-home.reveal-ready [data-reveal="left"] { transform: translate3d(-54px, 16px, 0); }
+.landing-home.reveal-ready [data-reveal="right"] { transform: translate3d(54px, 16px, 0); }
+.landing-home.reveal-ready [data-reveal="scale"] { transform: translate3d(0, 26px, 0) scale(.95); }
+.landing-home.reveal-ready [data-reveal].reveal-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-home.reveal-ready [data-reveal],
+  .landing-home.reveal-ready [data-reveal].reveal-visible { opacity: 1; transform: none; transition: none; }
+}
