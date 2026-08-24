@@ -68,6 +68,8 @@
 .landing-home .cf-tint { background: hsl(var(--tint)); }
 .landing-home .cf-blue-soft { background: hsl(209 95% 92%); }
 .landing-home .cf-lime-soft { background: hsl(157 64% 90%); }
+.landing-home.is-dark .cf-blue-soft { background: hsl(216 39% 16%); color: hsl(var(--foreground)); }
+.landing-home.is-dark .cf-lime-soft { background: hsl(163 28% 15%); color: hsl(var(--foreground)); }
 .landing-home .cf-body-muted { color: hsl(var(--muted-foreground)); }
 .landing-home .cf-input { border: 1px solid hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .landing-home .cf-input::placeholder { color: hsl(var(--muted-foreground)); }
