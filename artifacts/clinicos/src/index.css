@@ -243,3 +243,29 @@
   .auth-rail::after,
   .auth-rail-footer { animation: none; }
 }
+
+/* The brand copy stays still; all motion lives in the dark rail background. */
+.auth-rail { background: radial-gradient(circle at 68% 20%, hsl(199 63% 28% / .3), transparent 30%), radial-gradient(circle at 20% 78%, hsl(190 56% 22% / .32), transparent 36%), #071b2c; }
+.auth-rail-copy,
+.auth-rail-title,
+.auth-rail-description,
+.auth-rail .auth-brand-lockup,
+.auth-trust-badge,
+.auth-rail-footer { animation: none !important; transform: none !important; }
+.auth-layout::before { left: 5%; top: 10%; width: min(43vw, 620px); height: min(43vw, 620px); background: radial-gradient(circle, hsl(194 72% 66% / .18), transparent 66%); animation: auth-form-glow 8s ease-in-out infinite; }
+.auth-layout::after { background: linear-gradient(112deg, transparent 0 17%, hsl(194 60% 76% / .08) 25%, transparent 33% 68%, hsl(161 48% 67% / .055) 76%, transparent 84%); background-size: 240% 100%; animation: auth-shimmer 15s linear infinite; }
+.auth-layout > .auth-decor-one { top: 28%; left: 13%; width: 16px; height: 16px; animation: auth-float-one 7s ease-in-out infinite; }
+.auth-layout > .auth-decor-two { right: auto; bottom: 24%; left: 31%; animation: auth-float-two 6s ease-in-out infinite reverse; }
+.auth-layout > .auth-scanline { top: -10%; left: 24%; width: 12%; height: 120%; opacity: .7; animation: auth-scan 12s ease-in-out infinite; }
+@media (max-width: 1023px) {
+  .auth-layout > .auth-decor-one { top: 10%; left: 78%; }
+  .auth-layout > .auth-decor-two { bottom: 10%; left: 20%; }
+  .auth-layout > .auth-scanline { left: 42%; width: 18%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-layout::before,
+  .auth-layout::after,
+  .auth-layout > .auth-decor-one,
+  .auth-layout > .auth-decor-two,
+  .auth-layout > .auth-scanline { animation: none; }
+}
