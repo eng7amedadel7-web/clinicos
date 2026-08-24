@@ -159,23 +159,22 @@ function AuthLocaleProvider({ children }: { children: ReactNode }) {
 
 function AuthLayout({ children, mode, languageToggle = false }: { children: ReactNode; mode: 'login' | 'register'; languageToggle?: boolean }) {
   const { lang, text, toggleLanguage } = useAuthLocale();
-  const isArabic = lang === 'ar';
   return (
     <main className="auth-layout noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="ltr">
       <div className="auth-decor auth-decor-one" aria-hidden="true" />
       <div className="auth-decor auth-decor-two" aria-hidden="true" />
       <div className="auth-scanline" aria-hidden="true" />
-      <section className={`auth-rail auth-panel-enter hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16 ${isArabic ? 'text-right' : 'text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+      <section className={`auth-rail auth-panel-enter hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16 text-right`} dir="rtl">
         <div className="auth-brand-lockup relative z-10"><Logo /></div>
-        <div className={`auth-rail-copy relative z-10 max-w-[410px] ${isArabic ? 'text-right' : 'text-left'}`}>
+        <div className={`auth-rail-copy relative z-10 max-w-[410px] text-right`}>
           <div className="auth-trust-badge mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><span className="auth-badge-dot" aria-hidden="true" /><ShieldCheck size={14} /> {text.railTrusted}</div>
           <h1 className="auth-rail-title ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{text.railTitle[mode]}</h1>
           <p className="auth-rail-description ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">{text.railBody}</p>
         </div>
         <div className="auth-rail-footer relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>{text.privacy}</span></div>
       </section>
-      <section className="auth-form-pane flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir={isArabic ? 'rtl' : 'ltr'}>
-        <div className="flex items-center justify-between"><div className="flex items-center justify-between gap-5 lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? text.mobileRegister : text.mobileLogin}</Link></div>{languageToggle && <button type="button" className="auth-language-toggle ms-auto rounded-full border border-[#cbdbe2] bg-white/70 px-3 py-2 text-xs font-bold text-[#31556b] transition hover:border-[#5d9caf] hover:text-[#174963]" onClick={toggleLanguage} data-testid="button-auth-language" aria-label={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}>{text.language}</button>}</div>
+      <section className="auth-form-pane flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
+        <div className="flex items-center justify-between"><div className="flex items-center justify-between gap-5 lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? text.mobileRegister : text.mobileLogin}</Link></div>{languageToggle && <button type="button" className="auth-language-toggle ms-auto rounded-full border border-[#cbdbe2] bg-white/70 px-3 py-2 text-xs font-bold text-[#31556b] transition hover:border-[#5d9caf] hover:text-[#174963]" onClick={toggleLanguage} data-testid="button-auth-language" aria-label={lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}>{text.language}</button>}</div>
         <div className="m-auto w-full max-w-[445px] py-12">{children}</div>
         <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> {text.secure}</span></div>
       </section>
@@ -209,7 +208,7 @@ function RecoveryPage({ onBack }: { onBack: () => void }) {
   const recovery = useRecoverPassword();
   const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
   const apiError = getApiErrorMessage(recovery.error);
-  const { lang, text } = useAuthLocale();
+  const { text } = useAuthLocale();
   const copy = text.recovery;
 
   const submit = (values: RecoveryValues) => {
@@ -224,7 +223,7 @@ function RecoveryPage({ onBack }: { onBack: () => void }) {
         {recovery.isSuccess ? (
           <div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-recovery-success">{copy.success}</div>
         ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir="rtl">
             <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
               <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-recovery-email" /></div>
             </Field>
@@ -241,7 +240,7 @@ function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDon
   const reset = useResetPassword();
   const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
   const apiError = getApiErrorMessage(reset.error);
-  const { lang, text } = useAuthLocale();
+  const { text } = useAuthLocale();
   const copy = text.reset;
 
   const submit = (values: ResetValues) => {
@@ -256,7 +255,7 @@ function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDon
         {reset.isSuccess ? (
           <div className="space-y-5"><div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-reset-success">{copy.success}</div><button type="button" className="primary-button w-full" onClick={onDone} data-testid="button-reset-done">{copy.back} <ArrowLeft size={17} /></button></div>
         ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir="rtl">
             <Field label={copy.password} error={form.formState.errors.password?.message}><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" /></Field>
             <Field label={copy.confirm} error={form.formState.errors.confirmPassword?.message}><input {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: value => value === form.getValues('password') || copy.mismatch })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" /></Field>
             <button className="primary-button w-full" type="submit" disabled={reset.isPending} data-testid="button-reset-password">{reset.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.updating}</> : <>{copy.update} <ArrowLeft size={17} /></>}</button>
@@ -278,7 +277,6 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { lang, text } = useAuthLocale();
   const copy = text.login;
-  const isArabic = lang === 'ar';
   const onSubmit = (values: LoginValues) => {
     login.mutate({ data: values }, {
       onSuccess: (session) => {
@@ -297,7 +295,7 @@ function LoginPage() {
       <div className="animate-rise">
         <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.greeting}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-login">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
         {displayApiError ? <div className="mb-5 flex items-start gap-2 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-login-error"><X size={17} className="mt-1 shrink-0" /> {displayApiError}</div> : null}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate dir={isArabic ? 'rtl' : 'ltr'}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate dir="rtl">
           <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
             <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-login-email" /></div>
           </Field>
@@ -320,7 +318,7 @@ function RegisterPage() {
   const client = useQueryClient();
   const register = useRegister();
   const form = useForm<RegisterValues>({ defaultValues: { fullName: '', clinicName: '', email: '', password: '' }, mode: 'onTouched' });
-  const { lang, text } = useAuthLocale();
+  const { text } = useAuthLocale();
   const copy = text.registerPage;
   const onSubmit = (values: RegisterValues) => register.mutate({ data: values }, { onSuccess: (session) => { client.setQueryData(getGetAuthSessionQueryKey(), session); toast.success(copy.success); setLocation('/dashboard'); } });
   const apiError = getApiErrorMessage(register.error);
@@ -329,7 +327,7 @@ function RegisterPage() {
       <div className="animate-rise">
         <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-register">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
         {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-register-error">{apiError}</div> : null}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir="rtl">
           <Field label={copy.fullName} error={form.formState.errors.fullName?.message}><div className="relative"><UserRound size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('fullName', { required: copy.requiredName, minLength: { value: 2, message: copy.validName } })} className="input-field pr-11" placeholder={copy.fullNamePlaceholder} autoComplete="name" data-testid="input-register-full-name" /></div></Field>
           <Field label={copy.clinicName} error={form.formState.errors.clinicName?.message}><div className="relative"><Building2 size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('clinicName', { required: copy.requiredClinic, minLength: { value: 2, message: copy.validName } })} className="input-field pr-11" placeholder={copy.clinicNamePlaceholder} data-testid="input-register-clinic-name" /></div></Field>
           <Field label={copy.email} error={form.formState.errors.email?.message}><div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-register-email" /></div></Field>
