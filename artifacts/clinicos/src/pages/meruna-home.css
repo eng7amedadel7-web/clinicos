@@ -1,0 +1,97 @@
+@keyframes meruna-rise-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+.landing-home {
+  --background: 220 32% 97%;
+  --foreground: 220 36% 13%;
+  --border: 215 24% 86%;
+  --input: 215 24% 86%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 36% 13%;
+  --card-border: 215 24% 86%;
+  --muted-foreground: 220 13% 46%;
+  --primary: 209 95% 52%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 157 76% 42%;
+  --accent-foreground: 220 36% 13%;
+  --navy: 220 48% 9%;
+  --panel: 220 38% 12%;
+  --tint: 210 55% 94%;
+  --hero: 220 32% 97%;
+  --hero-grid: 214 32% 90%;
+  --app-font-sans: 'Manrope', 'IBM Plex Sans Arabic', sans-serif;
+  --app-font-serif: 'Manrope', 'IBM Plex Sans Arabic', sans-serif;
+  --app-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--app-font-sans);
+}
+
+.landing-home.is-dark {
+  --background: 220 48% 9%;
+  --foreground: 214 33% 94%;
+  --border: 218 28% 24%;
+  --input: 218 28% 24%;
+  --card: 219 42% 13%;
+  --card-foreground: 214 33% 94%;
+  --card-border: 218 28% 24%;
+  --muted-foreground: 214 17% 68%;
+  --primary: 209 95% 58%;
+  --primary-foreground: 220 48% 9%;
+  --accent: 157 76% 49%;
+  --accent-foreground: 220 48% 9%;
+  --tint: 218 35% 14%;
+  --hero: 220 48% 9%;
+  --hero-grid: 218 32% 22%;
+}
+
+.landing-home .cf-page { overflow: hidden; }
+.landing-home .cf-container { width: min(1180px, calc(100% - 48px)); margin-inline: auto; }
+.landing-home .cf-display { font-family: var(--app-font-serif); }
+.landing-home .cf-mono { font-family: var(--app-font-mono); letter-spacing: .04em; }
+.landing-home .cf-reveal { animation: meruna-rise-in .75s cubic-bezier(.22,.75,.24,1) both; }
+.landing-home .cf-reveal-delay-1 { animation-delay: .1s; }
+.landing-home .cf-reveal-delay-2 { animation-delay: .2s; }
+.landing-home .cf-reveal-delay-3 { animation-delay: .3s; }
+.landing-home .cf-grid-paper { background-image: linear-gradient(hsl(var(--hero-grid) / .55) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--hero-grid) / .55) 1px, transparent 1px); background-size: 34px 34px; }
+.landing-home .cf-grain::after { content: ''; position: fixed; inset: 0; pointer-events: none; opacity: .035; z-index: 40; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E"); }
+.landing-home .cf-link { position: relative; transition: color .25s ease; }
+.landing-home .cf-link::after { content: ''; position: absolute; right: 0; bottom: -7px; width: 0; height: 2px; background: hsl(var(--accent)); transition: width .25s ease; }
+.landing-home .cf-link:hover { color: hsl(var(--accent)); }
+.landing-home .cf-link:hover::after { width: 100%; }
+.landing-home .cf-hover-lift { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease, border-color .35s ease; }
+.landing-home .cf-hover-lift:hover { transform: translateY(-7px); box-shadow: 0 30px 80px rgba(20, 51, 94, .16); border-color: rgba(232,111,81,.45); }
+.landing-home .cf-dash-shadow { box-shadow: 0 38px 90px rgba(4, 17, 42, .30), 0 0 0 1px rgba(255,255,255,.1); }
+.landing-home .cf-section { background: hsl(var(--background)); color: hsl(var(--foreground)); }
+.landing-home .cf-hero { background: hsl(var(--hero)); }
+.landing-home .cf-navy { background: hsl(var(--navy)); color: hsl(214 33% 94%); }
+.landing-home .cf-card { border-color: hsl(var(--card-border)); background: hsl(var(--card)); color: hsl(var(--card-foreground)); }
+.landing-home .cf-tint { background: hsl(var(--tint)); }
+.landing-home .cf-blue-soft { background: hsl(209 95% 92%); }
+.landing-home .cf-lime-soft { background: hsl(157 64% 90%); }
+.landing-home .cf-body-muted { color: hsl(var(--muted-foreground)); }
+.landing-home .cf-input { border: 1px solid hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.landing-home .cf-input::placeholder { color: hsl(var(--muted-foreground)); }
+.landing-home .cf-input:focus { border-color: hsl(var(--primary)); outline: none; box-shadow: 0 0 0 3px hsl(var(--primary) / .14); }
+.landing-home .cf-theme-control { border: 1px solid hsl(var(--border)); background: hsl(var(--card) / .7); color: hsl(var(--foreground)); }
+.landing-home .cf-button-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.landing-home .cf-button-primary:hover { background: hsl(var(--primary) / .88); }
+.landing-home .cf-button-ghost { border: 1px solid hsl(var(--border)); color: hsl(var(--foreground)); }
+.landing-home .cf-button-ghost:hover { border-color: hsl(var(--primary)); background: hsl(var(--primary) / .08); }
+.landing-home .cf-navy .cf-button-primary { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+.landing-home .cf-navy .cf-button-primary:hover { background: hsl(var(--accent) / .88); }
+.landing-home .cf-navy .cf-body-muted { color: hsl(214 17% 68%); }
+.landing-home .cf-navy-grid { background-image: linear-gradient(hsl(214 40% 30% / .24) 1px, transparent 1px), linear-gradient(90deg, hsl(214 40% 30% / .24) 1px, transparent 1px); background-size: 38px 38px; }
+.landing-home .cf-modal-backdrop { background: hsl(var(--navy) / .72); }
+.landing-home .cf-modal { background: hsl(var(--card)); color: hsl(var(--card-foreground)); border-color: hsl(var(--card-border)); }
+.landing-home .cf-chat-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+.landing-home .meruna-brand-mark { width: 42px; height: 32px; object-fit: contain; }
+.landing-home .meruna-brand-wordmark { letter-spacing: -.04em; }
+
+@media (max-width: 767px) {
+  .landing-home .cf-container { width: min(100% - 32px, 600px); }
+  .landing-home .cf-display { line-height: 1.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-home *, .landing-home *::before, .landing-home *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
