@@ -467,3 +467,46 @@
 .landing-home:not(.is-dark) .meruna-voice-preview .meruna-voice-agent + .meruna-voice-patient {
   background: hsl(var(--card));
 }
+
+/* Dynamic homepage states: authenticated workspace pulse and live assistant feedback. */
+.landing-home .meruna-live-pulse {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 2rem;
+  margin: 0 auto 3rem;
+  padding: 1.35rem 1.5rem;
+  border: 1px solid hsl(var(--primary) / .22);
+  border-radius: 1.4rem;
+  background: linear-gradient(105deg, hsl(var(--tint)), hsl(var(--card)));
+  box-shadow: 0 16px 38px hsl(var(--navy) / .07);
+}
+.landing-home .meruna-live-pulse .meruna-kicker { margin: 0 0 .55rem; color: hsl(var(--accent)); }
+.landing-home .meruna-live-pulse h2 { margin: 0; color: hsl(var(--foreground)); font-size: 1.25rem; font-weight: 800; letter-spacing: -.03em; }
+.landing-home .meruna-live-pulse p { margin: .35rem 0 0; color: hsl(var(--muted-foreground)); font-size: .72rem; }
+.landing-home .meruna-live-stats { display: flex; align-items: stretch; gap: .7rem; }
+.landing-home .meruna-live-stats > div { min-width: 6.8rem; padding: .6rem .8rem; border-inline-start: 1px solid hsl(var(--border)); }
+.landing-home .meruna-live-stats strong,
+.landing-home .meruna-live-stats span,
+.landing-home .meruna-live-stats small { display: block; }
+.landing-home .meruna-live-stats strong { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: 1.2rem; }
+.landing-home .meruna-live-stats span { margin-top: .15rem; color: hsl(var(--foreground)); font-size: .67rem; font-weight: 800; }
+.landing-home .meruna-live-stats small { margin-top: .15rem; color: hsl(var(--muted-foreground)); font-size: .58rem; line-height: 1.45; }
+.landing-home .meruna-live-link { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; color: hsl(var(--primary)); font-size: .72rem; font-weight: 800; transition: gap .2s ease; }
+.landing-home .meruna-live-link:hover { gap: .7rem; }
+.landing-home .meruna-thinking { background: hsl(var(--tint)); color: hsl(var(--primary)); }
+.landing-home .meruna-thinking span { display: inline-block; margin-inline-start: .2rem; animation: meruna-thinking-dots 1s steps(3, end) infinite; }
+@keyframes meruna-thinking-dots { 0%, 20% { opacity: .25; } 50% { opacity: 1; } 80%, 100% { opacity: .25; } }
+@media (max-width: 900px) {
+  .landing-home .meruna-live-pulse { grid-template-columns: 1fr auto; gap: 1rem; }
+  .landing-home .meruna-live-stats { grid-column: 1 / -1; order: 3; }
+}
+@media (max-width: 560px) {
+  .landing-home .meruna-live-pulse { grid-template-columns: 1fr; gap: 1.1rem; padding: 1.15rem; }
+  .landing-home .meruna-live-stats { width: 100%; }
+  .landing-home .meruna-live-stats > div { min-width: 0; flex: 1; padding-inline: .45rem; }
+  .landing-home .meruna-live-link { justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-home .meruna-thinking span { animation: none; }
+}

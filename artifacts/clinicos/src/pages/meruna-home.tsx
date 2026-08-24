@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import './meruna-home.css';
 import { ChannelSignalSection, MomentumMarquee, PatientJourneySection } from './meruna-home-inspired';
+import { getGetAuthSessionQueryKey, getGetDashboardSummaryQueryKey, useGetAuthSession, useGetDashboardSummary } from '@workspace/api-client-react';
 import {
   ArrowUpRight,
   BarChart3,
@@ -150,6 +151,11 @@ function PrimaryButton({ children, onClick, className = '', type = 'button', tes
   return <button type={type} onClick={onClick} data-testid={testId} className={`cf-button-primary group inline-flex items-center justify-center gap-3 rounded-full px-6 py-3.5 text-[13px] font-bold shadow-[0_12px_30px_hsl(var(--primary)/.2)] transition-all duration-300 hover:-translate-y-1 ${className}`}>{children}<ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></button>;
 }
 
+function LiveWorkspacePulse({ lang, clinicName, stats }: { lang: Lang; clinicName: string; stats: Array<{ label: string; value: string; helper: string }> }) {
+  const isArabic = lang === 'ar';
+  return <aside className="meruna-live-pulse" aria-label={isArabic ? 'ملخص عيادتك الحالي' : 'Your live clinic summary'}><div><span className="meruna-kicker">{isArabic ? 'مساحة العمل متصلة' : 'WORKSPACE CONNECTED'}</span><h2>{isArabic ? `مرحباً بفريق ${clinicName}` : `Welcome back, ${clinicName}`}</h2><p>{isArabic ? 'هذه لمحة مباشرة من مساحة عيادتك الحالية.' : 'A live glimpse from your current clinic workspace.'}</p></div><div className="meruna-live-stats">{stats.slice(0, 3).map((stat) => <div key={`${stat.label}-${stat.value}`}><strong>{stat.value}</strong><span>{stat.label}</span><small>{stat.helper}</small></div>)}</div><a href="/dashboard" className="meruna-live-link">{isArabic ? 'فتح مساحة العمل' : 'Open workspace'} <ArrowUpRight size={15} /></a></aside>;
+}
+
 function App() {
   const [lang, setLang] = useState<Lang>('en');
   const [theme, setTheme] = useState<Theme>('dark');
@@ -161,6 +167,11 @@ function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [toast, setToast] = useState('');
+  const [activeSection, setActiveSection] = useState('method');
+  const [isThinking, setIsThinking] = useState(false);
+  const replyTimerRef = useRef<number | null>(null);
+  const sessionQuery = useGetAuthSession({ query: { queryKey: getGetAuthSessionQueryKey(), retry: false, staleTime: 60_000 } });
+  const summaryQuery = useGetDashboardSummary({ query: { queryKey: getGetDashboardSummaryQueryKey(), enabled: Boolean(sessionQuery.data), retry: false, staleTime: 30_000 } });
   const t = copy[lang];
   const isArabic = lang === 'ar';
 
@@ -179,6 +190,18 @@ function App() {
   }, [theme, lang, isArabic]);
 
   useEffect(() => {
+    const sectionIds = ['how-it-works', 'capabilities', 'voice', 'pricing'];
+    const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    if (!sections.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) setActiveSection(visible.target.id === 'how-it-works' ? 'method' : visible.target.id);
+    }, { rootMargin: '-25% 0px -60% 0px', threshold: [0.1, 0.35, 0.6] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(''), 3200);
     return () => window.clearTimeout(timer);
@@ -193,8 +216,15 @@ function App() {
     setMobileOpen(false);
   };
 
+  const cancelPendingReply = () => {
+    if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current);
+    replyTimerRef.current = null;
+    setIsThinking(false);
+  };
+
   const selectTab = (tab: DemoTab) => {
     const nextIndex = tab === 'book' ? 0 : tab === 'follow' ? 1 : tab === 'recover' ? 2 : 0;
+    cancelPendingReply();
     setActiveTab(tab);
     setSampleIndex(nextIndex);
     setMessages([]);
@@ -204,10 +234,19 @@ function App() {
   const sendMessage = (event?: FormEvent) => {
     event?.preventDefault();
     const text = messageInput.trim();
-    if (!text) return;
-    setMessages((current) => [...(current.length ? current : activeSample.messages), { from: 'patient', text }, { from: 'agent', text: isArabic ? 'شكراً لتوضيحك. سأراجع الخيارات المتاحة وأعود إليك بخطوة واضحة الآن.' : 'Thanks for sharing that. I’ll check the best options and come back with a clear next step.' }]);
+    if (!text || isThinking) return;
+    if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current);
+    setMessages((current) => [...(current.length ? current : activeSample.messages), { from: 'patient', text }]);
     setMessageInput('');
+    setIsThinking(true);
+    replyTimerRef.current = window.setTimeout(() => {
+      setMessages((current) => [...current, { from: 'agent', text: isArabic ? 'شكراً لتوضيحك. سأراجع الخيارات المتاحة وأعود إليك بخطوة واضحة الآن.' : 'Thanks for sharing that. I’ll check the best options and come back with a clear next step.' }]);
+      setIsThinking(false);
+      setToast(isArabic ? 'تم تجهيز الخطوة التالية' : 'Next step prepared');
+    }, 650);
   };
+
+  useEffect(() => () => { if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current); }, []);
 
   return (
     <div className={`landing-home ${theme === 'dark' ? 'is-dark' : ''} ${isArabic ? 'is-arabic' : ''} cf-page cf-grain cf-section min-h-[100dvh]`} dir="ltr">
@@ -215,7 +254,7 @@ function App() {
         <div className="cf-container flex h-[76px] items-center justify-between">
           <a href="#top" data-testid="link-brand" aria-label="MERUNA SYSTEM home"><BrandMark /></a>
           <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
-            {([['method', '#how-it-works'], ['capabilities', '#capabilities'], ['voice', '#voice'], ['pricing', '#pricing']] as const).map(([key, href]) => <a key={href} href={href} data-testid={`link-nav-${key}`} className="cf-link text-[12px] font-semibold text-[hsl(var(--muted-foreground))]">{t.nav[key]}</a>)}
+            {([['method', '#how-it-works'], ['capabilities', '#capabilities'], ['voice', '#voice'], ['pricing', '#pricing']] as const).map(([key, href]) => <a key={href} href={href} data-testid={`link-nav-${key}`} className={`cf-link text-[12px] font-semibold transition-colors ${activeSection === key ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]'}`}>{t.nav[key]}</a>)}
           </nav>
           <div className="hidden items-center gap-3 md:flex">
             <button type="button" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} data-testid="button-language" aria-label={isArabic ? 'تبديل اللغة' : 'Switch language'} className="cf-theme-control inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[11px] font-bold transition-colors hover:border-[hsl(var(--primary))]"><Languages className="size-3.5" />{lang === 'en' ? 'عربي' : 'EN'}</button>
@@ -256,13 +295,15 @@ function App() {
               </div>
               <div className="cf-reveal cf-reveal-delay-3 mt-10 flex items-center gap-3 text-[11px] text-[hsl(var(--muted-foreground))]"><div className="flex -space-x-2" dir="ltr">{['LM', 'MK', 'AP', 'SN'].map((initial, index) => <span key={initial} className={`flex size-8 items-center justify-center rounded-full border-2 border-[hsl(var(--hero))] text-[9px] font-bold text-white ${index % 2 ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--accent))]'}`}>{initial}</span>)}</div><span><strong className="text-[hsl(var(--foreground))]">{t.hero.clinics}</strong><br />{t.hero.proof}</span></div>
             </div>
-            <ProductPreview t={t} activeTab={activeTab} selectTab={selectTab} currentMessages={currentMessages} messageInput={messageInput} setMessageInput={setMessageInput} sendMessage={sendMessage} sampleIndex={sampleIndex} setSampleIndex={(index) => { setSampleIndex(index); setMessages([]); }} />
+            <ProductPreview t={t} activeTab={activeTab} selectTab={selectTab} currentMessages={currentMessages} messageInput={messageInput} setMessageInput={setMessageInput} sendMessage={sendMessage} sampleIndex={sampleIndex} setSampleIndex={(index) => { cancelPendingReply(); setSampleIndex(index); setMessages([]); }} isThinking={isThinking} />
           </div>
         </section>
 
         <section className="border-y border-[hsl(var(--border))] bg-[hsl(var(--card))] py-7">
           <div className="cf-container flex flex-col items-center justify-between gap-5 md:flex-row"><p className="cf-mono text-[9px] font-bold uppercase tracking-[.14em] text-[hsl(var(--muted-foreground))]">{t.trust.label}</p><div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-[11px] font-bold text-[hsl(var(--muted-foreground))] md:gap-x-10"><span className="flex items-center gap-2"><UserRound className="size-4 text-[hsl(var(--primary))]" />{t.trust.dental}</span><span className="flex items-center gap-2"><StethoscopeIcon />{t.trust.primary}</span><span className="flex items-center gap-2"><UsersRound className="size-4 text-[hsl(var(--accent))]" />{t.trust.networks}</span><span className="flex items-center gap-2"><Moon className="size-4 text-[hsl(var(--primary))]" />{t.trust.always}</span></div></div>
         </section>
+
+        {summaryQuery.data && <div className="cf-container"><LiveWorkspacePulse lang={lang} clinicName={summaryQuery.data.clinic.name} stats={summaryQuery.data.stats} /></div>}
 
         <ChannelSignalSection locale={isArabic ? 'ar' : 'en'} />
 
@@ -297,8 +338,8 @@ function StethoscopeIcon() {
   return <Headphones className="size-4 text-[hsl(var(--primary))]" />;
 }
 
-function ProductPreview({ t, activeTab, selectTab, currentMessages, messageInput, setMessageInput, sendMessage, sampleIndex, setSampleIndex }: { t: Copy; activeTab: DemoTab; selectTab: (tab: DemoTab) => void; currentMessages: ChatMessage[]; messageInput: string; setMessageInput: (value: string) => void; sendMessage: (event?: FormEvent) => void; sampleIndex: number; setSampleIndex: (index: number) => void }) {
-  return <div className="meruna-product-preview order-1 relative lg:order-2"><div className="absolute -right-4 top-[-24px] z-10 hidden items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card)/.9)] px-3 py-2 text-[9px] font-bold shadow-[var(--shadow-soft)] backdrop-blur sm:flex"><span className="size-2 rounded-full bg-[hsl(var(--accent))]" />{t.demo.newMessage}</div><div className="meruna-sim-shell cf-dash-shadow overflow-hidden rounded-[25px] border border-white/[.12] bg-[hsl(var(--panel))] text-[hsl(214_33%_94%)]"><div className="meruna-sim-topbar flex items-center justify-between border-b border-white/[.1] px-5 py-4"><div className="flex items-center gap-2" dir="ltr"><span className="size-2 rounded-full bg-[#f07161]" /><span className="size-2 rounded-full bg-[#d5aa5f]" /><span className="size-2 rounded-full bg-[#69c49a]" /></div><div className="flex items-center gap-2 text-[9px] text-[hsl(214_25%_67%)]"><span className="size-1.5 rounded-full bg-[hsl(var(--accent))]" />{t.chat.live}</div></div><div className="meruna-sim-toolbar border-b border-white/[.1] px-4 py-3"><div className="mb-3 flex items-center justify-between"><span className="text-[10px] font-bold text-[hsl(214_25%_76%)]">{t.chat.workspace}</span><Settings2 className="size-3.5 text-[hsl(214_25%_55%)]" /></div><div className="grid grid-cols-4 gap-1.5">{(Object.keys(t.chat.tabs) as DemoTab[]).map((tab) => { const Icon = tabIcons[tab]; return <button key={tab} type="button" onClick={() => selectTab(tab)} data-testid={`button-demo-tab-${tab}`} className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[9px] font-bold transition-colors ${activeTab === tab ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(214_25%_68%)] hover:bg-white/[.07]'}`}><Icon className="size-3.5" />{t.chat.tabs[tab]}</button>; })}</div></div><div className="meruna-sim-body grid min-h-[390px] sm:grid-cols-[.72fr_1.28fr]"><aside className="meruna-sim-sidebar hidden border-e border-white/[.1] p-4 sm:block"><div className="mb-4 flex items-center justify-between"><span className="text-[10px] font-bold">{t.chat.patients}</span><Plus className="size-3 text-[hsl(var(--primary))]" /></div><div className="mb-4 flex items-center gap-2 rounded-lg bg-white/[.06] px-2.5 py-2 text-[9px] text-[hsl(214_25%_55%)]"><MessageCircle className="size-3" />{t.chat.search}</div><div className="space-y-1">{t.chat.samplePatients.map((patient, index) => <button type="button" key={patient.name} onClick={() => { setSampleIndex(index); }} data-testid={`button-patient-${index}`} className={`w-full rounded-xl p-2.5 text-start transition-colors ${sampleIndex === index ? 'bg-white/[.1]' : 'hover:bg-white/[.05]'}`}><div className="flex items-center justify-between"><span className="text-[10px] font-bold">{patient.name}</span><span className="cf-mono text-[8px] text-[hsl(214_25%_52%)]">{patient.time}</span></div><span className="mt-1 block truncate text-[9px] text-[hsl(214_25%_58%)]">{patient.detail}</span></button>)}</div></aside><div className="meruna-sim-content flex min-w-0 flex-col p-4 sm:p-5"><div className="mb-5 flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-white"><Bot className="size-4" /></span><span><strong className="block text-[10px]">{t.chat.agentName}</strong><small className="text-[8px] text-[hsl(var(--accent))]">{t.chat.agentStatus}</small></span></div><span className="rounded-full bg-[hsl(var(--accent)/.13)] px-2 py-1 text-[8px] font-bold text-[hsl(var(--accent))]">{t.chat.bookingReady}</span></div><div className="cf-chat-scroll flex min-h-[190px] flex-1 flex-col gap-3 overflow-y-auto pr-1">{currentMessages.map((message, index) => <div key={`${message.from}-${index}`} data-testid={`text-chat-message-${index}`} className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[10px] leading-[1.7] ${message.from === 'agent' ? 'self-start rounded-bl-sm bg-[hsl(var(--primary))] text-white' : 'self-end rounded-br-sm bg-white/[.09] text-[hsl(214_28%_84%)]'}`}>{message.text}</div>)}</div><form onSubmit={sendMessage} className="mt-4 flex items-center gap-2 rounded-xl border border-white/[.12] bg-white/[.04] p-1.5"><input value={messageInput} onChange={(event) => setMessageInput(event.target.value)} data-testid="input-chat-message" aria-label={t.chat.input} placeholder={t.chat.input} className="min-w-0 flex-1 bg-transparent px-2 text-[10px] text-white outline-none placeholder:text-[hsl(214_25%_50%)]" /><button type="submit" data-testid="button-send-chat" aria-label={t.actions.send} className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--primary))] text-white transition-transform hover:scale-105"><Send className="size-3.5" /></button></form></div></div></div></div>;
+function ProductPreview({ t, activeTab, selectTab, currentMessages, messageInput, setMessageInput, sendMessage, sampleIndex, setSampleIndex, isThinking }: { t: Copy; activeTab: DemoTab; selectTab: (tab: DemoTab) => void; currentMessages: ChatMessage[]; messageInput: string; setMessageInput: (value: string) => void; sendMessage: (event?: FormEvent) => void; sampleIndex: number; setSampleIndex: (index: number) => void; isThinking: boolean }) {
+  return <div className="meruna-product-preview order-1 relative lg:order-2"><div className="absolute -right-4 top-[-24px] z-10 hidden items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card)/.9)] px-3 py-2 text-[9px] font-bold shadow-[var(--shadow-soft)] backdrop-blur sm:flex"><span className="size-2 rounded-full bg-[hsl(var(--accent))]" />{t.demo.newMessage}</div><div className="meruna-sim-shell cf-dash-shadow overflow-hidden rounded-[25px] border border-white/[.12] bg-[hsl(var(--panel))] text-[hsl(214_33%_94%)]"><div className="meruna-sim-topbar flex items-center justify-between border-b border-white/[.1] px-5 py-4"><div className="flex items-center gap-2" dir="ltr"><span className="size-2 rounded-full bg-[#f07161]" /><span className="size-2 rounded-full bg-[#d5aa5f]" /><span className="size-2 rounded-full bg-[#69c49a]" /></div><div className="flex items-center gap-2 text-[9px] text-[hsl(214_25%_67%)]"><span className="size-1.5 rounded-full bg-[hsl(var(--accent))]" />{t.chat.live}</div></div><div className="meruna-sim-toolbar border-b border-white/[.1] px-4 py-3"><div className="mb-3 flex items-center justify-between"><span className="text-[10px] font-bold text-[hsl(214_25%_76%)]">{t.chat.workspace}</span><Settings2 className="size-3.5 text-[hsl(214_25%_55%)]" /></div><div className="grid grid-cols-4 gap-1.5">{(Object.keys(t.chat.tabs) as DemoTab[]).map((tab) => { const Icon = tabIcons[tab]; return <button key={tab} type="button" onClick={() => selectTab(tab)} data-testid={`button-demo-tab-${tab}`} className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[9px] font-bold transition-colors ${activeTab === tab ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(214_25%_68%)] hover:bg-white/[.07]'}`}><Icon className="size-3.5" />{t.chat.tabs[tab]}</button>; })}</div></div><div className="meruna-sim-body grid min-h-[390px] sm:grid-cols-[.72fr_1.28fr]"><aside className="meruna-sim-sidebar hidden border-e border-white/[.1] p-4 sm:block"><div className="mb-4 flex items-center justify-between"><span className="text-[10px] font-bold">{t.chat.patients}</span><Plus className="size-3 text-[hsl(var(--primary))]" /></div><div className="mb-4 flex items-center gap-2 rounded-lg bg-white/[.06] px-2.5 py-2 text-[9px] text-[hsl(214_25%_55%)]"><MessageCircle className="size-3" />{t.chat.search}</div><div className="space-y-1">{t.chat.samplePatients.map((patient, index) => <button type="button" key={patient.name} onClick={() => { setSampleIndex(index); }} data-testid={`button-patient-${index}`} className={`w-full rounded-xl p-2.5 text-start transition-colors ${sampleIndex === index ? 'bg-white/[.1]' : 'hover:bg-white/[.05]'}`}><div className="flex items-center justify-between"><span className="text-[10px] font-bold">{patient.name}</span><span className="cf-mono text-[8px] text-[hsl(214_25%_52%)]">{patient.time}</span></div><span className="mt-1 block truncate text-[9px] text-[hsl(214_25%_58%)]">{patient.detail}</span></button>)}</div></aside><div className="meruna-sim-content flex min-w-0 flex-col p-4 sm:p-5"><div className="mb-5 flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-white"><Bot className="size-4" /></span><span><strong className="block text-[10px]">{t.chat.agentName}</strong><small className="text-[8px] text-[hsl(var(--accent))]">{t.chat.agentStatus}</small></span></div><span className="rounded-full bg-[hsl(var(--accent)/.13)] px-2 py-1 text-[8px] font-bold text-[hsl(var(--accent))]">{t.chat.bookingReady}</span></div><div className="cf-chat-scroll flex min-h-[190px] flex-1 flex-col gap-3 overflow-y-auto pr-1">{currentMessages.map((message, index) => <div key={`${message.from}-${index}`} data-testid={`text-chat-message-${index}`} className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[10px] leading-[1.7] ${message.from === 'agent' ? 'self-start rounded-bl-sm bg-[hsl(var(--primary))] text-white' : 'self-end rounded-br-sm bg-white/[.09] text-[hsl(214_28%_84%)]'}`}>{message.text}</div>)}{isThinking && <div className="meruna-thinking self-start rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-[10px]">{t.chat.agentName} <span aria-hidden="true">•••</span></div>}</div><form onSubmit={sendMessage} className="mt-4 flex items-center gap-2 rounded-xl border border-white/[.12] bg-white/[.04] p-1.5"><input value={messageInput} onChange={(event) => setMessageInput(event.target.value)} data-testid="input-chat-message" aria-label={t.chat.input} placeholder={t.chat.input} className="min-w-0 flex-1 bg-transparent px-2 text-[10px] text-white outline-none placeholder:text-[hsl(214_25%_50%)]" /><button type="submit" data-testid="button-send-chat" aria-label={t.actions.send} className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--primary))] text-white transition-transform hover:scale-105"><Send className="size-3.5" /></button></form></div></div></div></div>;
 }
 
 function VoicePreview({ t, onPlay }: { t: Copy; onPlay: () => void }) {
