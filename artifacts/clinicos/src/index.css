@@ -196,8 +196,8 @@
 }
 
 /* Continuous auth atmosphere: subtle motion remains visible after the entrance animation ends. */
-@keyframes auth-float-one { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .28; } 50% { transform: translate3d(26px, -22px, 0) scale(1.12); opacity: .7; } }
-@keyframes auth-float-two { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .2; } 50% { transform: translate3d(-22px, 18px, 0) rotate(16deg); opacity: .58; } }
+@keyframes auth-float-one { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .38; } 50% { transform: translate3d(78px, -68px, 0) scale(1.22); opacity: .88; } }
+@keyframes auth-float-two { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .3; } 50% { transform: translate3d(-72px, 56px, 0) rotate(28deg); opacity: .76; } }
 @keyframes auth-scan { 0% { transform: translateX(-115%) skewX(-16deg); opacity: 0; } 12%, 76% { opacity: .55; } 100% { transform: translateX(115%) skewX(-16deg); opacity: 0; } }
 @keyframes auth-copy-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes auth-badge-pulse { 0%, 100% { box-shadow: 0 0 0 0 hsl(161 48% 58% / .2); } 50% { box-shadow: 0 0 0 7px hsl(161 48% 58% / 0); } }
@@ -226,14 +226,14 @@
 /* Focused motion for the dark brand rail: layered, slow, and directional. */
 @keyframes auth-title-drift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0) scale(1.012); } }
 @keyframes auth-copy-drift { 0%, 100% { transform: translate3d(0, 0, 0); opacity: .86; } 50% { transform: translate3d(-8px, 3px, 0); opacity: 1; } }
-@keyframes auth-ring-drift { 0% { transform: rotate(0deg) translate3d(0, 0, 0); } 50% { transform: rotate(7deg) translate3d(10px, -6px, 0); } 100% { transform: rotate(14deg) translate3d(0, 0, 0); } }
+@keyframes auth-ring-drift { 0% { transform: rotate(0deg) translate3d(0, 0, 0); } 50% { transform: rotate(16deg) translate3d(34px, -24px, 0); } 100% { transform: rotate(32deg) translate3d(0, 0, 0); } }
 @keyframes auth-footer-drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 .auth-rail-title { animation: auth-title-drift 5.5s ease-in-out infinite; transform-origin: 90% 50%; }
 .auth-rail-description { animation: auth-copy-drift 6.8s ease-in-out .3s infinite; }
 .auth-rail .auth-brand-lockup { animation: auth-logo-float 4s ease-in-out infinite; }
 .auth-rail .auth-trust-badge { transform-origin: 88% 50%; }
-.auth-rail::before { animation: auth-ring-drift 11s ease-in-out infinite; }
-.auth-rail::after { animation: auth-glow 5.5s ease-in-out infinite, auth-ring-drift 17s ease-in-out infinite reverse; }
+.auth-rail::before { width: 620px; height: 620px; inset-inline-start: -300px; inset-block-end: -250px; animation: auth-ring-drift 7s ease-in-out infinite; }
+.auth-rail::after { width: 420px; height: 420px; inset-inline-end: -190px; inset-block-start: 7%; animation: auth-glow 4.5s ease-in-out infinite, auth-ring-drift 9s ease-in-out infinite reverse; }
 .auth-rail-footer { animation: auth-footer-drift 7s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .auth-rail-title,
@@ -252,11 +252,11 @@
 .auth-rail .auth-brand-lockup,
 .auth-trust-badge,
 .auth-rail-footer { animation: none !important; transform: none !important; }
-.auth-layout::before { left: 5%; top: 10%; width: min(43vw, 620px); height: min(43vw, 620px); background: radial-gradient(circle, hsl(194 72% 66% / .18), transparent 66%); animation: auth-form-glow 8s ease-in-out infinite; }
-.auth-layout::after { background: linear-gradient(112deg, transparent 0 17%, hsl(194 60% 76% / .08) 25%, transparent 33% 68%, hsl(161 48% 67% / .055) 76%, transparent 84%); background-size: 240% 100%; animation: auth-shimmer 15s linear infinite; }
-.auth-layout > .auth-decor-one { top: 28%; left: 13%; width: 16px; height: 16px; animation: auth-float-one 7s ease-in-out infinite; }
-.auth-layout > .auth-decor-two { right: auto; bottom: 24%; left: 31%; animation: auth-float-two 6s ease-in-out infinite reverse; }
-.auth-layout > .auth-scanline { top: -10%; left: 24%; width: 12%; height: 120%; opacity: .7; animation: auth-scan 12s ease-in-out infinite; }
+.auth-layout::before { left: -2%; top: 4%; width: min(62vw, 900px); height: min(62vw, 900px); background: radial-gradient(circle, hsl(194 78% 66% / .28), transparent 66%); animation: auth-form-glow 5.5s ease-in-out infinite; }
+.auth-layout::after { background: linear-gradient(112deg, transparent 0 13%, hsl(194 72% 82% / .13) 25%, transparent 37% 63%, hsl(161 58% 72% / .09) 75%, transparent 87%); background-size: 260% 100%; animation: auth-shimmer 9s linear infinite; }
+.auth-layout > .auth-decor-one { top: 28%; left: 13%; width: 18px; height: 18px; animation: auth-float-one 4.8s ease-in-out infinite; }
+.auth-layout > .auth-decor-two { right: auto; bottom: 24%; left: 31%; width: 12px; height: 12px; animation: auth-float-two 4.2s ease-in-out infinite reverse; }
+.auth-layout > .auth-scanline { top: -10%; left: 24%; width: 16%; height: 120%; opacity: .9; animation: auth-scan 7.5s ease-in-out infinite; }
 @media (max-width: 1023px) {
   .auth-layout > .auth-decor-one { top: 10%; left: 78%; }
   .auth-layout > .auth-decor-two { bottom: 10%; left: 20%; }
