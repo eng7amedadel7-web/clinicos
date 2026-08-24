@@ -197,9 +197,11 @@ router.post("/forgot-password", async (req, res) => {
     },
   );
 
-  // Keep the response generic so this endpoint cannot be used for account enumeration.
+  // Keep the response generic so this endpoint cannot be used for account enumeration,
+  // but do not claim success when the email provider rejected the request.
   if (!result.ok) {
-    res.json({ message: "If an account exists for that email, a recovery link will be sent." });
+    console.error("[Auth] Password recovery provider rejected request", { status: result.status });
+    res.status(502).json({ error: "Password recovery email delivery is temporarily unavailable." });
     return;
   }
   res.json({ message: "If an account exists for that email, a recovery link will be sent." });
