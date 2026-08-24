@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -99,25 +99,85 @@ function getApiErrorMessage(error: unknown): string | undefined {
   return undefined;
 }
 
-function AuthLayout({ children, mode }: { children: ReactNode; mode: 'login' | 'register' }) {
+type AuthLanguage = 'ar' | 'en';
+
+const authCopy = {
+  ar: {
+    railTrusted: 'منصة موثوقة لإدارة يومك',
+    railTitle: { login: 'كل ما يحتاج انتباهك، في مكان واحد.', register: 'ابدأ تنظيم عيادتك بثقة.' },
+    railBody: 'MERUNA SYSTEM يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.',
+    privacy: 'خصوصيتك أولًا',
+    secure: 'اتصال آمن ومشفّر',
+    language: 'English',
+    mobileRegister: 'إنشاء حساب',
+    mobileLogin: 'تسجيل الدخول',
+      login: {
+      greeting: 'مساء الخير', title: 'تسجيل الدخول', subtitle: 'أدخل بياناتك للوصول إلى لوحة عيادتك.', email: 'البريد الإلكتروني', emailHint: 'استخدم البريد المرتبط بحسابك', emailPlaceholder: 'name@clinic.com', password: 'كلمة المرور', passwordPlaceholder: '••••••••', remember: 'تذكرني على هذا الجهاز', forgot: 'نسيت كلمة المرور؟', submit: 'دخول إلى MERUNA SYSTEM', loading: 'جارٍ التحقق...', noAccount: 'ليس لديك حساب؟', register: 'أنشئ عيادتك الآن', or: 'أو', healthy: 'الأنظمة تعمل بشكل طبيعي', degraded: 'الخدمة تواجه ضغطًا مؤقتًا', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', requiredPassword: 'أدخل كلمة المرور', minPassword: 'يجب أن تتكون من 6 أحرف على الأقل', showPassword: 'إظهار كلمة المرور', hidePassword: 'إخفاء كلمة المرور', errorInvalid: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
+    },
+    registerPage: { eyebrow: 'خطوة واحدة ونبدأ', title: 'إنشاء حساب المالك', subtitle: 'أخبرنا عنك وعن عيادتك لنجهز مساحتك الخاصة.', fullName: 'الاسم الكامل', fullNamePlaceholder: 'د. سارة أحمد', clinicName: 'اسم العيادة', clinicNamePlaceholder: 'عيادة مدار الصحية', email: 'البريد الإلكتروني', password: 'كلمة المرور', passwordHint: 'ثمانية أحرف على الأقل', terms: 'أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بMERUNA SYSTEM.', submit: 'إنشاء حسابي', loading: 'جارٍ إنشاء المساحة...', haveAccount: 'لديك حساب بالفعل؟', login: 'سجل الدخول', requiredName: 'أدخل الاسم الكامل', validName: 'أدخل اسمًا صحيحًا', requiredClinic: 'أدخل اسم العيادة', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', requiredPassword: 'أدخل كلمة المرور', minPassword: 'يجب أن تتكون من 8 أحرف على الأقل', success: 'تم إنشاء عيادتك' },
+    recovery: { eyebrow: 'استعادة الوصول', title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريد الحساب وسنرسل رابطًا آمنًا لإعادة تعيين كلمة المرور.', email: 'البريد الإلكتروني', emailHint: 'استخدم البريد المرتبط بحسابك', emailPlaceholder: 'name@clinic.com', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', send: 'إرسال رابط الاستعادة', sending: 'جارٍ إرسال الرابط...', success: 'إذا كان البريد مرتبطًا بحساب، فسيصلك رابط استعادة خلال دقائق. افحص البريد الوارد ومجلد الرسائل غير المرغوب فيها.', back: 'العودة إلى تسجيل الدخول' },
+    reset: { eyebrow: 'كلمة مرور جديدة', title: 'إعادة تعيين كلمة المرور', subtitle: 'أنشئ كلمة مرور جديدة من 8 أحرف على الأقل.', password: 'كلمة المرور الجديدة', confirm: 'تأكيد كلمة المرور', requiredPassword: 'أدخل كلمة المرور الجديدة', minPassword: 'يجب أن تتكون من 8 أحرف على الأقل', requiredConfirm: 'أكد كلمة المرور', mismatch: 'كلمتا المرور غير متطابقتين', update: 'تحديث كلمة المرور', updating: 'جارٍ تحديث كلمة المرور...', success: 'تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.', back: 'العودة إلى تسجيل الدخول' }
+  },
+  en: {
+    railTrusted: 'A trusted space for your day',
+    railTitle: { login: 'Everything that needs your attention, in one place.', register: 'Start organizing your clinic with confidence.' },
+    railBody: 'MERUNA SYSTEM gives clinic teams clearer visibility, faster decisions, and a calmer day.',
+    privacy: 'Your privacy comes first',
+    secure: 'Secure and encrypted connection',
+    language: 'العربية',
+    mobileRegister: 'Create account',
+    mobileLogin: 'Sign in',
+      login: {
+      greeting: 'Good evening', title: 'Sign in', subtitle: 'Enter your details to access your clinic workspace.', email: 'Email address', emailHint: 'Use the email connected to your account', emailPlaceholder: 'name@clinic.com', password: 'Password', passwordPlaceholder: '••••••••', remember: 'Remember me on this device', forgot: 'Forgot your password?', submit: 'Sign in to MERUNA SYSTEM', loading: 'Checking...', noAccount: 'Don’t have an account?', register: 'Create your clinic now', or: 'or', healthy: 'All systems operational', degraded: 'The service is under temporary load', requiredEmail: 'Enter your email address', invalidEmail: 'Check the email format', requiredPassword: 'Enter your password', minPassword: 'Password must be at least 6 characters', showPassword: 'Show password', hidePassword: 'Hide password', errorInvalid: 'The email or password is incorrect.'
+    },
+    registerPage: { eyebrow: 'One step and you are in', title: 'Create your owner account', subtitle: 'Tell us about you and your clinic so we can prepare your workspace.', fullName: 'Full name', fullNamePlaceholder: 'Dr. Sarah Ahmed', clinicName: 'Clinic name', clinicNamePlaceholder: 'Madar Health Clinic', email: 'Email address', password: 'Password', passwordHint: 'At least eight characters', terms: 'I agree to MERUNA SYSTEM terms of use and privacy policy.', submit: 'Create my account', loading: 'Creating workspace...', haveAccount: 'Already have an account?', login: 'Sign in', requiredName: 'Enter your full name', validName: 'Enter a valid name', requiredClinic: 'Enter your clinic name', requiredEmail: 'Enter your email address', invalidEmail: 'Check the email format', requiredPassword: 'Enter your password', minPassword: 'Password must be at least 8 characters', success: 'Your clinic was created' },
+    recovery: { eyebrow: 'Restore access', title: 'Forgot your password?', subtitle: 'Enter your account email and we will send a secure reset link.', email: 'Email address', emailHint: 'Use the email connected to your account', emailPlaceholder: 'name@clinic.com', requiredEmail: 'Enter your email address', invalidEmail: 'Check the email format', send: 'Send reset link', sending: 'Sending reset link...', success: 'If the email is connected to an account, you will receive a reset link shortly. Check your inbox and spam folder.', back: 'Back to sign in' },
+    reset: { eyebrow: 'New password', title: 'Reset your password', subtitle: 'Create a new password with at least 8 characters.', password: 'New password', confirm: 'Confirm password', requiredPassword: 'Enter your new password', minPassword: 'Password must be at least 8 characters', requiredConfirm: 'Confirm your password', mismatch: 'Passwords do not match', update: 'Update password', updating: 'Updating password...', success: 'Your password was updated successfully. You can sign in now.', back: 'Back to sign in' }
+  }
+} as const;
+
+type AuthCopy = (typeof authCopy)[AuthLanguage];
+type AuthLocale = { lang: AuthLanguage; text: AuthCopy; toggleLanguage: () => void };
+const AuthLocaleContext = createContext<AuthLocale | null>(null);
+
+function useAuthLocale() {
+  const locale = useContext(AuthLocaleContext);
+  if (!locale) throw new Error('Auth locale is only available inside AuthLocaleProvider');
+  return locale;
+}
+
+function AuthLocaleProvider({ children }: { children: ReactNode }) {
+  const [lang, setLang] = useState<AuthLanguage>('ar');
+  useEffect(() => {
+    const saved = window.localStorage.getItem('meruna-language');
+    if (saved === 'en' || saved === 'ar') setLang(saved);
+  }, []);
+  useEffect(() => { window.localStorage.setItem('meruna-language', lang); }, [lang]);
+  const value = { lang, text: authCopy[lang], toggleLanguage: () => setLang((current) => current === 'ar' ? 'en' : 'ar') };
+  return <AuthLocaleContext.Provider value={value}>{children}</AuthLocaleContext.Provider>;
+}
+
+function AuthLayout({ children, mode, languageToggle = false }: { children: ReactNode; mode: 'login' | 'register'; languageToggle?: boolean }) {
+  const { lang, text, toggleLanguage } = useAuthLocale();
+  const isArabic = lang === 'ar';
   return (
     <main className="auth-layout noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="ltr">
       <div className="auth-decor auth-decor-one" aria-hidden="true" />
       <div className="auth-decor auth-decor-two" aria-hidden="true" />
       <div className="auth-scanline" aria-hidden="true" />
-      <section className="auth-rail auth-panel-enter hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16" dir="rtl">
+      <section className={`auth-rail auth-panel-enter hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16 ${isArabic ? 'text-right' : 'text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
         <div className="auth-brand-lockup relative z-10"><Logo /></div>
-        <div className="auth-rail-copy relative z-10 max-w-[410px] text-right">
-          <div className="auth-trust-badge mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><span className="auth-badge-dot" aria-hidden="true" /><ShieldCheck size={14} /> منصة موثوقة لإدارة يومك</div>
-          <h1 className="auth-rail-title ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{mode === 'login' ? 'كل ما يحتاج انتباهك، في مكان واحد.' : 'ابدأ تنظيم عيادتك بثقة.'}</h1>
-          <p className="auth-rail-description ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">MERUNA SYSTEM يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، ويومًا أكثر هدوءًا.</p>
+        <div className={`auth-rail-copy relative z-10 max-w-[410px] ${isArabic ? 'text-right' : 'text-left'}`}>
+          <div className="auth-trust-badge mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><span className="auth-badge-dot" aria-hidden="true" /><ShieldCheck size={14} /> {text.railTrusted}</div>
+          <h1 className="auth-rail-title ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{text.railTitle[mode]}</h1>
+          <p className="auth-rail-description ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">{text.railBody}</p>
         </div>
-        <div className="auth-rail-footer relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>خصوصيتك أولًا</span></div>
+        <div className="auth-rail-footer relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>{text.privacy}</span></div>
       </section>
-      <section className="auth-form-pane flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
-        <div className="flex items-center justify-between lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? 'إنشاء حساب' : 'تسجيل الدخول'}</Link></div>
+      <section className="auth-form-pane flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir={isArabic ? 'rtl' : 'ltr'}>
+        <div className="flex items-center justify-between"><div className="flex items-center justify-between gap-5 lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? text.mobileRegister : text.mobileLogin}</Link></div>{languageToggle && <button type="button" className="auth-language-toggle ms-auto rounded-full border border-[#cbdbe2] bg-white/70 px-3 py-2 text-xs font-bold text-[#31556b] transition hover:border-[#5d9caf] hover:text-[#174963]" onClick={toggleLanguage} data-testid="button-auth-language" aria-label={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}>{text.language}</button>}</div>
         <div className="m-auto w-full max-w-[445px] py-12">{children}</div>
-        <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> اتصال آمن ومشفّر</span></div>
+        <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> {text.secure}</span></div>
       </section>
     </main>
   );
@@ -149,27 +209,29 @@ function RecoveryPage({ onBack }: { onBack: () => void }) {
   const recovery = useRecoverPassword();
   const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
   const apiError = getApiErrorMessage(recovery.error);
+  const { lang, text } = useAuthLocale();
+  const copy = text.recovery;
 
   const submit = (values: RecoveryValues) => {
     recovery.mutate({ data: { email: values.email.trim() } });
   };
 
   return (
-    <AuthLayout mode="login">
+    <AuthLayout mode="login" languageToggle>
       <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">استعادة الوصول</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">نسيت كلمة المرور؟</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أدخل بريد الحساب وسنرسل رابطًا آمنًا لإعادة تعيين كلمة المرور.</p></div>
+        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
         {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-recovery-error">{apiError}</div> : null}
         {recovery.isSuccess ? (
-          <div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-recovery-success">إذا كان البريد مرتبطًا بحساب، فسيصلك رابط استعادة خلال دقائق. افحص البريد الوارد ومجلد الرسائل غير المرغوب فيها.</div>
+          <div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-recovery-success">{copy.success}</div>
         ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate>
-            <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message} hint="استخدم البريد المرتبط بحسابك">
-              <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\\S+@\\S+\\.\\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-recovery-email" /></div>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
+              <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-recovery-email" /></div>
             </Field>
-            <button className="primary-button w-full" type="submit" disabled={recovery.isPending} data-testid="button-recovery">{recovery.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ إرسال الرابط...</> : <>إرسال رابط الاستعادة <ArrowLeft size={17} /></>}</button>
+            <button className="primary-button w-full" type="submit" disabled={recovery.isPending} data-testid="button-recovery">{recovery.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.sending}</> : <>{copy.send} <ArrowLeft size={17} /></>}</button>
           </form>
         )}
-        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-[#3c7e93]" onClick={onBack} data-testid="button-back-to-login">العودة إلى تسجيل الدخول</button>
+        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-[#3c7e93]" onClick={onBack} data-testid="button-back-to-login">{copy.back}</button>
       </div>
     </AuthLayout>
   );
@@ -179,23 +241,25 @@ function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDon
   const reset = useResetPassword();
   const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
   const apiError = getApiErrorMessage(reset.error);
+  const { lang, text } = useAuthLocale();
+  const copy = text.reset;
 
   const submit = (values: ResetValues) => {
     reset.mutate({ data: { accessToken, password: values.password } });
   };
 
   return (
-    <AuthLayout mode="login">
+    <AuthLayout mode="login" languageToggle>
       <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">كلمة مرور جديدة</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">إعادة تعيين كلمة المرور</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أنشئ كلمة مرور جديدة من 8 أحرف على الأقل.</p></div>
+        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
         {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-reset-error">{apiError}</div> : null}
         {reset.isSuccess ? (
-          <div className="space-y-5"><div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-reset-success">تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.</div><button type="button" className="primary-button w-full" onClick={onDone} data-testid="button-reset-done">العودة إلى تسجيل الدخول <ArrowLeft size={17} /></button></div>
+          <div className="space-y-5"><div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-reset-success">{copy.success}</div><button type="button" className="primary-button w-full" onClick={onDone} data-testid="button-reset-done">{copy.back} <ArrowLeft size={17} /></button></div>
         ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate>
-            <Field label="كلمة المرور الجديدة" error={form.formState.errors.password?.message}><input {...form.register('password', { required: 'أدخل كلمة المرور الجديدة', minLength: { value: 8, message: 'يجب أن تتكون من 8 أحرف على الأقل' } })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" /></Field>
-            <Field label="تأكيد كلمة المرور" error={form.formState.errors.confirmPassword?.message}><input {...form.register('confirmPassword', { required: 'أكد كلمة المرور', validate: value => value === form.getValues('password') || 'كلمتا المرور غير متطابقتين' })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" /></Field>
-            <button className="primary-button w-full" type="submit" disabled={reset.isPending} data-testid="button-reset-password">{reset.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ تحديث كلمة المرور...</> : <>تحديث كلمة المرور <ArrowLeft size={17} /></>}</button>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <Field label={copy.password} error={form.formState.errors.password?.message}><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" /></Field>
+            <Field label={copy.confirm} error={form.formState.errors.confirmPassword?.message}><input {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: value => value === form.getValues('password') || copy.mismatch })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" /></Field>
+            <button className="primary-button w-full" type="submit" disabled={reset.isPending} data-testid="button-reset-password">{reset.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.updating}</> : <>{copy.update} <ArrowLeft size={17} /></>}</button>
           </form>
         )}
       </div>
@@ -212,11 +276,14 @@ function LoginPage() {
   const health = useHealthCheck({ query: { retry: false, enabled: !showRecovery && !recoveryToken, queryKey: getHealthCheckQueryKey() } });
   const form = useForm<LoginValues>({ defaultValues: { email: '', password: '' }, mode: 'onTouched' });
   const [showPassword, setShowPassword] = useState(false);
+  const { lang, text } = useAuthLocale();
+  const copy = text.login;
+  const isArabic = lang === 'ar';
   const onSubmit = (values: LoginValues) => {
     login.mutate({ data: values }, {
       onSuccess: (session) => {
         client.setQueryData(getGetAuthSessionQueryKey(), session);
-        toast.success('مرحبًا بعودتك');
+        toast.success(lang === 'ar' ? 'مرحبًا بعودتك' : 'Welcome back');
         setLocation('/dashboard');
       },
     });
@@ -224,24 +291,25 @@ function LoginPage() {
   const apiError = getApiErrorMessage(login.error);
   if (recoveryToken) return <ResetPasswordPage accessToken={recoveryToken} onDone={() => { window.history.replaceState(null, '', '/login'); setShowRecovery(false); window.location.reload(); }} />;
   if (showRecovery) return <RecoveryPage onBack={() => setShowRecovery(false)} />;
+  const displayApiError = apiError?.toLowerCase().includes('email') || apiError?.toLowerCase().includes('password') ? copy.errorInvalid : apiError;
   return (
-    <AuthLayout mode="login">
+    <AuthLayout mode="login" languageToggle>
       <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">مساء الخير</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-login">تسجيل الدخول</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أدخل بياناتك للوصول إلى لوحة عيادتك.</p></div>
-        {apiError ? <div className="mb-5 flex items-start gap-2 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-login-error"><X size={17} className="mt-1 shrink-0" /> {apiError}</div> : null}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
-          <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message} hint="استخدم البريد المرتبط بحسابك">
-            <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\S+@\S+\.\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-login-email" /></div>
+        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.greeting}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-login">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
+        {displayApiError ? <div className="mb-5 flex items-start gap-2 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-login-error"><X size={17} className="mt-1 shrink-0" /> {displayApiError}</div> : null}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate dir={isArabic ? 'rtl' : 'ltr'}>
+          <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
+            <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-login-email" /></div>
           </Field>
-          <Field label="كلمة المرور" error={form.formState.errors.password?.message}>
-            <div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 6, message: 'يجب أن تتكون من 6 أحرف على الأقل' } })} className="input-field pl-11 pr-11 text-left" dir="ltr" type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" data-testid="input-login-password" /><button type="button" className="absolute left-3.5 top-3.5 text-[#8196a1]" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} data-testid="button-toggle-password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+          <Field label={copy.password} error={form.formState.errors.password?.message}>
+            <div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 6, message: copy.minPassword } })} className="input-field pl-11 pr-11 text-left" dir="ltr" type={showPassword ? 'text' : 'password'} placeholder={copy.passwordPlaceholder} autoComplete="current-password" data-testid="input-login-password" /><button type="button" className="absolute left-3.5 top-3.5 text-[#8196a1]" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? copy.hidePassword : copy.showPassword} data-testid="button-toggle-password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
           </Field>
-          <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> تذكرني على هذا الجهاز</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => { login.reset(); setShowRecovery(true); }} data-testid="button-forgot-password">نسيت كلمة المرور؟</button></div>
-          <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ التحقق...</> : <>دخول إلى MERUNA SYSTEM <ArrowLeft size={17} /></>}</button>
+          <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> {copy.remember}</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => { login.reset(); setShowRecovery(true); }} data-testid="button-forgot-password">{copy.forgot}</button></div>
+          <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.loading}</> : <>{copy.submit} <ArrowLeft size={17} /></>}</button>
         </form>
-        <div className="mt-8 flex items-center gap-3 text-xs text-[#8a9ba4]"><div className="h-px flex-1 bg-[#d9e3e8]" /> أو <div className="h-px flex-1 bg-[#d9e3e8]" /></div>
-        <p className="mt-7 text-center text-sm text-[#718591]">ليس لديك حساب؟ <Link href="/register" className="font-bold text-[#3c7e93]" data-testid="link-register">أنشئ عيادتك الآن</Link></p>
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-[.7rem] text-[#a0adb3]" data-testid="status-api"><span className={`status-dot ${health.isError ? '!bg-[#c67870]' : ''}`} /> {health.isError ? 'الخدمة تواجه ضغطًا مؤقتًا' : 'الأنظمة تعمل بشكل طبيعي'}</p>
+        <div className="mt-8 flex items-center gap-3 text-xs text-[#8a9ba4]"><div className="h-px flex-1 bg-[#d9e3e8]" /> {copy.or} <div className="h-px flex-1 bg-[#d9e3e8]" /></div>
+        <p className="mt-7 text-center text-sm text-[#718591]">{copy.noAccount} <Link href="/register" className="font-bold text-[#3c7e93]" data-testid="link-register">{copy.register}</Link></p>
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-[.7rem] text-[#a0adb3]" data-testid="status-api"><span className={`status-dot ${health.isError ? '!bg-[#c67870]' : ''}`} /> {health.isError ? copy.degraded : copy.healthy}</p>
       </div>
     </AuthLayout>
   );
@@ -252,22 +320,24 @@ function RegisterPage() {
   const client = useQueryClient();
   const register = useRegister();
   const form = useForm<RegisterValues>({ defaultValues: { fullName: '', clinicName: '', email: '', password: '' }, mode: 'onTouched' });
-  const onSubmit = (values: RegisterValues) => register.mutate({ data: values }, { onSuccess: (session) => { client.setQueryData(getGetAuthSessionQueryKey(), session); toast.success('تم إنشاء عيادتك'); setLocation('/dashboard'); } });
+  const { lang, text } = useAuthLocale();
+  const copy = text.registerPage;
+  const onSubmit = (values: RegisterValues) => register.mutate({ data: values }, { onSuccess: (session) => { client.setQueryData(getGetAuthSessionQueryKey(), session); toast.success(copy.success); setLocation('/dashboard'); } });
   const apiError = getApiErrorMessage(register.error);
   return (
-    <AuthLayout mode="register">
+    <AuthLayout mode="register" languageToggle>
       <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">خطوة واحدة ونبدأ</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-register">إنشاء حساب المالك</h2><p className="mt-2 text-sm leading-6 text-[#718591]">أخبرنا عنك وعن عيادتك لنجهز مساحتك الخاصة.</p></div>
+        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-register">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
         {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-register-error">{apiError}</div> : null}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <Field label="الاسم الكامل" error={form.formState.errors.fullName?.message}><div className="relative"><UserRound size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('fullName', { required: 'أدخل الاسم الكامل', minLength: { value: 2, message: 'أدخل اسمًا صحيحًا' } })} className="input-field pr-11" placeholder="د. سارة أحمد" autoComplete="name" data-testid="input-register-full-name" /></div></Field>
-          <Field label="اسم العيادة" error={form.formState.errors.clinicName?.message}><div className="relative"><Building2 size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('clinicName', { required: 'أدخل اسم العيادة', minLength: { value: 2, message: 'أدخل اسمًا صحيحًا' } })} className="input-field pr-11" placeholder="عيادة مدار الصحية" data-testid="input-register-clinic-name" /></div></Field>
-          <Field label="البريد الإلكتروني" error={form.formState.errors.email?.message}><div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: 'أدخل البريد الإلكتروني', pattern: { value: /^\S+@\S+\.\S+$/, message: 'تحقق من صيغة البريد الإلكتروني' } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-register-email" /></div></Field>
-          <Field label="كلمة المرور" error={form.formState.errors.password?.message} hint="ثمانية أحرف على الأقل"><div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: 'أدخل كلمة المرور', minLength: { value: 8, message: 'يجب أن تتكون من 8 أحرف على الأقل' } })} className="input-field pr-11 text-left" dir="ltr" type="password" placeholder="••••••••" autoComplete="new-password" data-testid="input-register-password" /></div></Field>
-          <label className="flex items-start gap-2 pt-1 text-xs leading-5 text-[#718591]"><input type="checkbox" required className="mt-1 h-4 w-4 accent-[#174963]" data-testid="input-terms" /> أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بMERUNA SYSTEM.</label>
-          <button className="primary-button mt-2 w-full" type="submit" disabled={register.isPending} data-testid="button-register">{register.isPending ? <><RefreshCw size={17} className="animate-spin" /> جارٍ إنشاء المساحة...</> : <>إنشاء حسابي <ArrowLeft size={17} /></>}</button>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <Field label={copy.fullName} error={form.formState.errors.fullName?.message}><div className="relative"><UserRound size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('fullName', { required: copy.requiredName, minLength: { value: 2, message: copy.validName } })} className="input-field pr-11" placeholder={copy.fullNamePlaceholder} autoComplete="name" data-testid="input-register-full-name" /></div></Field>
+          <Field label={copy.clinicName} error={form.formState.errors.clinicName?.message}><div className="relative"><Building2 size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('clinicName', { required: copy.requiredClinic, minLength: { value: 2, message: copy.validName } })} className="input-field pr-11" placeholder={copy.clinicNamePlaceholder} data-testid="input-register-clinic-name" /></div></Field>
+          <Field label={copy.email} error={form.formState.errors.email?.message}><div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-register-email" /></div></Field>
+          <Field label={copy.password} error={form.formState.errors.password?.message} hint={copy.passwordHint}><div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="input-field pr-11 text-left" dir="ltr" type="password" placeholder="••••••••" autoComplete="new-password" data-testid="input-register-password" /></div></Field>
+          <label className="flex items-start gap-2 pt-1 text-xs leading-5 text-[#718591]"><input type="checkbox" required className="mt-1 h-4 w-4 accent-[#174963]" data-testid="input-terms" /> {copy.terms}</label>
+          <button className="primary-button mt-2 w-full" type="submit" disabled={register.isPending} data-testid="button-register">{register.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.loading}</> : <>{copy.submit} <ArrowLeft size={17} /></>}</button>
         </form>
-        <p className="mt-7 text-center text-sm text-[#718591]">لديك حساب بالفعل؟ <Link href="/login" className="font-bold text-[#3c7e93]" data-testid="link-login">سجل الدخول</Link></p>
+        <p className="mt-7 text-center text-sm text-[#718591]">{copy.haveAccount} <Link href="/login" className="font-bold text-[#3c7e93]" data-testid="link-login">{copy.login}</Link></p>
       </div>
     </AuthLayout>
   );
@@ -371,7 +441,7 @@ function Router() {
 }
 
 function App() {
-  return <QueryClientProvider client={queryClient}><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster position="bottom-left" richColors /></QueryClientProvider>;
+  return <AuthLocaleProvider><QueryClientProvider client={queryClient}><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster position="bottom-left" richColors /></QueryClientProvider></AuthLocaleProvider>;
 }
 
 export default App;
