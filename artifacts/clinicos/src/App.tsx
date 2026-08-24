@@ -47,6 +47,7 @@ import {
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { PatientsPage, AppointmentsPage } from '@/pages/operations-pages';
 import MerunaHome from '@/pages/meruna-home';
+import CurrentMerunaHome from '@/pages/meruna-home-current';
 
 const queryClient = new QueryClient();
 
@@ -360,8 +361,8 @@ function NotFound() {
 
 function Router() {
   const [location] = useLocation();
-  const publicRoute = location === '/' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
+  const publicRoute = location === '/' || location === '/current-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
 }
 
 function App() {
