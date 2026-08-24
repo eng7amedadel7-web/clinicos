@@ -104,8 +104,8 @@
   z-index: 1;
   overflow: hidden;
   margin-top: 76px;
-  background: hsl(27 87% 56%);
-  color: hsl(220 36% 13%);
+  background: hsl(var(--navy));
+  color: hsl(214 33% 94%);
   clip-path: polygon(0 13%, 100% 0, 100% 87%, 0 100%);
 }
 .landing-home .meruna-momentum-track {
@@ -251,7 +251,7 @@
 }
 .landing-home.is-arabic .meruna-channel-mark { right: auto; left: 1.55rem; }
 .landing-home .tone-blue .meruna-channel-icon { color: hsl(var(--primary)); }
-.landing-home .tone-amber .meruna-channel-icon { color: hsl(33 70% 45%); }
+.landing-home .tone-amber .meruna-channel-icon { color: hsl(var(--accent)); }
 .landing-home .tone-coral .meruna-channel-icon { color: hsl(8 70% 52%); }
 
 .landing-home .meruna-journey-section {
@@ -314,16 +314,16 @@
   color: hsl(var(--primary));
 }
 .landing-home .meruna-final-cta {
-  background: hsl(27 87% 56%);
-  color: hsl(220 36% 13%);
+  background: hsl(var(--navy));
+  color: hsl(214 33% 94%);
 }
 .landing-home .meruna-final-cta .meruna-kicker,
-.landing-home .meruna-final-cta .meruna-kicker::before { color: hsl(220 36% 13%); background: hsl(220 36% 13%); }
-.landing-home .meruna-final-cta .cf-body-muted { color: hsl(220 36% 13% / .68); }
-.landing-home .meruna-final-cta .cf-button-primary { background: hsl(var(--navy)); color: white; }
-.landing-home .meruna-final-cta .cf-button-primary:hover { background: hsl(var(--navy) / .88); }
-.landing-home .meruna-final-cta .cf-button-ghost { border-color: hsl(220 36% 13% / .28); color: hsl(220 36% 13%); }
-.landing-home .meruna-final-cta .cf-button-ghost:hover { border-color: hsl(var(--navy)); background: hsl(var(--navy) / .08); }
+.landing-home .meruna-final-cta .meruna-kicker::before { color: hsl(var(--accent)); background: hsl(var(--accent)); }
+.landing-home .meruna-final-cta .cf-body-muted { color: hsl(214 17% 74%); }
+.landing-home .meruna-final-cta .cf-button-primary { background: hsl(var(--primary)); color: white; }
+.landing-home .meruna-final-cta .cf-button-primary:hover { background: hsl(var(--primary) / .88); }
+.landing-home .meruna-final-cta .cf-button-ghost { border-color: hsl(214 33% 94% / .28); color: hsl(214 33% 94%); }
+.landing-home .meruna-final-cta .cf-button-ghost:hover { border-color: hsl(var(--accent)); background: hsl(var(--accent) / .1); }
 
 @media (max-width: 900px) {
   .landing-home .meruna-section-heading { align-items: start; flex-direction: column; gap: 1rem; }
