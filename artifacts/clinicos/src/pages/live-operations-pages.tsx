@@ -8,9 +8,10 @@ type Message = { id: string; content: string; direction: string; created_at: str
 type BookingOptions = { patients: Array<{ id: string; name: string }>; doctors: Array<{ id: string; name: string }>; services: Array<{ id: string; name: string }>; slots: Array<{ id: string; doctorId: string; serviceId: string; startTime: string; endTime: string; status: string }> };
 
 const statusLabels: Record<string, string> = { scheduled: "مجدول", confirmed: "مؤكد", checked_in: "وصل", completed: "مكتمل", cancelled: "ملغي", no_show: "لم يحضر", pending: "بانتظار التأكيد" };
+const clinicTimeZone = "Asia/Riyadh";
 function statusTone(status: string) { if (["checked_in", "completed"].includes(status)) return "bg-[#d9f0e8] text-[#176b58]"; if (["scheduled", "pending"].includes(status)) return "bg-[#fff0d8] text-[#9a6513]"; if (["cancelled", "no_show"].includes(status)) return "bg-[#f8dfdc] text-[#a64036]"; return "bg-[#dcecf5] text-[#22617d]"; }
-function dateTime(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(date); }
-function timeOnly(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit" }).format(date); }
+function dateTime(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short", timeZone: clinicTimeZone }).format(date); }
+function timeOnly(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: clinicTimeZone }).format(date); }
 
 function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
   return <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mb-1.5 text-[11px] font-bold text-[#3c7e93]">{eyebrow}</p><h1 className="text-[27px] font-extrabold tracking-tight text-[#18374d] md:text-[31px]">{title}</h1><p className="mt-1 text-[13px] text-[#718591]">{description}</p></div>{action}</div>;

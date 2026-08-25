@@ -16,16 +16,18 @@ const statusLabels: Record<string, string> = {
   pending: "بانتظار التأكيد",
 };
 
+const clinicTimeZone = "Asia/Riyadh";
+
 function formatTime(value: string | null) {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit" }).format(date);
+  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: clinicTimeZone }).format(date);
 }
 
 function formatDate(value: string | null) {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short" }).format(date);
+  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short", timeZone: clinicTimeZone }).format(date);
 }
 
 function statusTone(status: string) {
@@ -70,7 +72,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
   const teamCount = summary?.stats.find((stat) => stat.label === "أعضاء الفريق")?.value ?? "—";
   const patientCount = summary?.stats.find((stat) => stat.label === "المرضى")?.value ?? "—";
   const visibleAppointments = appointments.slice(0, 5);
-  const todayLabel = new Intl.DateTimeFormat("ar-SA", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const todayLabel = new Intl.DateTimeFormat("ar-SA", { weekday: "long", day: "numeric", month: "long", timeZone: clinicTimeZone }).format(new Date());
   const busy = summaryQuery.isLoading || appointmentsLoading;
   const failed = summaryQuery.isError || appointmentsError;
 
