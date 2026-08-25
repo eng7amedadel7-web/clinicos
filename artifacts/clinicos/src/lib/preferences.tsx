@@ -35,7 +35,7 @@ export type TranslationKey = keyof typeof translations.ar;
 type PreferencesContextValue = {
   language: Language; theme: Theme; dir: "rtl"; selectedBranchId: string; branches: Branch[]; branchesLoading: boolean; branchesError: boolean;
   t: (key: TranslationKey, values?: Record<string, string | number>) => string;
-  toggleLanguage: () => void; toggleTheme: () => void; setSelectedBranchId: (id: string) => void;
+  toggleLanguage: () => void; toggleTheme: () => void; loadBranches: () => void; setSelectedBranchId: (id: string) => void;
 };
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
@@ -44,7 +44,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => window.localStorage.getItem("clinicos-theme") === "dark" ? "dark" : "light");
   const [selectedBranchId, setBranch] = useState(() => window.localStorage.getItem("clinicos-branch") || "all");
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(true);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchesRequested, setBranchesRequested] = useState(false);
   const [branchesError, setBranchesError] = useState(false);
 
   useEffect(() => {
@@ -55,20 +56,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem("clinicos-language", language);
   }, [language, theme]);
   useEffect(() => {
+    if (!branchesRequested) return;
     let active = true;
+    setBranchesLoading(true);
     fetch("/api/organization/branches", { credentials: "include" }).then((response) => response.ok ? response.json() : Promise.reject(new Error("branches")))
       .then((data: unknown) => { if (active) { const rows = Array.isArray(data) ? data as Branch[] : []; setBranches(rows.filter((branch) => branch.is_active !== false)); setBranchesError(false); } })
       .catch(() => { if (active) setBranchesError(true); }).finally(() => { if (active) setBranchesLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [branchesRequested]);
   useEffect(() => { if (selectedBranchId !== "all" && !branchesLoading && !branches.some((branch) => branch.id === selectedBranchId)) setBranch("all"); }, [branches, branchesLoading, selectedBranchId]);
 
   const value = useMemo<PreferencesContextValue>(() => ({
     language, theme, dir: "rtl", selectedBranchId, branches, branchesLoading, branchesError,
     t: (key) => translations[language][key],
-    toggleLanguage: () => setLanguage((current) => current === "ar" ? "en" : "ar"),
-    toggleTheme: () => setTheme((current) => current === "light" ? "dark" : "light"),
-    setSelectedBranchId: (id) => { setBranch(id); window.localStorage.setItem("clinicos-branch", id); },
+    toggleLanguage: () => setLanguage((current) => current === "ar" ? "en" : "ar"), toggleTheme: () => setTheme((current) => current === "light" ? "dark" : "light"), loadBranches: () => setBranchesRequested(true), setSelectedBranchId: (id) => { setBranch(id); window.localStorage.setItem("clinicos-branch", id); },
   }), [branches, branchesError, branchesLoading, language, selectedBranchId, theme]);
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }

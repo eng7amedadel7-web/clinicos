@@ -66,8 +66,9 @@ export async function getVoiceAgentData(signal?: AbortSignal): Promise<VoiceAgen
   return operationsRequest<VoiceAgentData>("/api/operations/voice-agent", { signal });
 }
 
-export async function getOperationsSummary(signal?: AbortSignal): Promise<OperationsSummary> {
-  const response = await fetch("/api/operations/summary", { credentials: "include", signal });
+export async function getOperationsSummary(signal?: AbortSignal, branchId?: string): Promise<OperationsSummary> {
+  const suffix = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+  const response = await fetch(`/api/operations/summary${suffix}`, { credentials: "include", signal });
   const payload = await response.json().catch(() => null) as { error?: string } | OperationsSummary | null;
   if (!response.ok) {
     throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل ملخص العمليات.");

@@ -65,7 +65,7 @@ import LegalPage from '@/pages/legal-pages';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { getOperationsSummary } from '@/lib/operations-api';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 } } });
 
 type LoginValues = { email: string; password: string };
 type RegisterValues = { fullName: string; clinicName: string; email: string; password: string };
@@ -374,7 +374,7 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const [clinicMenuOpen, setClinicMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError } = usePreferences();
+  const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError, loadBranches } = usePreferences();
   const links: Array<{ href: string; key: TranslationKey; icon: typeof Home }> = [{ href: '/dashboard', key: 'overview', icon: Home }, { href: '/patients', key: 'patients', icon: UsersRound }, { href: '/appointments', key: 'appointments', icon: Clock3 }, { href: '/inbox', key: 'inbox', icon: Inbox }, { href: '/waitlist', key: 'waitlist', icon: Clock3 }, { href: '/follow-ups', key: 'followUps', icon: Sparkles }, { href: '/no-shows', key: 'noShowsOpen', icon: ShieldCheck }, { href: '/voice-agent', key: 'voiceAgent', icon: PhoneCall }, { href: '/billing', key: 'reports', icon: CreditCard }, { href: '/settings', key: 'settings', icon: Settings2 }];
   const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
 
@@ -413,7 +413,7 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
         </button>
       </div>
       <div className="relative mb-7">
-        <button type="button" onClick={() => setClinicMenuOpen((value) => !value)} aria-expanded={clinicMenuOpen} aria-label="تبديل العيادة أو الفرع" title={collapsed ? clinicName : undefined} className={`sidebar-clinic flex w-full items-center rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3 text-right ${collapsed ? 'justify-center gap-0' : 'gap-3'}`} data-testid="button-clinic-switcher">
+        <button type="button" onClick={() => { loadBranches(); setClinicMenuOpen((value) => !value); }} aria-expanded={clinicMenuOpen} aria-label="تبديل العيادة أو الفرع" title={collapsed ? clinicName : undefined} className={`sidebar-clinic flex w-full items-center rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3 text-right ${collapsed ? 'justify-center gap-0' : 'gap-3'}`} data-testid="button-clinic-switcher">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#8fbaca]/15 text-[#9cc6d3]"><Building2 size={18} /></div>
           <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> {branchesLoading ? t('loadingBranches') : selectedBranchId === 'all' ? t('clinicWide') : branches.find((branch) => branch.id === selectedBranchId)?.name || t('chooseBranch')}</p></div>
           <ChevronDown size={14} className={`mr-auto text-[#7895a2] transition-transform ${clinicMenuOpen ? 'rotate-180' : ''} ${collapsed ? 'md:hidden' : ''}`} />
@@ -441,9 +441,9 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
 }
 
 function WorkspaceToolbar() {
-  const { language, theme, t, toggleLanguage, toggleTheme } = usePreferences();
+  const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId } = usePreferences();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications'], queryFn: ({ signal }) => getOperationsSummary(signal), staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
+  const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications', selectedBranchId], queryFn: ({ signal }) => getOperationsSummary(signal, selectedBranchId === 'all' ? undefined : selectedBranchId), enabled: notificationsOpen, staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
   const stats = summaryQuery.data?.stats;
   const notifications = [
     { id: 'inbox', label: t('conversationsNeedStaff'), count: stats?.conversationsNeedingStaff ?? 0, href: '/inbox' },
