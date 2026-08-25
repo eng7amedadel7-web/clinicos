@@ -136,12 +136,16 @@
 .sidebar-link.active { color: #eef8fb; background: rgba(106,174,198,.18); }
 .sidebar-link.active::before { content: ""; position: absolute; inset-block: 9px; inset-inline-end: -.35rem; width: 3px; border-radius: 3px 0 0 3px; background: #8dbbce; }
 .main-content { overflow-x: hidden; text-align: right; background: #eef3f7; }
+.workspace-route { min-height: 0; }
+.workspace-page { overflow-x: hidden; }
+.workspace-page-header { min-height: 4.25rem; }
 .workspace-toolbar { min-height: 3.75rem; }
 .toolbar-button, .toolbar-language { position: relative; display: inline-flex; min-width: 2.5rem; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid #dbe5ea; border-radius: .75rem; background: #fff; color: #607c89; font-size: .72rem; font-weight: 800; transition: color .18s ease, background-color .18s ease, border-color .18s ease, transform .18s ease; }
 .toolbar-button:hover, .toolbar-language:hover { border-color: #9fc0ca; background: #f1f7f7; color: #23677c; transform: translateY(-1px); }
 .toolbar-badge { position: absolute; right: -.35rem; top: -.35rem; display: grid; min-width: 1.1rem; height: 1.1rem; place-items: center; border-radius: 999px; background: #3c7e93; color: #fff; font-size: .58rem; }
 .toolbar-popover { color: #18374d; }
 .dark .app-shell, .dark .main-content { background: hsl(var(--background)); }
+.dark .workspace-page-header h1 { color: hsl(var(--foreground)); }
 .dark .workspace-toolbar { border-color: hsl(var(--border)); background: hsl(var(--card) / .92); }
 .dark .toolbar-button, .dark .toolbar-language { border-color: hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--muted-foreground)); }
 .dark .toolbar-button:hover, .dark .toolbar-language:hover { border-color: hsl(var(--ring)); background: hsl(var(--muted)); color: hsl(var(--primary)); }
