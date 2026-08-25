@@ -288,3 +288,29 @@
   .auth-layout > .auth-decor-one,
   .auth-layout > .auth-decor-two { animation: none; }
 }
+
+.channel-shortcut {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex: none;
+  align-items: center;
+  gap: .4rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: .75rem;
+  padding: .45rem .65rem;
+  background: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
+  font-size: .68rem;
+  font-weight: 700;
+  transition: border-color .2s ease, color .2s ease, background-color .2s ease, transform .2s ease;
+}
+.channel-shortcut:hover { transform: translateY(-1px); }
+.channel-whatsapp:hover { border-color: #25d366; color: #128c4a; background: #effcf4; }
+.channel-messenger:hover { border-color: #168aff; color: #0866ff; background: #f0f7ff; }
+.channel-instagram:hover { border-color: #e1306c; color: #c13584; background: #fff3f8; }
+.channel-telegram:hover { border-color: #229ed9; color: #168ac0; background: #eff9fd; }
+
+@media (max-width: 640px) {
+  .channel-shortcut span { display: none; }
+  .channel-shortcut { min-width: 2.25rem; justify-content: center; padding-inline: .55rem; }
+}

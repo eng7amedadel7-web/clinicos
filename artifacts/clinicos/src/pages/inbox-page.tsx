@@ -99,7 +99,7 @@ export default function InboxPage() {
     if (outcome) operationMutation.mutate({ id: selected.id, action: "outcome", body: { outcome } });
   }
 
-  return <section className="mx-auto max-w-[1450px]" dir="rtl">
+  return <section className="w-full" dir="rtl">
     <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div>
         <p className="mb-1.5 text-[11px] font-bold text-[hsl(var(--primary))]">التواصل / inbox</p>

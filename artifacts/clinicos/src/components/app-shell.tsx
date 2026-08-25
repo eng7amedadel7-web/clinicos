@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   Activity, ArrowUpLeft, BarChart3, Bell, Bot, BriefcaseMedical, CalendarClock,
   CalendarDays, ChevronLeft, ClipboardCheck, Files, Inbox, LayoutDashboard,
-  ListChecks, Menu, Moon, PhoneCall, Settings2, Stethoscope, Sun, UserRound, Users, X, Zap,
+  ListChecks, Menu, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, PhoneCall, Send, Settings2, Stethoscope, Sun, UserRound, Users, X, Zap,
 } from "lucide-react";
 import { usePreferences } from "@/lib/preferences";
 
@@ -16,6 +16,13 @@ const primaryNav = [
   { href: "/waitlist", label: "قائمة الانتظار", en: "Waitlist", icon: ListChecks },
   { href: "/follow-ups", label: "المتابعات", en: "Follow-ups", icon: ClipboardCheck },
 ];
+const channelShortcuts = [
+  { key: "whatsapp", label: "واتساب", icon: PhoneCall, className: "channel-whatsapp" },
+  { key: "messenger", label: "ماسنجر", icon: MessageCircle, className: "channel-messenger" },
+  { key: "instagram", label: "إنستغرام", icon: Activity, className: "channel-instagram" },
+  { key: "telegram", label: "تيليجرام", icon: Send, className: "channel-telegram" },
+];
+
 const workspaceNav = [
   { href: "/calendar", label: "التقويم", en: "Calendar", icon: CalendarClock },
   { href: "/doctors", label: "الأطباء", en: "Doctors", icon: Stethoscope },
@@ -31,7 +38,18 @@ const workspaceNav = [
 export function AppShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.localStorage.getItem("clinicos-sidebar-collapsed") === "true");
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const sidebarExpanded = !sidebarCollapsed || sidebarHovered;
+
+  function toggleSidebar() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem("clinicos-sidebar-collapsed", String(next));
+      return next;
+    });
+  }
   const hasMounted = useRef(false);
   const { language, theme, t, toggleLanguage, toggleTheme } = usePreferences();
 
@@ -53,14 +71,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         href={item.href}
         onClick={() => setMobileOpen(false)}
         data-testid={`link-nav-${item.href.slice(1)}`}
-        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-all ${
+        title={!sidebarExpanded ? (language === "ar" ? item.label : item.en) : undefined}
+        className={`group flex items-center rounded-xl py-2.5 text-[13px] transition-all ${sidebarExpanded ? "gap-3 px-3" : "justify-center px-2"} ${
           active ? "bg-[hsl(var(--sidebar-accent))] text-white shadow-sm" : "text-[hsl(var(--sidebar-foreground)/.68)] hover:bg-[hsl(var(--sidebar-accent)/.72)] hover:text-white"
         }`}
       >
         <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
-        <span className="flex-1">{language === "ar" ? item.label : item.en}</span>
-        {item.count && <span className={`rounded-md px-1.5 py-0.5 text-[10px] mono ${active ? "bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))]" : "bg-white/10 text-white/65"}`}>{item.count}</span>}
-        {active && <ChevronLeft size={14} className="text-[hsl(var(--sidebar-primary))]" />}
+        {sidebarExpanded && <span className="flex-1 truncate">{language === "ar" ? item.label : item.en}</span>}
+        {item.count && <span className={`rounded-md px-1.5 py-0.5 text-[10px] mono ${sidebarExpanded ? "" : "absolute -mt-5 ml-5"} ${active ? "bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))]" : "bg-white/10 text-white/65"}`}>{item.count}</span>}
+        {active && sidebarExpanded && <ChevronLeft size={14} className="text-[hsl(var(--sidebar-primary))]" />}
       </Link>
     );
   };
@@ -74,36 +93,47 @@ export function AppShell({ children }: { children: ReactNode }) {
       <button aria-label={language === "ar" ? "فتح القائمة" : "Open menu"} data-testid="button-open-mobile-nav" className={`fixed left-4 top-4 z-30 rounded-xl bg-[hsl(var(--sidebar))] p-2.5 text-white shadow-lg md:hidden`} onClick={() => setMobileOpen(true)}>
         <Menu size={20} />
       </button>
-      <aside className={`sidebar fixed inset-y-0 z-40 flex w-[258px] flex-col px-4 py-5 transition-transform duration-300 left-0 border-r border-white/10 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="mb-8 flex items-center justify-between px-2">
+      <aside
+        onMouseEnter={() => sidebarCollapsed && setSidebarHovered(true)}
+        onMouseLeave={() => setSidebarHovered(false)}
+        data-collapsed={!sidebarExpanded}
+        className={`sidebar fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/10 py-5 transition-[width,transform,padding] duration-300 md:translate-x-0 ${sidebarExpanded ? "w-[258px] px-4" : "w-[78px] px-2"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className={`mb-8 flex items-center ${sidebarExpanded ? "justify-between px-2" : "justify-center"}`}>
           <Link href="/dashboard" data-testid="link-logo" className="flex items-center gap-2.5">
             <span className="grid size-9 place-items-center rounded-xl bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] shadow-[0_5px_18px_hsl(var(--sidebar-primary)/.25)]"><Activity size={19} strokeWidth={2.5} /></span>
-            <span className="leading-tight"><strong className="block text-[17px] tracking-tight text-white">Clinic<span className="text-[hsl(var(--sidebar-primary))]">OS</span></strong><small className="text-[10px] text-white/45">{t("clinicCenter")}</small></span>
+            {sidebarExpanded && <span className="leading-tight"><strong className="block text-[17px] tracking-tight text-white">Clinic<span className="text-[hsl(var(--sidebar-primary))]">OS</span></strong><small className="text-[10px] text-white/45">{t("clinicCenter")}</small></span>}
           </Link>
           <button aria-label={language === "ar" ? "إغلاق القائمة" : "Close menu"} data-testid="button-close-mobile-nav" className="rounded-lg p-1.5 text-white/55 hover:bg-white/10 md:hidden" onClick={() => setMobileOpen(false)}><X size={17} /></button>
         </div>
-        <div className="mb-3 px-3 text-[10px] font-bold tracking-[.14em] text-white/35">{t("today")}</div>
-        <nav className="space-y-1">{primaryNav.map(navItem)}</nav>
-        <div className="mb-3 mt-7 px-3 text-[10px] font-bold tracking-[.14em] text-white/35">{t("clinicManagement")}</div>
-        <nav className="space-y-1">{workspaceNav.map(navItem)}</nav>
+        {sidebarExpanded && <div className="mb-3 px-3 text-[10px] font-bold tracking-[.14em] text-white/35">{t("today")}</div>}
+        <nav className="flex flex-col gap-1">{primaryNav.map(navItem)}</nav>
+        {sidebarExpanded && <div className="mb-3 mt-7 px-3 text-[10px] font-bold tracking-[.14em] text-white/35">{t("clinicManagement")}</div>}
+        <nav className={`flex flex-col gap-1 ${sidebarExpanded ? "" : "mt-5"}`}>{workspaceNav.map(navItem)}</nav>
         <div className="mt-auto">
-          <div className="mb-3 rounded-2xl border border-[hsl(var(--sidebar-primary)/.2)] bg-[hsl(var(--sidebar-primary)/.08)] p-3.5">
+          {sidebarExpanded && <div className="mb-3 rounded-2xl border border-[hsl(var(--sidebar-primary)/.2)] bg-[hsl(var(--sidebar-primary)/.08)] p-3.5">
             <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-[hsl(var(--sidebar-primary))]"><Zap size={14} /> {t("assistantWorking")}</div>
             <p className="mb-3 text-[11px] leading-5 text-white/55">{t("assistantCount")}</p>
             <Link href="/ai-receptionist" data-testid="link-sidebar-ai" className="flex items-center justify-between text-[11px] font-bold text-white/80 hover:text-white">{t("manageAssistant")} <ArrowUpLeft size={14} /></Link>
-          </div>
-          <Link href="/settings" data-testid="link-nav-settings" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] ${location === "/settings" ? "bg-[hsl(var(--sidebar-accent))] text-white" : "text-white/65 hover:bg-white/10 hover:text-white"}`}><Settings2 size={17} /><span>{t("settings")}</span></Link>
-          <div className="mt-4 flex items-center gap-2.5 border-t border-white/10 px-2 pt-4">
+          </div>}
+          <Link title={!sidebarExpanded ? t("settings") : undefined} href="/settings" data-testid="link-nav-settings" className={`flex items-center rounded-xl py-2.5 text-[13px] ${sidebarExpanded ? "gap-3 px-3" : "justify-center px-2"} ${location === "/settings" ? "bg-[hsl(var(--sidebar-accent))] text-white" : "text-white/65 hover:bg-white/10 hover:text-white"}`}><Settings2 size={17} />{sidebarExpanded && <span>{t("settings")}</span>}</Link>
+          {sidebarExpanded && <div className="mt-4 flex items-center gap-2.5 border-t border-white/10 px-2 pt-4">
             <span className="grid size-8 place-items-center rounded-full bg-[#e7b98c] text-[11px] font-bold text-[#533421]">لن</span>
             <span className="flex-1 leading-tight"><strong className="block text-[11px] text-white">ليان الناصر</strong><small className="text-[10px] text-white/45">مديرة العيادة</small></span>
             <span className="size-2 rounded-full bg-[hsl(var(--sidebar-primary))]" />
-          </div>
+          </div>}
+          <button type="button" onClick={toggleSidebar} className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-[11px] font-bold text-white/65 transition hover:bg-white/10 hover:text-white md:flex" aria-label={sidebarCollapsed ? "توسيع الشريط الجانبي" : "طي الشريط الجانبي"} title={sidebarCollapsed ? "توسيع الشريط الجانبي" : "طي الشريط الجانبي"}>
+            {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}{sidebarExpanded && <span>{sidebarCollapsed ? "تثبيت موسّع" : "إظهار الاختصارات"}</span>}
+          </button>
         </div>
       </aside>
       {mobileOpen && <button aria-label="إغلاق الخلفية" data-testid="button-close-backdrop" className="fixed inset-0 z-30 bg-[#102c32]/40 md:hidden" onClick={() => setMobileOpen(false)} />}
-      <main className="min-h-[100dvh] md:ml-[258px]">
-        <header className="sticky top-0 z-20 flex h-[70px] items-center gap-4 border-b border-[hsl(var(--border)/.7)] bg-[hsl(var(--background)/.94)] px-5 backdrop-blur-md md:px-8">
-          <div className="flex-1"><p className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))]">{language === "ar" ? "الثلاثاء، ١٨ يونيو ٢٠٢٤" : "Tuesday, June 18, 2024"}</p><p className="mt-0.5 text-sm font-bold">{t("goodMorning")} <span className="mr-1 text-[hsl(var(--accent))]">—</span></p></div>
+      <main className={`min-h-[100dvh] transition-[margin] duration-300 ${sidebarExpanded ? "md:ml-[258px]" : "md:ml-[78px]"}`}>
+        <header className="sticky top-0 z-20 flex min-h-[70px] flex-wrap items-center gap-3 border-b border-[hsl(var(--border)/.7)] bg-[hsl(var(--background)/.94)] px-5 py-3 backdrop-blur-md md:px-8">
+          <div className="min-w-[170px] flex-1"><p className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))]">{language === "ar" ? "الثلاثاء، ١٨ يونيو ٢٠٢٤" : "Tuesday, June 18, 2024"}</p><p className="mt-0.5 text-sm font-bold">{t("goodMorning")} <span className="mr-1 text-[hsl(var(--accent))]">—</span></p></div>
+          <nav aria-label={language === "ar" ? "قنوات المحادثات" : "Conversation channels"} className="order-3 flex w-full items-center gap-1.5 overflow-x-auto md:order-none md:w-auto">
+            {channelShortcuts.map(({ key, label, icon: Icon, className }) => <Link key={key} href={`/inbox?channel=${key}`} className={`channel-shortcut ${className}`} title={label} aria-label={`فتح محادثات ${label}`}><Icon size={15} /><span>{label}</span></Link>)}
+          </nav>
           <div className="hidden items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted-foreground))] sm:flex"><span className="size-2 rounded-full bg-[hsl(var(--primary))]" /> {t("branch")} <ChevronLeft size={14} className="rotate-[-90deg]" /></div>
           <button aria-label={language === "ar" ? "الإشعارات" : "Notifications"} data-testid="button-notifications" className="relative rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 text-[hsl(var(--muted-foreground))] transition hover:border-[hsl(var(--primary)/.4)] hover:text-[hsl(var(--primary))]"><Bell size={17} /><span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-[hsl(var(--accent))] text-[9px] font-bold text-[hsl(var(--accent-foreground))]">3</span></button>
           <button type="button" onClick={toggleTheme} aria-label={theme === "dark" ? t("lightMode") : t("darkMode")} data-testid="button-toggle-theme" className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 text-[hsl(var(--muted-foreground))] transition hover:border-[hsl(var(--primary)/.4)] hover:text-[hsl(var(--primary))]">{theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}</button>
