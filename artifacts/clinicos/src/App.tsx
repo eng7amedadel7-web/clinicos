@@ -1,5 +1,5 @@
 import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster, toast } from 'sonner';
@@ -12,6 +12,8 @@ import {
   GripVertical,
   PanelRightClose,
   PanelRightOpen,
+  Moon,
+  Sun,
   Building2,
   Check,
   ChevronDown,
@@ -60,7 +62,8 @@ import MerunaHome from '@/pages/meruna-home';
 import CurrentMerunaHome from '@/pages/meruna-home-current';
 import MergedMerunaHome from '@/pages/meruna-home-merged';
 import LegalPage from '@/pages/legal-pages';
-import { PreferencesProvider, usePreferences } from '@/lib/preferences';
+import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
+import { getOperationsSummary } from '@/lib/operations-api';
 
 const queryClient = new QueryClient();
 
@@ -371,8 +374,8 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const [clinicMenuOpen, setClinicMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const { selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError } = usePreferences();
-  const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/patients', label: 'المرضى', icon: UsersRound }, { href: '/appointments', label: 'المواعيد', icon: Clock3 }, { href: '/inbox', label: 'صندوق الوارد', icon: Inbox }, { href: '/waitlist', label: 'قائمة الانتظار', icon: Clock3 }, { href: '/follow-ups', label: 'المتابعات', icon: Sparkles }, { href: '/no-shows', label: 'عدم الحضور', icon: ShieldCheck }, { href: '/voice-agent', label: 'الوكيل الصوتي', icon: PhoneCall }, { href: '/billing', label: 'الاشتراك والفوترة', icon: CreditCard }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
+  const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError } = usePreferences();
+  const links: Array<{ href: string; key: TranslationKey; icon: typeof Home }> = [{ href: '/dashboard', key: 'overview', icon: Home }, { href: '/patients', key: 'patients', icon: UsersRound }, { href: '/appointments', key: 'appointments', icon: Clock3 }, { href: '/inbox', key: 'inbox', icon: Inbox }, { href: '/waitlist', key: 'waitlist', icon: Clock3 }, { href: '/follow-ups', key: 'followUps', icon: Sparkles }, { href: '/no-shows', key: 'noShowsOpen', icon: ShieldCheck }, { href: '/voice-agent', key: 'voiceAgent', icon: PhoneCall }, { href: '/billing', key: 'reports', icon: CreditCard }, { href: '/settings', key: 'settings', icon: Settings2 }];
   const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
 
   useEffect(() => {
@@ -412,29 +415,52 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
       <div className="relative mb-7">
         <button type="button" onClick={() => setClinicMenuOpen((value) => !value)} aria-expanded={clinicMenuOpen} aria-label="تبديل العيادة أو الفرع" title={collapsed ? clinicName : undefined} className={`sidebar-clinic flex w-full items-center rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3 text-right ${collapsed ? 'justify-center gap-0' : 'gap-3'}`} data-testid="button-clinic-switcher">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#8fbaca]/15 text-[#9cc6d3]"><Building2 size={18} /></div>
-          <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> {branchesLoading ? 'جارٍ تحميل الفروع' : selectedBranchId === 'all' ? 'كل الفروع' : branches.find((branch) => branch.id === selectedBranchId)?.name || 'الفرع المحدد'}</p></div>
+          <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> {branchesLoading ? t('loadingBranches') : selectedBranchId === 'all' ? t('clinicWide') : branches.find((branch) => branch.id === selectedBranchId)?.name || t('chooseBranch')}</p></div>
           <ChevronDown size={14} className={`mr-auto text-[#7895a2] transition-transform ${clinicMenuOpen ? 'rotate-180' : ''} ${collapsed ? 'md:hidden' : ''}`} />
         </button>
         {clinicMenuOpen && <div className={`sidebar-popover absolute z-20 mt-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label="اختيار الفرع">
-          <div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">اختيار الفرع داخل العيادة</div>
-          <button type="button" onClick={() => { setSelectedBranchId('all'); setClinicMenuOpen(false); }} className={`sidebar-menu-item ${selectedBranchId === 'all' ? 'selected' : ''}`} role="menuitem" data-testid="button-branch-all"><span>كل الفروع</span>{selectedBranchId === 'all' && <Check size={14} />}</button>
+          <div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">{t('chooseBranchSidebar')}</div>
+          <button type="button" onClick={() => { setSelectedBranchId('all'); setClinicMenuOpen(false); }} className={`sidebar-menu-item ${selectedBranchId === 'all' ? 'selected' : ''}`} role="menuitem" data-testid="button-branch-all"><span>{t('allBranches')}</span>{selectedBranchId === 'all' && <Check size={14} />}</button>
           {branches.map((branch) => <button type="button" key={branch.id} onClick={() => { setSelectedBranchId(branch.id); setClinicMenuOpen(false); }} className={`sidebar-menu-item ${selectedBranchId === branch.id ? 'selected' : ''}`} role="menuitem" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}</span>{selectedBranchId === branch.id && <Check size={14} />}</button>)}
-          {!branchesLoading && branchesError && <p className="px-2 py-2 text-[10px] leading-5 text-[#efb2ac]">تعذر تحميل الفروع حاليًا.</p>}
-          {!branchesLoading && !branchesError && branches.length === 0 && <p className="px-2 py-2 text-[10px] leading-5 text-[#8ea9b5]">لا توجد فروع نشطة؛ الاختيار الحالي يشمل العيادة كلها.</p>}
+          {!branchesLoading && branchesError && <p className="px-2 py-2 text-[10px] leading-5 text-[#efb2ac]">{t('branchError')}</p>}
+          {!branchesLoading && !branchesError && branches.length === 0 && <p className="px-2 py-2 text-[10px] leading-5 text-[#8ea9b5]">{language === 'ar' ? 'لا توجد فروع نشطة؛ الاختيار الحالي يشمل العيادة كلها.' : 'No active branches; the current selection covers the whole clinic.'}</p>}
         </div>}
       </div>
       <nav className={`sidebar-nav min-h-0 overflow-y-auto space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
-        {links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href ? 'active' : ''}`} data-testid={`link-nav-${label}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>)}
+        {links.map(({ href, key, icon: Icon }) => { const label = t(key); return <Link key={href} href={href} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>; })}
       </nav>
       <div className={`sidebar-footer mt-auto shrink-0 border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
         <div className="relative">
-          <button type="button" onClick={() => setProfileMenuOpen((value) => !value)} aria-expanded={profileMenuOpen} aria-label="فتح قائمة الملف الشخصي" title={collapsed ? userName : undefined} className={`mb-2 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-right transition hover:bg-white/10 ${collapsed ? 'md:justify-center md:px-0' : ''}`} data-testid="button-profile-menu"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">مالك العيادة</p></div><ChevronDown size={14} className={`mr-auto text-[#7895a2] transition-transform ${profileMenuOpen ? 'rotate-180' : ''} ${collapsed ? 'md:hidden' : ''}`} /></button>
-          {profileMenuOpen && <div className={`sidebar-popover absolute bottom-full z-20 mb-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label="قائمة الملف الشخصي"><div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">حسابك في MERUNA SYSTEM</div><Link href="/settings" onClick={() => setProfileMenuOpen(false)} className="sidebar-menu-item" role="menuitem" data-testid="link-profile-settings"><Settings2 size={15} /><span>الإعدادات</span></Link><button type="button" onClick={doLogout} disabled={logout.isPending} className="sidebar-menu-item danger" role="menuitem" data-testid="button-profile-logout"><LogOut size={15} /><span>{logout.isPending ? 'جارٍ الخروج...' : 'تسجيل الخروج'}</span></button></div>}
+          <button type="button" onClick={() => setProfileMenuOpen((value) => !value)} aria-expanded={profileMenuOpen} aria-label={t('accountMenu')} title={collapsed ? userName : undefined} className={`mb-2 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-right transition hover:bg-white/10 ${collapsed ? 'md:justify-center md:px-0' : ''}`} data-testid="button-profile-menu"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">{t('clinicOwner')}</p></div><ChevronDown size={14} className={`mr-auto text-[#7895a2] transition-transform ${profileMenuOpen ? 'rotate-180' : ''} ${collapsed ? 'md:hidden' : ''}`} /></button>
+          {profileMenuOpen && <div className={`sidebar-popover absolute bottom-full z-20 mb-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label="قائمة الملف الشخصي"><div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">{t('accountMenu')}</div><Link href="/settings" onClick={() => setProfileMenuOpen(false)} className="sidebar-menu-item" role="menuitem" data-testid="link-profile-settings"><Settings2 size={15} /><span>{t('settings')}</span></Link><button type="button" onClick={doLogout} disabled={logout.isPending} className="sidebar-menu-item danger" role="menuitem" data-testid="button-profile-logout"><LogOut size={15} /><span>{logout.isPending ? (language === 'ar' ? 'جارٍ الخروج...' : 'Signing out...') : t('logout')}</span></button></div>}
         </div>
       </div>
       <div className={`sidebar-resizer ${collapsed ? 'hidden' : ''}`} role="separator" aria-orientation="vertical" aria-label="تغيير عرض الشريط الجانبي" tabIndex={0} onPointerDown={(event) => { event.preventDefault(); resizeRef.current = { startX: event.clientX, startWidth: sidebarWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}><GripVertical size={15} /></div>
     </aside>
   );
+}
+
+function WorkspaceToolbar() {
+  const { language, theme, t, toggleLanguage, toggleTheme } = usePreferences();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications'], queryFn: ({ signal }) => getOperationsSummary(signal), staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
+  const stats = summaryQuery.data?.stats;
+  const notifications = [
+    { id: 'inbox', label: t('conversationsNeedStaff'), count: stats?.conversationsNeedingStaff ?? 0, href: '/inbox' },
+    { id: 'follow-ups', label: t('followUpsDue'), count: stats?.openFollowUps ?? 0, href: '/follow-ups' },
+    { id: 'no-shows', label: t('noShowsOpen'), count: stats?.openNoShows ?? 0, href: '/no-shows' },
+    { id: 'waitlist', label: t('waitlistActive'), count: stats?.activeWaitlist ?? 0, href: '/waitlist' },
+  ].filter((item) => item.count > 0);
+  const unreadCount = notifications.length;
+  return <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
+    <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-bold text-[#78909c]">MERUNA SYSTEM</p><p className="truncate text-xs text-[#8a9ba4]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
+    <div className="relative">
+      <button type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-expanded={notificationsOpen} aria-label={t('notifications')} className="toolbar-button" data-testid="button-notifications"><Bell size={17} />{unreadCount > 0 && <span className="toolbar-badge">{unreadCount}</span>}</button>
+      {notificationsOpen && <div className="toolbar-popover absolute left-0 top-full z-30 mt-2 w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-[#dbe5ea] bg-white p-2 text-right shadow-xl" role="dialog" aria-label={t('notifications')}><div className="border-b border-[#edf1f3] px-3 py-2"><p className="text-sm font-bold text-[#18374d]">{t('notifications')}</p><p className="mt-0.5 text-[10px] text-[#8496a0]">{t('notificationsSubtitle')}</p></div>{notifications.length ? notifications.map((item) => <Link key={item.id} href={item.href} onClick={() => setNotificationsOpen(false)} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-xs text-[#28495b] transition hover:bg-[#f1f7f7]"><span className="min-w-0 truncate">{item.label}</span><strong className="rounded-md bg-[#dcecf5] px-2 py-1 text-[10px] text-[#22617d]">{item.count}</strong></Link>) : <p className="px-3 py-5 text-center text-xs text-[#8496a0]">{t('noNotifications')}</p>}{summaryQuery.isError && <p className="px-3 pb-2 text-[10px] text-[#a64036]">{language === 'ar' ? 'تعذر تحديث الإشعارات.' : 'Notifications could not be refreshed.'}</p>}</div>}
+    </div>
+    <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? t('lightMode') : t('darkMode')} title={theme === 'dark' ? t('lightMode') : t('darkMode')} className="toolbar-button" data-testid="button-theme-toggle">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
+    <button type="button" onClick={toggleLanguage} aria-label={t('switchLanguage')} title={t('switchLanguage')} className="toolbar-language" data-testid="button-language-toggle">{language === 'ar' ? 'EN' : 'ع'}</button>
+  </div>;
 }
 
 function DashboardSkeleton() {
@@ -513,7 +539,7 @@ function ProtectedShell() {
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (needsLogin) return null;
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} /><div className="main-content min-h-0 min-w-0 flex-1" dir="rtl">{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : location === '/billing' ? <BillingPage /> : <LiveDashboard session={session} />}</div></div>;
+  return <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} /><div className="main-content min-h-0 min-w-0 flex-1" dir="rtl"><WorkspaceToolbar />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : location === '/billing' ? <BillingPage /> : <LiveDashboard session={session} />}</div></div>;
 }
 
 function NotFound() {

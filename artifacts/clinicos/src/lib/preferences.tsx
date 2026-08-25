@@ -15,7 +15,7 @@ const translations = {
     followUpsDue: "متابعات مفتوحة", noShowsOpen: "حالات عدم حضور", waitlistActive: "قائمة انتظار نشطة", viewDetails: "عرض التفاصيل",
     overview: "نظرة عامة", appointments: "المواعيد", patients: "المرضى", inbox: "صندوق الوارد", tasks: "المهام",
     waitlist: "قائمة الانتظار", followUps: "المتابعات", calendar: "التقويم", doctors: "الأطباء", services: "الخدمات",
-    team: "الفريق", automation: "الأتمتة", aiReception: "الاستقبال الذكي", voiceAgent: "وكيل المكالمات", templates: "القوالب", reports: "التقارير",
+    team: "الفريق", automation: "الأتمتة", aiReception: "الاستقبال الذكي", voiceAgent: "وكيل المكالمات", templates: "القوالب", reports: "التقارير", logout: "تسجيل الخروج", accountMenu: "حسابك في MERUNA SYSTEM", clinicOwner: "مالك العيادة", chooseBranchSidebar: "اختيار الفرع داخل العيادة", openToday: "مفتوحة اليوم", clinicWide: "كل الفروع",
   },
   en: {
     today: "Today", clinicManagement: "Clinic management", settings: "Settings", assistantWorking: "AI assistant is working",
@@ -27,13 +27,13 @@ const translations = {
     followUpsDue: "Open follow-ups", noShowsOpen: "Open no-shows", waitlistActive: "Active waitlist", viewDetails: "View details",
     overview: "Overview", appointments: "Appointments", patients: "Patients", inbox: "Inbox", tasks: "Tasks",
     waitlist: "Waitlist", followUps: "Follow-ups", calendar: "Calendar", doctors: "Doctors", services: "Services",
-    team: "Team", automation: "Automation", aiReception: "AI reception", voiceAgent: "Voice agent", templates: "Templates", reports: "Reports",
+    team: "Team", automation: "Automation", aiReception: "AI reception", voiceAgent: "Voice agent", templates: "Templates", reports: "Reports", logout: "Sign out", accountMenu: "Your MERUNA SYSTEM account", clinicOwner: "Clinic owner", chooseBranchSidebar: "Choose a branch in this clinic", openToday: "Open today", clinicWide: "All branches",
   },
 } as const;
 
 export type TranslationKey = keyof typeof translations.ar;
 type PreferencesContextValue = {
-  language: Language; theme: Theme; dir: "ltr"; selectedBranchId: string; branches: Branch[]; branchesLoading: boolean; branchesError: boolean;
+  language: Language; theme: Theme; dir: "rtl"; selectedBranchId: string; branches: Branch[]; branchesLoading: boolean; branchesError: boolean;
   t: (key: TranslationKey, values?: Record<string, string | number>) => string;
   toggleLanguage: () => void; toggleTheme: () => void; setSelectedBranchId: (id: string) => void;
 };
@@ -50,7 +50,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.lang = language;
-    document.documentElement.dir = "ltr";
+    document.documentElement.dir = "rtl";
     window.localStorage.setItem("clinicos-theme", theme);
     window.localStorage.setItem("clinicos-language", language);
   }, [language, theme]);
@@ -64,7 +64,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (selectedBranchId !== "all" && !branchesLoading && !branches.some((branch) => branch.id === selectedBranchId)) setBranch("all"); }, [branches, branchesLoading, selectedBranchId]);
 
   const value = useMemo<PreferencesContextValue>(() => ({
-    language, theme, dir: "ltr", selectedBranchId, branches, branchesLoading, branchesError,
+    language, theme, dir: "rtl", selectedBranchId, branches, branchesLoading, branchesError,
     t: (key) => translations[language][key],
     toggleLanguage: () => setLanguage((current) => current === "ar" ? "en" : "ar"),
     toggleTheme: () => setTheme((current) => current === "light" ? "dark" : "light"),
