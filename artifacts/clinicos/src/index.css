@@ -145,7 +145,7 @@
 .inbox-layout .workspace-page-header > div > p:last-child { margin-top: 0; font-size: .72rem; line-height: 1.25; }
 .inbox-layout [role="tablist"] button { padding-block: .25rem; }
 @media (min-width: 1024px) {
-  .inbox-layout { display: grid; grid-template-columns: 144px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "header header" "channels workspace"; gap: .75rem; align-content: stretch; }
+  .inbox-layout { display: grid; grid-template-columns: 144px minmax(0, 1fr); grid-template-rows: min-content minmax(0, 1fr); grid-template-areas: "header header" "channels workspace"; column-gap: .75rem; row-gap: 0; align-content: start; }
   .inbox-layout > .workspace-page-header { grid-area: header; align-self: start; }
   .inbox-layout > [role="tablist"] { grid-area: channels; display: flex; flex-direction: column; align-self: stretch; gap: .5rem; padding-top: .15rem; }
   .inbox-layout > [role="tablist"] button { width: 100%; min-height: 3.25rem; flex-direction: column; gap: .25rem; padding: .45rem .35rem; }
