@@ -76,9 +76,19 @@ async function protect(req: Request, res: Response, module: string, resource: st
   }
 }
 
+async function getBranchFilter(req: Request, res: Response, session: SessionPayload) {
+  const branchId = typeof req.query.branchId === "string" ? req.query.branchId.trim() : "";
+  if (!branchId) return "";
+  const branch = await supabaseRequest<Row[]>(`/rest/v1/branches?select=id&id=eq.${encodeURIComponent(branchId)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&is_active=eq.true&limit=1`, { headers: headers(session) });
+  if (!branch.ok || !branch.data?.length) { res.status(400).json({ error: "Invalid branch." }); return null; }
+  return `&branch_id=eq.${encodeURIComponent(branchId)}`;
+}
+
 router.get("/operations/summary", async (req, res) => {
   const session = await protect(req, res, "Operations", "workspace", "read");
   if (!session) return;
+  const branchFilter = await getBranchFilter(req, res, session);
+  if (branchFilter === null) return;
   const clinicFilter = `clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
   const clinicOnly = `clinic_id=eq.${encodeURIComponent(session.clinicId)}`;
   const now = new Date();
@@ -88,7 +98,7 @@ router.get("/operations/summary", async (req, res) => {
   end.setUTCDate(end.getUTCDate() + 1);
   const auth = { headers: headers(session) };
   const [appointments, patients, conversations, followUps, noShows, waitlist, channels] = await Promise.all([
-    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id,patient_id,scheduled_at,appointment_status,booking_number&${clinicFilter}&scheduled_at=gte.${encodeURIComponent(start.toISOString())}&scheduled_at=lt.${encodeURIComponent(end.toISOString())}&order=scheduled_at.asc&limit=100`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id,patient_id,scheduled_at,appointment_status,booking_number&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(start.toISOString())}&scheduled_at=lt.${encodeURIComponent(end.toISOString())}&order=scheduled_at.asc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter}&limit=1000`, auth),
     supabaseRequest<Row[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,status,last_intent,last_patient_message,last_activity_at,assigned_staff_id,priority,is_handoff,is_archived,ai_status&${clinicFilter}&is_archived=eq.false&order=last_activity_at.desc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/follow_up_cases?select=id,patient_id,appointment_id,status,next_due_at,followup_goal,updated_at&${clinicOnly}&status=neq.closed&order=next_due_at.asc.nullslast&limit=100`, auth),

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, ArrowUpLeft, CalendarPlus, Check, ChevronLeft, Clock3, FileText, Inbox, MoreHorizontal, PhoneCall, Plus, RefreshCw, Sparkles, UsersRound } from "lucide-react";
 import { Link } from "wouter";
 import { getGetDashboardSummaryQueryKey, useGetDashboardSummary } from "@workspace/api-client-react";
+import { usePreferences } from "@/lib/preferences";
 
  type Session = { user: { fullName: string }; clinic: { name: string; city: string } };
  type Appointment = { id: string; name: string; scheduledAt: string | null; status: string; serviceName?: string | null; doctorName?: string | null };
@@ -46,7 +47,8 @@ function StatCard({ label, value, meta, accent, icon, index }: { label: string; 
 }
 
 export default function LiveDashboard({ session }: { session: Session }) {
-  const summaryQuery = useGetDashboardSummary({ query: { retry: 1, queryKey: getGetDashboardSummaryQueryKey() } });
+const { language, selectedBranchId } = usePreferences();
+const summaryQuery = useGetDashboardSummary({ query: { retry: 1, queryKey: getGetDashboardSummaryQueryKey() } });
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState(false);
@@ -57,13 +59,13 @@ export default function LiveDashboard({ session }: { session: Session }) {
     let mounted = true;
     setAppointmentsLoading(true);
     setAppointmentsError(false);
-    fetch("/api/appointments", { credentials: "include" })
+    fetch(`/api/appointments${selectedBranchId === "all" ? "" : `?branchId=${encodeURIComponent(selectedBranchId)}`}`, { credentials: "include" })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("appointments")))
       .then((data: unknown) => { if (mounted) setAppointments(Array.isArray(data) ? data as Appointment[] : []); })
       .catch(() => { if (mounted) { setAppointments([]); setAppointmentsError(true); } })
       .finally(() => { if (mounted) setAppointmentsLoading(false); });
     return () => { mounted = false; };
-  }, [refreshKey]);
+  }, [refreshKey, selectedBranchId]);
 
   const firstName = session.user.fullName.split(" ")[0] || session.user.fullName;
   const waitingCount = useMemo(() => appointments.filter((appointment) => ["scheduled", "pending"].includes(appointment.status)).length, [appointments]);
