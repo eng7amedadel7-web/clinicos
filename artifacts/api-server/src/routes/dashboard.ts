@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { readSession } from "../lib/session";
+import { requireClinicPermission } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 
 const router = Router();
@@ -51,9 +51,12 @@ function patientDisplayName(patient: PatientRow | undefined) {
 }
 
 router.get("/summary", async (req, res) => {
-  const session = readSession(req);
-  if (!session) {
-    res.status(401).json({ error: "Not authenticated." });
+  let session;
+  try {
+    session = await requireClinicPermission(req, "Operations", "workspace", "read");
+  } catch (error) {
+    const statusCode = typeof error === "object" && error && "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : 500;
+    res.status(statusCode).json({ error: error instanceof Error ? error.message : "Unable to verify clinic permission." });
     return;
   }
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { readSession } from "../lib/session";
+import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 
 const router = Router();
@@ -19,8 +19,8 @@ function input(body: PatientInput) {
 }
 
 router.get("/patients", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  let session;
+  try { session = await requireClinicPermission(req, "Patients", "patients", "read"); } catch (error) { respondToPermissionError(res, error); return; }
   const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=1000";
   const result = await supabaseRequest<PatientRow[]>(path, { headers: { Authorization: `Bearer ${session.accessToken}` } });
   if (!result.ok) { res.status(result.status || 502).json({ error: "Patients could not be loaded." }); return; }
@@ -28,8 +28,8 @@ router.get("/patients", async (req, res) => {
 });
 
 router.post("/patients", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  let session;
+  try { session = await requireClinicPermission(req, "Patients", "patients", "create"); } catch (error) { respondToPermissionError(res, error); return; }
   const data = input(req.body ?? {});
   if (!data.name) { res.status(400).json({ error: "اسم المريض مطلوب." }); return; }
   const result = await supabaseRequest<PatientRow[]>("/rest/v1/patients", {
@@ -42,8 +42,8 @@ router.post("/patients", async (req, res) => {
 });
 
 router.patch("/patients/:id", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  let session;
+  try { session = await requireClinicPermission(req, "Patients", "patients", "update"); } catch (error) { respondToPermissionError(res, error); return; }
   const data = input(req.body ?? {});
   if (!data.name) { res.status(400).json({ error: "اسم المريض مطلوب." }); return; }
   const path = "/rest/v1/patients?id=eq." + encodeURIComponent(req.params.id) + "&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null";
@@ -57,9 +57,30 @@ router.patch("/patients/:id", async (req, res) => {
   res.json(result.data[0]);
 });
 
+router.get("/patients/:id/360", async (req, res) => {
+  let session;
+  try { session = await requireClinicPermission(req, "Patients", "patients", "read"); } catch (error) { respondToPermissionError(res, error); return; }
+  const clinicId = encodeURIComponent(session.clinicId);
+  const patientId = encodeURIComponent(req.params.id);
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+  const patientResult = await supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name,phone,created_at&clinic_id=eq.${clinicId}&id=eq.${patientId}&deleted_at=is.null&limit=1`, { headers });
+  if (!patientResult.ok) { res.status(patientResult.status || 502).json({ error: "تعذر تحميل ملف المريض." }); return; }
+  const patient = patientResult.data?.[0];
+  if (!patient) { res.status(404).json({ error: "المريض غير موجود في هذه العيادة." }); return; }
+  const [appointments, conversations, followUps, noShows] = await Promise.all([
+    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/appointments?select=id,scheduled_at,appointment_status,booking_number,branch_id,doctor_id,service_id,created_at&clinic_id=eq.${clinicId}&patient_id=eq.${patientId}&deleted_at=is.null&order=scheduled_at.desc&limit=50`, { headers }),
+    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/conversations?select=id,channel_id,status,last_intent,last_patient_message,last_activity_at,priority,is_handoff&clinic_id=eq.${clinicId}&patient_id=eq.${patientId}&deleted_at=is.null&is_archived=eq.false&order=last_activity_at.desc&limit=50`, { headers }),
+    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/follow_up_cases?select=id,appointment_id,status,next_due_at,followup_goal,updated_at&clinic_id=eq.${clinicId}&patient_id=eq.${patientId}&order=next_due_at.asc.nullslast&limit=50`, { headers }),
+    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/no_show_cases?select=id,appointment_id,case_status,risk_level,last_activity_at,recovery_eligibility&clinic_id=eq.${clinicId}&patient_id=eq.${patientId}&order=last_activity_at.desc.nullslast&limit=50`, { headers }),
+  ]);
+  const failed = [appointments, conversations, followUps, noShows].find((result) => !result.ok);
+  if (failed) { res.status(failed.status || 502).json({ error: "تعذر تحميل سجل المريض الكامل." }); return; }
+  res.json({ patient, appointments: appointments.data ?? [], conversations: conversations.data ?? [], followUps: followUps.data ?? [], noShows: noShows.data ?? [] });
+});
+
 router.delete("/patients/:id", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  let session;
+  try { session = await requireClinicPermission(req, "Patients", "patients", "delete"); } catch (error) { respondToPermissionError(res, error); return; }
   const path = "/rest/v1/patients?id=eq." + encodeURIComponent(req.params.id) + "&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null";
   const result = await supabaseRequest<PatientRow[]>(path, {
     method: "PATCH",
