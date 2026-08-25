@@ -2,6 +2,7 @@ export type InboxConversation = {
   id: string;
   name: string;
   channel: string;
+  channelId?: string | null;
   channelType: string;
   channelProvider?: string | null;
   channelStatus?: string;
