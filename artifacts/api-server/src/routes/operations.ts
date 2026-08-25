@@ -10,6 +10,7 @@ const followUpFields = "id,clinic_id,appointment_id,patient_id,conversation_id,b
 const noShowFields = "id,clinic_id,branch_id,appointment_id,patient_id,case_status,classification,risk_level,detection_reason,recovery_eligibility,recovery_deadline,current_attempt_number,max_attempts,opened_at,confirmed_at,last_activity_at,recovered_at,closed_at,recovery_outcome,closure_reason,created_at,updated_at";
 const appointmentFields = "id,clinic_id,patient_id,branch_id,conversation_id,scheduled_at,appointment_status,booking_source,booking_number";
 const patientFields = "id,name,first_name,last_name,phone,contact_phone";
+const voiceCallFields = "id,patient_id,provider,provider_call_id,direction,call_status,outcome,duration_seconds,started_at,ended_at,call_summary,created_at";
 
 type Row = Record<string, unknown> & { id?: string; patient_id?: string | null; appointment_id?: string | null };
 type Related = {
@@ -121,6 +122,42 @@ router.get("/operations/summary", async (req, res) => {
     },
     waitlist: (waitlist.data ?? []).slice(0, 6).map((item) => ({ ...item, patientName: patientName(item.patient_id) })),
     systemStatus: Object.fromEntries(Object.entries(sources).map(([key, value]) => [key, value.ok ? "ready" : "unavailable"])),
+  });
+});
+
+router.get("/operations/voice-agent", async (req, res) => {
+  const session = await protect(req, res, "Voice", "overview", "read");
+  if (!session) return;
+  const clinicId = encodeURIComponent(session.clinicId);
+  const auth = { headers: headers(session) };
+  const [configuration, operationalSettings, calls] = await Promise.all([
+    supabaseRequest<Row[]>(`/rest/v1/voice_agent_configurations?select=display_name,status,language_code,dialect_code&clinic_id=eq.${clinicId}&limit=1`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/voice_operational_settings?select=default_language,availability,default_call_behavior&clinic_id=eq.${clinicId}&limit=1`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/voice_agent_call_logs?select=${voiceCallFields}&clinic_id=eq.${clinicId}&order=started_at.desc.nullslast,created_at.desc&limit=100`, auth),
+  ]);
+  if (!configuration.ok || !operationalSettings.ok || !calls.ok) {
+    const failed = [configuration, operationalSettings, calls].find((result) => !result.ok);
+    res.status(failed?.status || 502).json({ error: "تعذر تحميل بيانات الوكيل الصوتي." });
+    return;
+  }
+  const patientIds = Array.from(new Set((calls.data ?? []).map((call) => call.patient_id).filter((id): id is string => typeof id === "string" && id.length > 0)));
+  const patients = patientIds.length
+    ? await supabaseRequest<Row[]>(`/rest/v1/patients?select=id,name,first_name,last_name&clinic_id=eq.${clinicId}&deleted_at=is.null&limit=500`, auth)
+    : { ok: true, status: 200, data: [] as Row[] };
+  if (!patients.ok) {
+    jsonError(res, patients, "تعذر تحميل بيانات مرضى المكالمات.");
+    return;
+  }
+  const patientMap = new Map((patients.data ?? []).map((patient) => [String(patient.id), patient]));
+  const patientName = (patientId: unknown) => {
+    const patient = typeof patientId === "string" ? patientMap.get(patientId) : undefined;
+    return patient?.name || [patient?.first_name, patient?.last_name].filter((value) => typeof value === "string" && value.length > 0).join(" ") || null;
+  };
+  res.json({
+    configuration: configuration.data?.[0] ?? null,
+    operationalSettings: operationalSettings.data?.[0] ?? null,
+    total: calls.data?.length ?? 0,
+    calls: (calls.data ?? []).map((call) => ({ ...call, patientName: patientName(call.patient_id) })),
   });
 });
 

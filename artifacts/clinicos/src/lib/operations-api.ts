@@ -25,6 +25,28 @@ export type OperationsItem = Record<string, unknown> & { id?: string; patientNam
 
 export type OperationsList = { total: number; items: OperationsItem[] };
 
+export type VoiceAgentCall = {
+  id: string;
+  provider: string;
+  provider_call_id?: string | null;
+  direction: "inbound" | "outbound" | "test";
+  call_status: "queued" | "ringing" | "in_progress" | "completed" | "missed" | "failed" | "cancelled";
+  outcome?: string | null;
+  duration_seconds?: number | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  call_summary?: string | null;
+  created_at: string;
+  patientName?: string;
+};
+
+export type VoiceAgentData = {
+  configuration: { display_name: string; status: string; language_code: string; dialect_code?: string | null } | null;
+  operationalSettings: { default_language: string; availability: string; default_call_behavior: string } | null;
+  calls: VoiceAgentCall[];
+  total: number;
+};
+
 async function operationsRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: "include", ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
   const payload = await response.json().catch(() => null) as { error?: string } | T | null;
@@ -38,6 +60,10 @@ export async function getOperationsList(kind: "waitlist" | "follow-ups" | "no-sh
 
 export async function runOperationsAction(path: string, body: Record<string, unknown> = {}) {
   return operationsRequest<unknown>(path, { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function getVoiceAgentData(signal?: AbortSignal): Promise<VoiceAgentData> {
+  return operationsRequest<VoiceAgentData>("/api/operations/voice-agent", { signal });
 }
 
 export async function getOperationsSummary(signal?: AbortSignal): Promise<OperationsSummary> {
