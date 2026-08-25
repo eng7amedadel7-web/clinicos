@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -8,6 +8,10 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
+  ChevronRight,
+  GripVertical,
+  PanelRightClose,
+  PanelRightOpen,
   Building2,
   Check,
   ChevronDown,
@@ -359,14 +363,62 @@ function RegisterPage() {
 function Sidebar({ clinicName, userName }: { clinicName: string; userName: string }) {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
+  const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('meruna-sidebar-collapsed') === 'true');
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem('meruna-sidebar-width'));
+    return Number.isFinite(saved) ? Math.min(360, Math.max(220, saved)) : 248;
+  });
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/patients', label: 'المرضى', icon: UsersRound }, { href: '/appointments', label: 'المواعيد', icon: Clock3 }, { href: '/inbox', label: 'صندوق الوارد', icon: Inbox }, { href: '/waitlist', label: 'قائمة الانتظار', icon: Clock3 }, { href: '/follow-ups', label: 'المتابعات', icon: Sparkles }, { href: '/no-shows', label: 'عدم الحضور', icon: ShieldCheck }, { href: '/voice-agent', label: 'الوكيل الصوتي', icon: PhoneCall }, { href: '/billing', label: 'الاشتراك والفوترة', icon: CreditCard }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
   const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
+
+  useEffect(() => {
+    window.localStorage.setItem('meruna-sidebar-collapsed', String(collapsed));
+  }, [collapsed]);
+  useEffect(() => {
+    window.localStorage.setItem('meruna-sidebar-width', String(sidebarWidth));
+  }, [sidebarWidth]);
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      if (!resizeRef.current || collapsed) return;
+      const nextWidth = Math.min(360, Math.max(220, resizeRef.current.startWidth + event.clientX - resizeRef.current.startX));
+      setSidebarWidth(nextWidth);
+    };
+    const onPointerUp = () => {
+      resizeRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [collapsed]);
+
+  const sidebarStyle = { '--sidebar-width': `${collapsed ? 84 : sidebarWidth}px` } as CSSProperties;
   return (
-    <aside className="sidebar flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[248px] md:shrink-0 md:px-5 md:py-7" dir="rtl">
-      <div className="brand-lockup mb-12 px-2"><Logo /></div>
-      <div className="sidebar-clinic mb-7 flex items-center gap-3 rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#8fbaca]/15 text-[#9cc6d3]"><Building2 size={18} /></div><div className="min-w-0"><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> مفتوحة اليوم</p></div><ChevronDown size={14} className="mr-auto text-[#7895a2]" /></div>
-      <nav className="sidebar-nav space-y-1" aria-label="التنقل الرئيسي">{links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`sidebar-link px-3 py-3 text-sm font-semibold ${location === href ? 'active' : ''}`} data-testid={`link-nav-${label}`}><Icon size={18} strokeWidth={1.8} /><span>{label}</span></Link>)}</nav>
-      <div className="sidebar-footer mt-auto border-t border-[#688b9c]/15 pt-5"><div className="mb-4 flex items-center gap-3 px-2"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className="min-w-0"><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">مالك العيادة</p></div></div><button onClick={doLogout} disabled={logout.isPending} className="sidebar-link w-full px-3 py-3 text-sm font-semibold" data-testid="button-logout"><LogOut size={18} /><span>{logout.isPending ? 'جارٍ الخروج...' : 'تسجيل الخروج'}</span></button></div>
+    <aside className="sidebar relative flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[var(--sidebar-width)] md:shrink-0 md:px-5 md:py-7" style={sidebarStyle} dir="rtl">
+      <div className={`brand-lockup mb-10 flex items-center ${collapsed ? 'justify-center gap-2 px-0' : 'justify-between px-2'}`}>
+        {collapsed ? <div className="brand-mark" aria-label="MERUNA SYSTEM"><span /></div> : <Logo />}
+        <button type="button" onClick={() => setCollapsed((value) => !value)} className="sidebar-tool" aria-label={collapsed ? 'توسيع الشريط الجانبي' : 'طي الشريط الجانبي'} title={collapsed ? 'توسيع الشريط الجانبي' : 'طي الشريط الجانبي'} data-testid="button-toggle-sidebar">
+          {collapsed ? <PanelRightOpen size={17} /> : <PanelRightClose size={17} />}
+        </button>
+      </div>
+      <div className={`sidebar-clinic mb-7 flex items-center rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3 ${collapsed ? 'justify-center gap-0' : 'gap-3'}`} title={collapsed ? clinicName : undefined}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#8fbaca]/15 text-[#9cc6d3]"><Building2 size={18} /></div>
+        <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> مفتوحة اليوم</p></div>
+        <ChevronDown size={14} className={`mr-auto text-[#7895a2] ${collapsed ? 'md:hidden' : ''}`} />
+      </div>
+      <nav className={`sidebar-nav space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
+        {links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href ? 'active' : ''}`} data-testid={`link-nav-${label}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>)}
+      </nav>
+      <div className={`sidebar-footer mt-auto border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
+        <div className={`mb-4 flex items-center gap-3 px-2 ${collapsed ? 'md:justify-center md:px-0' : ''}`} title={collapsed ? userName : undefined}><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">مالك العيادة</p></div></div>
+        <button onClick={doLogout} disabled={logout.isPending} title={collapsed ? 'تسجيل الخروج' : undefined} aria-label="تسجيل الخروج" className={`sidebar-link w-full px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''}`} data-testid="button-logout"><LogOut size={18} /><span className={collapsed ? 'md:sr-only' : ''}>{logout.isPending ? 'جارٍ الخروج...' : 'تسجيل الخروج'}</span></button>
+      </div>
+      <div className={`sidebar-resizer ${collapsed ? 'hidden' : ''}`} role="separator" aria-orientation="vertical" aria-label="تغيير عرض الشريط الجانبي" tabIndex={0} onPointerDown={(event) => { event.preventDefault(); resizeRef.current = { startX: event.clientX, startWidth: sidebarWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}><GripVertical size={15} /></div>
     </aside>
   );
 }

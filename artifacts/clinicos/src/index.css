@@ -118,7 +118,12 @@
 .brand-mark span { position: absolute; width: 10px; height: 25px; top: 5px; left: 16px; background: linear-gradient(180deg, #cad9e1, #658da5); transform: skewY(29deg) rotate(20deg); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 77%, 0 100%); }
 .brand-wordmark { letter-spacing: .14em; font-size: 1.05rem; font-weight: 800; color: #eef6fa; }
 .brand-wordmark span { color: #93b3c6; }
-.sidebar { background: #071b2c; color: #cfdae1; }
+.sidebar { background: #071b2c; color: #cfdae1; transition: width .2s cubic-bezier(.23,1,.32,1); }
+.sidebar-tool { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; flex: 0 0 auto; border: 1px solid rgba(145,183,199,.2); border-radius: .65rem; color: #a7c4cf; transition: color .18s ease, background-color .18s ease, transform .18s ease; }
+.sidebar-tool:hover { color: #f0f7fa; background: rgba(151,190,208,.12); transform: translateY(-1px); }
+.sidebar-resizer { position: absolute; inset-inline-end: -.45rem; inset-block: 0; z-index: 4; display: flex; width: .9rem; cursor: col-resize; align-items: center; justify-content: center; color: transparent; touch-action: none; }
+.sidebar-resizer:hover, .sidebar-resizer:focus-visible { color: #8dbbce; }
+.sidebar-resizer svg { opacity: .75; filter: drop-shadow(0 2px 4px rgba(7,27,44,.3)); }
 .sidebar-link { position: relative; display: flex; align-items: center; gap: .75rem; border-radius: .75rem; color: #9cb0bd; transition: color .2s ease, background-color .2s ease, transform .2s ease; }
 .sidebar-link:hover { color: #f0f7fa; background: rgba(151,190,208,.1); transform: translateX(-2px); }
 .sidebar-link.active { color: #eef8fb; background: rgba(106,174,198,.18); }
@@ -144,12 +149,12 @@
 .ar { font-family: 'IBM Plex Sans Arabic', 'Manrope', sans-serif; }
 
 @media (max-width: 767px) {
-  .sidebar { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 30; height: 4.5rem; border-top: 1px solid rgba(145,183,199,.13); }
+  .sidebar { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 30; height: 4.5rem; border-top: 1px solid rgba(145,183,199,.13); width: 100% !important; }
   .sidebar-nav { display: flex; justify-content: space-around; height: 100%; padding: .45rem .55rem; }
   .sidebar-link { flex: 1; flex-direction: column; justify-content: center; gap: .18rem; font-size: .66rem; }
   .sidebar-link.active::before { inset-inline: 18px; inset-block: 0 auto; width: auto; height: 2px; }
   .sidebar-footer, .sidebar-clinic { display: none; }
-  .brand-lockup { display: none; }
+  .brand-lockup, .sidebar-resizer { display: none; }
   .main-content { padding-bottom: 5.5rem; }
 }
 
