@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getProfile } from "./auth";
 import { supabaseRequest } from "../lib/supabase";
 import { readSession } from "../lib/session";
+import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 
 const router = Router();
 
@@ -28,6 +29,7 @@ async function loadProfile(req: Request) {
 }
 
 router.get("/settings", async (req, res) => {
+  try { await requireClinicPermission(req, "Settings", "clinic_settings", "read"); } catch (error) { respondToPermissionError(res, error); return; }
   const current = await loadProfile(req);
   if (!current) {
     res.status(401).json({ error: "Not authenticated or clinic access has expired." });
@@ -37,6 +39,7 @@ router.get("/settings", async (req, res) => {
 });
 
 router.patch("/settings", async (req, res) => {
+  try { await requireClinicPermission(req, "Settings", "clinic_settings", "manage"); } catch (error) { respondToPermissionError(res, error); return; }
   const current = await loadProfile(req);
   if (!current) {
     res.status(401).json({ error: "Not authenticated or clinic access has expired." });
