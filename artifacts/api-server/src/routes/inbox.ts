@@ -143,7 +143,7 @@ router.patch("/inbox/:id/mode", async (req, res) => {
 
 router.post("/inbox/:id/messages", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "handoff"); } catch (error) { respondToPermissionError(res, error); return; }
+  try { session = await requireClinicPermission(req, "inbox", "conversations", "handoff"); await assertConversation(session, req.params.id); } catch (error) { respondToPermissionError(res, error); return; }
   const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
   if (!content) { res.status(400).json({ error: "نص الرسالة مطلوب." }); return; }
   const queued = await supabaseRequest<{ conversation_id?: string; message_id?: string }>("/rest/v1/rpc/fn_send_inbox_reply", {
