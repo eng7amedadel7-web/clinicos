@@ -241,6 +241,15 @@ router.post("/login", async (req, res) => {
     parsed.data,
   );
   if (!result.ok || !result.data?.access_token || !result.data.user) {
+    if (result.status === 401 || result.status === 403) {
+      console.error("[Auth] Supabase Auth configuration rejected login request", { status: result.status });
+      res.status(503).json({ error: "Authentication service configuration is unavailable." });
+      return;
+    }
+    if (result.status === 429) {
+      res.status(503).json({ error: "Authentication service is temporarily rate-limited. Try again shortly." });
+      return;
+    }
     res.status(400).json({ error: "The email or password is incorrect." });
     return;
   }
