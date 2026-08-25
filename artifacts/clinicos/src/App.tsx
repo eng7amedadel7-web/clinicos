@@ -46,7 +46,8 @@ import {
   useUpdateClinicSettings,
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { AppointmentsPage, InboxPage, PatientsPage } from '@/pages/operations-pages';
+import { LiveAppointmentsPage, LiveInboxPage, LivePatientsPage } from '@/pages/live-operations-pages';
+import LiveDashboard from '@/pages/live-dashboard';
 import MerunaHome from '@/pages/meruna-home';
 import CurrentMerunaHome from '@/pages/meruna-home-current';
 import MergedMerunaHome from '@/pages/meruna-home-merged';
@@ -424,7 +425,7 @@ function ProtectedShell() {
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (sessionQuery.isError || !sessionQuery.data) { if (location !== '/login') setLocation('/login'); return null; }
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <PatientsPage /> : location === '/appointments' ? <AppointmentsPage /> : location === '/inbox' ? <InboxPage /> : <DashboardPage session={session} />}</div>;
+  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : <LiveDashboard session={session} />}</div>;
 }
 
 function NotFound() {
