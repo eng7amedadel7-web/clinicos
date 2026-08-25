@@ -76,12 +76,17 @@ async function protect(req: Request, res: Response, module: string, resource: st
   }
 }
 
-async function getBranchFilter(req: Request, res: Response, session: SessionPayload) {
+async function getBranchId(req: Request, res: Response, session: SessionPayload) {
   const branchId = typeof req.query.branchId === "string" ? req.query.branchId.trim() : "";
   if (!branchId) return "";
   const branch = await supabaseRequest<Row[]>(`/rest/v1/branches?select=id&id=eq.${encodeURIComponent(branchId)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&is_active=eq.true&limit=1`, { headers: headers(session) });
   if (!branch.ok || !branch.data?.length) { res.status(400).json({ error: "Invalid branch." }); return null; }
-  return `&branch_id=eq.${encodeURIComponent(branchId)}`;
+  return branchId;
+}
+
+async function getBranchFilter(req: Request, res: Response, session: SessionPayload) {
+  const branchId = await getBranchId(req, res, session);
+  return branchId === null ? null : branchId ? `&branch_id=eq.${encodeURIComponent(branchId)}` : "";
 }
 
 router.get("/operations/summary", async (req, res) => {
@@ -175,7 +180,10 @@ router.get("/operations/waitlist", async (req, res) => {
   const session = await protect(req, res, "Appointments", "appointments", "read");
   if (!session) return;
   const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
+  const branchId = await getBranchId(req, res, session);
+  if (branchId === null) return;
   const params = new URLSearchParams({ select: waitlistFields, clinic_id: `eq.${session.clinicId}`, order: "priority.desc,created_at.asc", limit: "100" });
+  if (branchId) params.set("branch_id", `eq.${branchId}`);
   if (status) params.set("status", `eq.${status}`);
   const result = await supabaseRequest<Row[]>(`/rest/v1/appointment_waitlists?${params.toString()}`, { headers: headers(session) });
   if (!result.ok) { jsonError(res, result, "تعذر تحميل قائمة الانتظار."); return; }
@@ -198,7 +206,10 @@ router.get("/operations/follow-ups", async (req, res) => {
   const session = await protect(req, res, "Appointments", "appointments", "read");
   if (!session) return;
   const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
+  const branchId = await getBranchId(req, res, session);
+  if (branchId === null) return;
   const params = new URLSearchParams({ select: followUpFields, clinic_id: `eq.${session.clinicId}`, order: "next_due_at.asc.nullslast", limit: "100" });
+  if (branchId) params.set("branch_id", `eq.${branchId}`);
   if (status) params.set("status", `eq.${status}`);
   const result = await supabaseRequest<Row[]>(`/rest/v1/follow_up_cases?${params.toString()}`, { headers: headers(session) });
   if (!result.ok) { jsonError(res, result, "تعذر تحميل المتابعات."); return; }
@@ -221,7 +232,10 @@ router.get("/operations/no-shows", async (req, res) => {
   const session = await protect(req, res, "Appointments", "appointments", "read");
   if (!session) return;
   const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
+  const branchId = await getBranchId(req, res, session);
+  if (branchId === null) return;
   const params = new URLSearchParams({ select: noShowFields, clinic_id: `eq.${session.clinicId}`, order: "last_activity_at.desc.nullslast", limit: "100" });
+  if (branchId) params.set("branch_id", `eq.${branchId}`);
   if (status) params.set("case_status", `eq.${status}`);
   const result = await supabaseRequest<Row[]>(`/rest/v1/no_show_cases?${params.toString()}`, { headers: headers(session) });
   if (!result.ok) { jsonError(res, result, "تعذر تحميل حالات عدم الحضور."); return; }

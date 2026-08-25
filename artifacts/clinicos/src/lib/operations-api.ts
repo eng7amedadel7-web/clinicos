@@ -54,8 +54,9 @@ async function operationsRequest<T>(path: string, init?: RequestInit): Promise<T
   return payload as T;
 }
 
-export async function getOperationsList(kind: "waitlist" | "follow-ups" | "no-shows", signal?: AbortSignal): Promise<OperationsList> {
-  return operationsRequest<OperationsList>(`/api/operations/${kind}`, { signal });
+export async function getOperationsList(kind: "waitlist" | "follow-ups" | "no-shows", signal?: AbortSignal, branchId?: string): Promise<OperationsList> {
+  const suffix = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
+  return operationsRequest<OperationsList>(`/api/operations/${kind}${suffix}`, { signal });
 }
 
 export async function runOperationsAction(path: string, body: Record<string, unknown> = {}) {
