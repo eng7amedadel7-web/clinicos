@@ -36,7 +36,10 @@ export default function BillingPage() {
   const subscription = query.data?.subscription;
 
   const checkout = async (plan: string) => {
-    if (!query.data?.clientToken) return toast.error("إعداد الدفع غير مكتمل");
+    if (!query.data?.clientToken) {
+      toast.error("إعداد الدفع غير مكتمل");
+      return;
+    }
     setPending(plan);
     try {
       const { transactionId } = await api<{ transactionId: string }>("/billing/checkout", { method: "POST", body: JSON.stringify({ plan, interval }) });

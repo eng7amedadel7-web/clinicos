@@ -13,6 +13,7 @@ import {
   ChevronDown,
   CircleHelp,
   Clock3,
+  CreditCard,
   Eye,
   EyeOff,
   FileText,
@@ -50,6 +51,7 @@ import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter
 import { FollowUpsPage, LiveAppointmentsPage, LiveInboxPage, LivePatientsPage, NoShowsPage, WaitlistPage } from '@/pages/live-operations-pages';
 import LiveDashboard from '@/pages/live-dashboard';
 import LiveVoiceAgentPage from '@/pages/live-voice-agent';
+import BillingPage from '@/pages/billing';
 import MerunaHome from '@/pages/meruna-home';
 import CurrentMerunaHome from '@/pages/meruna-home-current';
 import MergedMerunaHome from '@/pages/meruna-home-merged';
@@ -347,7 +349,7 @@ function RegisterPage() {
 function Sidebar({ clinicName, userName }: { clinicName: string; userName: string }) {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
-  const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/patients', label: 'المرضى', icon: UsersRound }, { href: '/appointments', label: 'المواعيد', icon: Clock3 }, { href: '/inbox', label: 'صندوق الوارد', icon: Inbox }, { href: '/waitlist', label: 'قائمة الانتظار', icon: Clock3 }, { href: '/follow-ups', label: 'المتابعات', icon: Sparkles }, { href: '/no-shows', label: 'عدم الحضور', icon: ShieldCheck }, { href: '/voice-agent', label: 'الوكيل الصوتي', icon: PhoneCall }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
+  const links = [{ href: '/dashboard', label: 'الرئيسية', icon: Home }, { href: '/patients', label: 'المرضى', icon: UsersRound }, { href: '/appointments', label: 'المواعيد', icon: Clock3 }, { href: '/inbox', label: 'صندوق الوارد', icon: Inbox }, { href: '/waitlist', label: 'قائمة الانتظار', icon: Clock3 }, { href: '/follow-ups', label: 'المتابعات', icon: Sparkles }, { href: '/no-shows', label: 'عدم الحضور', icon: ShieldCheck }, { href: '/voice-agent', label: 'الوكيل الصوتي', icon: PhoneCall }, { href: '/billing', label: 'الاشتراك والفوترة', icon: CreditCard }, { href: '/settings', label: 'الإعدادات', icon: Settings2 }];
   const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
   return (
     <aside className="sidebar flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[248px] md:shrink-0 md:px-5 md:py-7" dir="rtl">
@@ -427,7 +429,7 @@ function ProtectedShell() {
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (sessionQuery.isError || !sessionQuery.data) { if (location !== '/login') setLocation('/login'); return null; }
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : <LiveDashboard session={session} />}</div>;
+  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : location === '/billing' ? <BillingPage /> : <LiveDashboard session={session} />}</div>;
 }
 
 function NotFound() {
@@ -438,7 +440,7 @@ function NotFound() {
 function Router() {
   const [location] = useLocation();
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route component={NotFound} /></Switch>}</ErrorBoundary>;
 }
 
 function App() {

@@ -327,12 +327,6 @@ router.post("/register", async (req, res) => {
     return;
   }
 
-  await supabaseRequest("/rest/v1/rpc/initialize_clinic_trial", {
-    method: "POST",
-    headers: { ...restHeaders(result.data.access_token), "Content-Type": "application/json" },
-    body: JSON.stringify({ p_clinic_id: onboarding.data.clinic_id }),
-  });
-
   const profile = await getProfile(result.data.user, result.data.access_token);
   if (!profile) {
     res.status(400).json({ error: "Account created, but the clinic owner profile could not be loaded." });

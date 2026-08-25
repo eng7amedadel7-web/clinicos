@@ -91,14 +91,23 @@ function planFromPrice(priceId?: string) {
   return { plan: "pro", interval: "month" };
 }
 
+function assertAdminResult(result: { ok: boolean; status: number }, operation: string) {
+  if (!result.ok) throw new Error(`${operation} failed (${result.status}).`);
+}
+
 router.get("/billing", async (req, res) => {
   const context = await requireClinic(req, res);
   if (!context) return;
   const headers = authHeaders(context.session.accessToken);
   const [subscription, transactions] = await Promise.all([
-    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/clinic_subscriptions?select=*&clinic_id=eq.${context.session.clinicId}&limit=1`, { headers }),
-    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/billing_transactions?select=*&clinic_id=eq.${context.session.clinicId}&order=billed_at.desc&limit=20`, { headers }),
+    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/clinic_subscriptions?select=id,plan,billing_interval,status,trial_ends_at,current_period_starts_at,current_period_ends_at,cancel_at_period_end&clinic_id=eq.${context.session.clinicId}&limit=1`, { headers }),
+    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/billing_transactions?select=id,status,total,currency_code,billed_at&clinic_id=eq.${context.session.clinicId}&order=billed_at.desc&limit=20`, { headers }),
   ]);
+  if (!subscription.ok || !transactions.ok) {
+    req.log?.error({ subscriptionStatus: subscription.status, transactionsStatus: transactions.status }, "Billing data lookup failed");
+    res.status(502).json({ error: "Billing data is temporarily unavailable." });
+    return;
+  }
   res.json({
     subscription: subscription.ok ? subscription.data?.[0] ?? null : null,
     transactions: transactions.ok ? transactions.data ?? [] : [],
@@ -139,6 +148,11 @@ router.post("/billing/portal", async (req, res) => {
   const subscriptionResult = await supabaseAdminRequest<Array<{ paddle_subscription_id?: string }>>(
     `/rest/v1/clinic_subscriptions?select=paddle_subscription_id&clinic_id=eq.${context.session.clinicId}&limit=1`,
   );
+  if (!subscriptionResult.ok) {
+    req.log?.error({ status: subscriptionResult.status }, "Billing subscription lookup failed");
+    res.status(503).json({ error: "Billing service is not configured." });
+    return;
+  }
   const subscriptionId = subscriptionResult.data?.[0]?.paddle_subscription_id;
   if (!subscriptionId) {
     res.status(404).json({ error: "No active Paddle subscription was found." });
@@ -157,6 +171,7 @@ router.post("/billing/portal", async (req, res) => {
 
 async function getCustomerId(clinicId: string) {
   const result = await supabaseAdminRequest<Array<{ paddle_customer_id?: string }>>(`/rest/v1/billing_customers?select=paddle_customer_id&clinic_id=eq.${clinicId}&limit=1`);
+  if (!result.ok) throw new Error(`Billing customer lookup failed (${result.status}).`);
   return result.data?.[0]?.paddle_customer_id;
 }
 
@@ -167,7 +182,8 @@ export async function paddleWebhook(req: Request, res: Response) {
   const parts = Object.fromEntries(signature.split(";").map((part) => part.split("=", 2)));
   const timestamp = parts.ts;
   const provided = parts.h1;
-  if (!timestamp || !provided || !secret || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) {
+  const timestampSeconds = Number(timestamp);
+  if (!timestamp || !provided || !secret || !Number.isFinite(timestampSeconds) || Math.abs(Date.now() / 1000 - timestampSeconds) > 300) {
     res.status(401).json({ error: "Invalid webhook signature." });
     return;
   }
@@ -178,8 +194,22 @@ export async function paddleWebhook(req: Request, res: Response) {
     return;
   }
 
-  const event = JSON.parse(rawBody.toString("utf8")) as { event_id: string; event_type: string; occurred_at?: string; data: Record<string, unknown> };
+  let event: { event_id: string; event_type: string; occurred_at?: string; data: Record<string, unknown> };
+  try {
+    event = JSON.parse(rawBody.toString("utf8")) as typeof event;
+  } catch {
+    res.status(400).json({ error: "Invalid webhook payload." });
+    return;
+  }
+  if (!event.event_id || !event.event_type || !event.data || typeof event.data !== "object") {
+    res.status(400).json({ error: "Invalid webhook payload." });
+    return;
+  }
   const alreadyProcessed = await supabaseAdminRequest<Array<{ event_id: string }>>(`/rest/v1/billing_events?select=event_id&event_id=eq.${encodeURIComponent(event.event_id)}&limit=1`);
+  if (!alreadyProcessed.ok) {
+    res.status(503).json({ error: "Webhook processing is temporarily unavailable." });
+    return;
+  }
   if (alreadyProcessed.data?.length) {
     res.status(200).json({ received: true, duplicate: true });
     return;
@@ -191,55 +221,65 @@ export async function paddleWebhook(req: Request, res: Response) {
     return;
   }
 
-  if (event.event_type.startsWith("subscription.")) {
-    const priceId = data.items?.[0]?.price?.id;
-    const selection = planFromPrice(priceId);
-    await supabaseAdminRequest("/rest/v1/clinic_subscriptions?on_conflict=clinic_id", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify({
-        clinic_id: clinicId,
-        paddle_subscription_id: data.id,
-        paddle_price_id: priceId,
-        plan: selection.plan,
-        billing_interval: selection.interval,
-        status: data.status === "canceled" ? "canceled" : data.status,
-        current_period_starts_at: data.current_billing_period?.starts_at,
-        current_period_ends_at: data.current_billing_period?.ends_at,
-        cancel_at_period_end: Boolean(data.scheduled_change),
-        scheduled_change: data.scheduled_change,
-        updated_at: new Date().toISOString(),
-      }),
-    });
-    if (data.customer_id) {
-      await supabaseAdminRequest("/rest/v1/billing_customers?on_conflict=clinic_id", {
+  try {
+    if (event.event_type.startsWith("subscription.")) {
+      const priceId = data.items?.[0]?.price?.id;
+      const selection = planFromPrice(priceId);
+      const subscriptionWrite = await supabaseAdminRequest("/rest/v1/clinic_subscriptions?on_conflict=clinic_id", {
         method: "POST",
         headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify({ clinic_id: clinicId, paddle_customer_id: data.customer_id, updated_at: new Date().toISOString() }),
+        body: JSON.stringify({
+          clinic_id: clinicId,
+          paddle_subscription_id: data.id,
+          paddle_price_id: priceId,
+          plan: selection.plan,
+          billing_interval: selection.interval,
+          status: data.status === "canceled" ? "canceled" : data.status,
+          current_period_starts_at: data.current_billing_period?.starts_at,
+          current_period_ends_at: data.current_billing_period?.ends_at,
+          cancel_at_period_end: Boolean(data.scheduled_change),
+          scheduled_change: data.scheduled_change,
+          updated_at: new Date().toISOString(),
+        }),
       });
+      assertAdminResult(subscriptionWrite, "Subscription update");
+      if (data.customer_id) {
+        const customerWrite = await supabaseAdminRequest("/rest/v1/billing_customers?on_conflict=clinic_id", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+          body: JSON.stringify({ clinic_id: clinicId, paddle_customer_id: data.customer_id, updated_at: new Date().toISOString() }),
+        });
+        assertAdminResult(customerWrite, "Customer update");
+      }
     }
-  }
 
-  if (event.event_type.startsWith("transaction.")) {
-    await supabaseAdminRequest("/rest/v1/billing_transactions?on_conflict=paddle_transaction_id", {
+    if (event.event_type.startsWith("transaction.")) {
+      const transactionWrite = await supabaseAdminRequest("/rest/v1/billing_transactions?on_conflict=paddle_transaction_id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify({
+          clinic_id: clinicId,
+          paddle_transaction_id: data.id,
+          status: data.status,
+          currency_code: data.details?.totals?.currency_code ?? "USD",
+          total: data.details?.totals?.total,
+          billed_at: data.billed_at ?? event.occurred_at,
+        }),
+      });
+      assertAdminResult(transactionWrite, "Transaction update");
+    }
+
+    const eventWrite = await supabaseAdminRequest("/rest/v1/billing_events", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
-      body: JSON.stringify({
-        clinic_id: clinicId,
-        paddle_transaction_id: data.id,
-        status: data.status,
-        currency_code: data.details?.totals?.currency_code ?? "USD",
-        total: data.details?.totals?.total,
-        billed_at: data.billed_at ?? event.occurred_at,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_id: event.event_id, event_type: event.event_type, clinic_id: clinicId, occurred_at: event.occurred_at }),
     });
+    assertAdminResult(eventWrite, "Billing event write");
+  } catch (error) {
+    req.log?.error({ err: error }, "Paddle webhook persistence failed");
+    res.status(503).json({ error: "Webhook processing is temporarily unavailable." });
+    return;
   }
-
-  await supabaseAdminRequest("/rest/v1/billing_events", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event_id: event.event_id, event_type: event.event_type, clinic_id: clinicId, occurred_at: event.occurred_at }),
-  });
   res.status(200).json({ received: true });
 }
 
