@@ -344,6 +344,65 @@
   .landing-home .meruna-momentum-track { animation: none; }
 }
 
+/* Purchase confidence and FAQ */
+.landing-home .meruna-assurance { padding: 7rem 0; background: hsl(var(--navy)); color: hsl(214 33% 94%); }
+.landing-home .meruna-assurance .cf-container { display: grid; grid-template-columns: .8fr 1.2fr; gap: 4rem; align-items: start; }
+.landing-home .meruna-assurance-copy h2, .landing-home .meruna-faq-heading h2 { margin: 1rem 0 0; font-size: clamp(2.35rem, 5vw, 4.1rem); font-weight: 800; line-height: 1.05; letter-spacing: -.06em; }
+.landing-home .meruna-assurance-copy h2 em, .landing-home .meruna-faq-heading h2 em { color: hsl(var(--primary)); font-style: normal; }
+.landing-home .meruna-assurance-copy p, .landing-home .meruna-faq-heading p { margin: 1.5rem 0 0; color: hsl(214 17% 70%); font-size: .9rem; line-height: 1.9; }
+.landing-home .meruna-assurance-copy > a { display: inline-flex; margin-top: 1.5rem; color: hsl(var(--accent)); font-size: .75rem; font-weight: 800; }
+.landing-home .meruna-assurance-grid { display: grid; gap: 1rem; }
+.landing-home .meruna-assurance-grid article { padding: 1.6rem; border: 1px solid hsl(214 33% 94% / .13); border-radius: 1.25rem; background: hsl(214 33% 94% / .05); }
+.landing-home .meruna-assurance-grid svg { color: hsl(var(--accent)); }
+.landing-home .meruna-assurance-grid h3 { margin-top: 1.25rem; font-size: 1rem; font-weight: 800; }
+.landing-home .meruna-assurance-grid p { margin-top: .45rem; color: hsl(214 17% 70%); font-size: .75rem; line-height: 1.75; }
+.landing-home .meruna-faq { padding: 7rem 0; background: hsl(var(--background)); }
+.landing-home .meruna-faq .cf-container { display: grid; grid-template-columns: .72fr 1.28fr; gap: 4rem; }
+.landing-home .meruna-faq-heading p { color: hsl(var(--muted-foreground)); }
+.landing-home .meruna-faq-list article { border-bottom: 1px solid hsl(var(--border)); }
+.landing-home .meruna-faq-list button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.35rem 0; color: hsl(var(--foreground)); text-align: start; font-size: .95rem; font-weight: 800; }
+.landing-home .meruna-faq-list button svg { flex: 0 0 auto; transition: transform .2s ease; }
+.landing-home .meruna-faq-list article.open button svg { transform: rotate(180deg); }
+.landing-home .meruna-faq-list article > div { padding: 0 0 1.4rem; }
+.landing-home .meruna-faq-list p { color: hsl(var(--muted-foreground)); font-size: .82rem; line-height: 1.9; }
+.landing-home .meruna-faq-list a { display: inline-flex; align-items: center; gap: .4rem; margin-top: .75rem; color: hsl(var(--primary)); font-size: .72rem; font-weight: 800; }
+
+/* Shared public policy pages */
+.legal-page { --background: 220 32% 97%; --foreground: 220 36% 13%; --border: 215 24% 86%; --card: 0 0% 100%; --muted-foreground: 220 13% 46%; --primary: 209 95% 52%; --accent: 157 76% 42%; --navy: 220 48% 9%; --tint: 210 55% 94%; }
+.legal-page .legal-header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--background) / .92); backdrop-filter: blur(16px); }
+.legal-page .legal-hero { padding: 6.5rem 0 4.5rem; background: hsl(var(--navy)); color: hsl(214 33% 94%); }
+.legal-page .legal-hero h1 { max-width: 850px; margin-top: 1.3rem; font-size: clamp(2.8rem, 7vw, 5.5rem); font-weight: 800; line-height: 1; letter-spacing: -.06em; }
+.legal-page .legal-hero > div > p { max-width: 680px; margin-top: 1.5rem; color: hsl(214 17% 72%); font-size: 1rem; line-height: 1.9; }
+.legal-page .legal-meta { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin-top: 2rem; color: hsl(214 17% 72%); font-size: .75rem; }
+.legal-page .legal-meta span { display: inline-flex; align-items: center; gap: .5rem; }
+.legal-page .legal-layout { display: grid; grid-template-columns: 240px minmax(0, 760px); gap: 4rem; justify-content: center; padding-top: 4.5rem; padding-bottom: 6rem; }
+.legal-page .legal-layout aside { display: flex; position: sticky; top: 105px; height: max-content; flex-direction: column; gap: .35rem; }
+.legal-page .legal-layout aside a { padding: .8rem 1rem; border-radius: .75rem; color: hsl(var(--muted-foreground)); font-size: .78rem; font-weight: 700; }
+.legal-page .legal-layout aside a.active { background: hsl(var(--tint)); color: hsl(var(--primary)); }
+.legal-page .legal-article { display: flex; flex-direction: column; gap: 3rem; }
+.legal-page .legal-article h2 { margin-bottom: .9rem; font-size: 1.3rem; font-weight: 800; letter-spacing: -.025em; }
+.legal-page .legal-article section p { color: hsl(var(--muted-foreground)); font-size: .92rem; line-height: 2; }
+.legal-page .legal-contact { display: flex; gap: 1rem; padding: 1.4rem; border: 1px solid hsl(var(--border)); border-radius: 1.15rem; background: hsl(var(--card)); }
+.legal-page .legal-contact > svg { flex: 0 0 auto; color: hsl(var(--accent)); }
+.legal-page .legal-contact strong { font-size: .9rem; }
+.legal-page .legal-contact p { margin-top: .3rem; color: hsl(var(--muted-foreground)); font-size: .78rem; }
+.legal-page .legal-contact a { display: inline-flex; align-items: center; gap: .4rem; margin-top: .7rem; color: hsl(var(--primary)); font-size: .75rem; font-weight: 800; }
+.legal-page .legal-footer { border-top: 1px solid hsl(var(--border)); padding: 2rem 0; }
+.legal-page .legal-footer > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: hsl(var(--muted-foreground)); font-size: .68rem; }
+.legal-page .legal-footer nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.legal-page .legal-footer a:hover { color: hsl(var(--primary)); }
+@media (max-width: 800px) {
+  .landing-home .meruna-assurance .cf-container, .landing-home .meruna-faq .cf-container, .legal-page .legal-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+  .legal-page .legal-layout aside { position: static; flex-direction: row; overflow-x: auto; }
+  .legal-page .legal-layout aside a { flex: 0 0 auto; }
+  .legal-page .legal-footer > div { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 560px) {
+  .landing-home .meruna-assurance, .landing-home .meruna-faq { padding: 5rem 0; }
+  .legal-page .legal-hero { padding: 4.5rem 0 3.5rem; }
+  .legal-page .legal-header .cf-button-ghost { display: none; }
+}
+
 /* Theme-aware overrides: cf-navy is dark by default, but must become a light surface in Light mode. */
 .landing-home:not(.is-dark) .cf-navy {
   background: hsl(var(--card));
