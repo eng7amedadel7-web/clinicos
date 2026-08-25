@@ -1,7 +1,12 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm run build:vercel",
   "outputDirectory": "artifacts/clinicos/dist/public",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?__meruna_path=/api/:path*"
+    },
     {
       "source": "/((?!api(?:/|$)).*)",
       "destination": "/index.html"
