@@ -58,16 +58,12 @@ router.get("/appointments", async (req, res) => {
   if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
   const filter = clinicFilter(session.clinicId);
   const headers = { Authorization: `Bearer ${session.accessToken}` };
-  const [appointmentsResult, patientsResult, doctorsResult, servicesResult] = await Promise.all([
-    supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?select=id,patient_id,doctor_id,service_id,slot_id,appointment_status,scheduled_at,notes&${filter}&order=scheduled_at.asc&limit=100`, { headers }),
+  const [appointmentsResult, patientsResult] = await Promise.all([
+    supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?select=id,patient_id,appointment_status,scheduled_at&${filter}&order=scheduled_at.asc&limit=100`, { headers }),
     supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${filter}&limit=1000`, { headers }),
-    supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name&${filter}&limit=200`, { headers }),
-    supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name&${filter}&limit=200`, { headers }),
   ]);
   if (!appointmentsResult.ok) { res.status(appointmentsResult.status || 502).json({ error: "Appointments could not be loaded." }); return; }
   const patients = new Map((patientsResult.data ?? []).map((p) => [String(p.id), p]));
-  const doctors = new Map((doctorsResult.data ?? []).map((doctor) => [String(doctor.id), doctor]));
-  const services = new Map((servicesResult.data ?? []).map((service) => [String(service.id), service]));
   res.json((appointmentsResult.data ?? []).map((row) => {
     const patient = patients.get(String(row.patient_id));
     return {
@@ -75,8 +71,8 @@ router.get("/appointments", async (req, res) => {
       name: patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || "مريض بدون اسم",
       scheduledAt: row.scheduled_at,
       status: row.appointment_status || "scheduled",
-      doctorName: doctors.get(String(row.doctor_id))?.name || null,
-      serviceName: services.get(String(row.service_id))?.name || null,
+      doctorName: null,
+      serviceName: null,
       slotId: row.slot_id || null,
       notes: row.notes || null,
     };
