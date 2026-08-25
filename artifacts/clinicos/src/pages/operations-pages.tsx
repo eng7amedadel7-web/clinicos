@@ -56,101 +56,17 @@ export function AppointmentsPage() {
 }
 
 export function InboxPage() {
-  type Conversation = { id: string; name: string; channel: string; mode: "AI" | "Human"; lastActivityAt: string | null; status: string; priority: string };
-  type Message = { id?: string; content: string; direction: string; created_at: string };
-  const [items, setItems] = useState<Conversation[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [reply, setReply] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [modePending, setModePending] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-
-  const readPayload = async (response: Response) => {
-    const payload = await response.json().catch(() => null) as { error?: string; conversations?: Conversation[]; selectedConversationId?: string | null; messages?: Message[] } | null;
-    if (!response.ok) throw new Error(payload?.error || "تعذر تنفيذ العملية. حاول مرة أخرى.");
-    return payload;
-  };
-
-  const load = async (conversationId?: string) => {
-    setError(null);
-    if (conversationId) setLoadingMessages(true); else setLoading(true);
-    try {
-      const query = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : "";
-      const response = await fetch(`/api/inbox${query}`, { credentials: "include" });
-      const data = await readPayload(response);
-      setItems(Array.isArray(data?.conversations) ? data.conversations : []);
-      setSelectedId(data?.selectedConversationId ?? null);
-      setMessages(Array.isArray(data?.messages) ? data.messages : []);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر تحميل صندوق الوارد.");
-      if (!conversationId) {
-        setItems([]);
-        setSelectedId(null);
-        setMessages([]);
-      }
-    } finally {
-      if (conversationId) setLoadingMessages(false); else setLoading(false);
-    }
-  };
-
-  useEffect(() => { void load(); }, []);
-
+  type Conversation = { id: string; name: string; channel: string; mode: "AI" | "Human"; lastActivityAt: string | null };
+  type Message = { id: string; content: string; direction: string; created_at: string };
+  const [items, setItems] = useState<Conversation[]>([]); const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null); const [reply, setReply] = useState(""); const [loading, setLoading] = useState(true); const [search, setSearch] = useState("");
+  const load = async (conversationId?: string) => { const query = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ""; const r = await fetch(`/api/inbox${query}`, { credentials: "include" }); if (!r.ok) { setLoading(false); return; } const data = await r.json(); setItems(data.conversations || []); setSelectedId(data.selectedConversationId); setMessages(data.messages || []); setLoading(false); };
+  useEffect(() => { load(); }, []);
   const selected = items.find((item) => item.id === selectedId) || null;
-  const toggleMode = async () => {
-    if (!selected || modePending) return;
-    const mode = selected.mode === "AI" ? "Human" : "AI";
-    setModePending(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/inbox/${encodeURIComponent(selected.id)}/mode`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ mode }) });
-      await readPayload(response);
-      await load(selected.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر حفظ وضع المحادثة.");
-    } finally {
-      setModePending(false);
-    }
-  };
-
-  const send = async () => {
-    const content = reply.trim();
-    if (!selected || !content || sending) return;
-    setSending(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/inbox/${encodeURIComponent(selected.id)}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ content }) });
-      const created = await readPayload(response) as Message | null;
-      setReply("");
-      if (created?.content) setMessages((current) => [...current, created]);
-      else await load(selected.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "تعذر إرسال الرسالة.");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const visible = items.filter((item) => `${item.name} ${item.channel} ${item.status} ${item.priority}`.toLowerCase().includes(search.trim().toLowerCase()));
-  const statusLabel = (status: string) => status === "active" ? "نشطة" : status === "closed" ? "مغلقة" : status;
-  const priorityLabel = (priority: string) => priority === "high" ? "عالية" : priority === "low" ? "منخفضة" : "عادية";
-
-  return <section className="mx-auto max-w-[1450px]">
-    <ShellHeader eyebrow="التواصل / inbox" title="صندوق الوارد" description={loading ? "جارٍ تحميل المحادثات من Supabase" : `${items.length} محادثات حقيقية`} />
-    {error ? <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[#edc4c0] bg-[#fff7f6] px-4 py-3 text-xs font-semibold text-[#a54c46]" role="alert" data-testid="alert-inbox-error"><span>{error}</span><button type="button" className="rounded-lg border border-[#edc4c0] px-3 py-1.5" onClick={() => void load(selectedId || undefined)} data-testid="button-inbox-retry">إعادة المحاولة</button></div> : null}
-    <div className="grid min-h-[580px] overflow-hidden rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] shadow-[var(--shadow-sm)] lg:grid-cols-[340px_1fr]">
-      <div className="border-l border-[hsl(var(--border)/.65)]">
-        <div className="flex items-center justify-between border-b border-[hsl(var(--border)/.65)] p-4"><strong className="text-sm">المحادثات <span className="mr-1 text-[10px] text-[hsl(var(--primary))]">{items.length}</span></strong><Filter size={16} className="text-[hsl(var(--muted-foreground))]" /></div>
-        <div className="p-3"><div className="relative"><Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" /><input value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-inbox-search" placeholder="ابحث في المحادثات" className="w-full rounded-lg bg-[hsl(var(--muted))] py-2 pr-8 text-[11px] outline-none" /></div></div>
-        {loading ? <div className="p-8 text-center text-xs text-[hsl(var(--muted-foreground))]">جارٍ تحميل المحادثات...</div> : visible.map((item) => <button key={item.id} type="button" data-testid={`button-conversation-${item.id}`} onClick={() => void load(item.id)} className={`flex w-full gap-3 border-b border-[hsl(var(--border)/.45)] px-4 py-3 text-right transition hover:bg-[hsl(var(--muted)/.45)] ${selectedId === item.id ? "bg-[hsl(var(--primary)/.06)]" : ""}`}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#dcecf5] text-[11px] font-bold text-[#22617d]">{item.name.slice(0, 2)}</span><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><strong className="truncate text-[11px]">{item.name}</strong><small className="shrink-0 text-[9px] text-[hsl(var(--muted-foreground))]">{item.lastActivityAt ? new Date(item.lastActivityAt).toLocaleString("ar-EG") : "—"}</small></span><span className="mt-1 block truncate text-[10px] text-[hsl(var(--muted-foreground))]">{item.channel}</span><span className="mt-1.5 flex flex-wrap items-center gap-1.5"><StatusPill tone={item.mode === "AI" ? "purple" : "blue"}>{item.mode === "AI" ? "AI" : "فريق"}</StatusPill><StatusPill tone={item.priority === "high" ? "coral" : "amber"}>{priorityLabel(item.priority)}</StatusPill></span></span></button>)}
-        {!loading && visible.length === 0 ? <div className="p-8 text-center text-xs text-[hsl(var(--muted-foreground))]">لا توجد محادثات مطابقة</div> : null}
-      </div>
-      {selected ? <div className="flex min-h-[580px] flex-col"><div className="flex items-center justify-between border-b border-[hsl(var(--border)/.65)] px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-[#dcecf5] text-[11px] font-bold text-[#22617d]">{selected.name.slice(0, 2)}</span><div><strong className="block text-xs">{selected.name}</strong><span className="text-[10px] text-[hsl(var(--muted-foreground))]">{selected.channel} · {statusLabel(selected.status)} · أولوية {priorityLabel(selected.priority)}</span></div></div><button type="button" disabled={modePending} data-testid="button-toggle-conversation-mode" onClick={() => void toggleMode()} className="flex items-center gap-1.5 rounded-lg bg-[hsl(var(--muted))] px-2.5 py-1.5 text-[10px] font-bold disabled:opacity-60">{selected.mode === "AI" ? <Bot size={13} /> : <UserRound size={13} />}{modePending ? "جارٍ الحفظ..." : selected.mode === "AI" ? "المساعد الذكي" : "الفريق"}<ToggleRight size={15} /></button></div><div className="flex-1 space-y-3 overflow-auto bg-[hsl(var(--background)/.45)] p-5">{loadingMessages ? <div className="p-10 text-center text-xs text-[hsl(var(--muted-foreground))]">جارٍ تحميل الرسائل...</div> : messages.length ? messages.map((message, index) => <div key={message.id || `${message.created_at}-${index}`} className={`${message.direction === "outgoing" ? "ml-auto bg-[hsl(var(--primary))] text-white" : "mr-auto border bg-[hsl(var(--card))]"} max-w-[75%] rounded-2xl p-3 text-[11px] leading-6`}>{message.content}<small className="mt-1 block text-[9px] opacity-60">{message.created_at ? new Date(message.created_at).toLocaleString("ar-EG") : ""}</small></div>) : <div className="p-10 text-center text-xs text-[hsl(var(--muted-foreground))]">لا توجد رسائل بعد</div>}</div><div className="border-t border-[hsl(var(--border)/.65)] p-4"><div className="flex gap-2"><input data-testid="input-inbox-reply" value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} disabled={sending} placeholder="اكتب ردك هنا..." className="flex-1 rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--background))] px-3 py-2.5 text-xs outline-none disabled:opacity-60" /><button type="button" disabled={sending || !reply.trim()} data-testid="button-send-reply" onClick={() => void send()} className="grid size-10 place-items-center rounded-xl bg-[hsl(var(--primary))] text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={16} /></button></div></div></div> : <div className="grid min-h-[580px] place-items-center p-8 text-center text-sm text-[hsl(var(--muted-foreground))]">{loading ? "جارٍ تحميل صندوق الوارد..." : items.length ? "اختر محادثة لعرض الرسائل" : "لا توجد محادثات في هذه العيادة"}</div>}
-    </div>
-  </section>;
+  const toggleMode = async () => { if (!selected) return; const mode = selected.mode === "AI" ? "Human" : "AI"; const r = await fetch(`/api/inbox/${selected.id}/mode`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ mode }) }); if (r.ok) setItems(items.map((item) => item.id === selected.id ? { ...item, mode } : item)); };
+  const send = async () => { if (!selected || !reply.trim()) return; const r = await fetch(`/api/inbox/${selected.id}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ content: reply }) }); if (r.ok) { const saved = await r.json(); setReply(""); if (saved?.id) setMessages((current) => [...current, saved]); } };
+  const visible = items.filter((item) => item.name.includes(search) || item.channel.includes(search));
+  return <section className="mx-auto max-w-[1450px]"><ShellHeader eyebrow="التواصل / inbox" title="صندوق الوارد" description={loading ? "جارٍ تحميل المحادثات من Supabase" : items.length + " محادثات حقيقية"} /><div className="grid min-h-[580px] overflow-hidden rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] shadow-[var(--shadow-sm)] lg:grid-cols-[340px_1fr]"><div className="border-l border-[hsl(var(--border)/.65)]"><div className="flex items-center justify-between border-b border-[hsl(var(--border)/.65)] p-4"><strong className="text-sm">المحادثات <span className="mr-1 text-[10px] text-[hsl(var(--primary))]">{items.length}</span></strong><Filter size={16} className="text-[hsl(var(--muted-foreground))]" /></div><div className="p-3"><div className="relative"><Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" /><input value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-inbox-search" placeholder="ابحث في المحادثات" className="w-full rounded-lg bg-[hsl(var(--muted))] py-2 pr-8 text-[11px] outline-none" /></div></div>{visible.map((item) => <button key={item.id} data-testid={`button-conversation-${item.id}`} onClick={() => load(item.id)} className={`flex w-full gap-3 border-b border-[hsl(var(--border)/.45)] px-4 py-3 text-right transition hover:bg-[hsl(var(--muted)/.45)] ${selectedId === item.id ? "bg-[hsl(var(--primary)/.06)]" : ""}`}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#dcecf5] text-[11px] font-bold text-[#22617d]">{item.name.slice(0, 2)}</span><span className="min-w-0 flex-1"><span className="flex items-center justify-between"><strong className="truncate text-[11px]">{item.name}</strong><small className="text-[9px] text-[hsl(var(--muted-foreground))]">{item.lastActivityAt ? new Date(item.lastActivityAt).toLocaleString("ar-EG") : "—"}</small></span><span className="mt-1 block truncate text-[10px] text-[hsl(var(--muted-foreground))]">{item.channel}</span><span className="mt-1.5 flex items-center gap-1.5"><StatusPill tone={item.mode === "AI" ? "purple" : "blue"}>{item.mode === "AI" ? "AI" : "فريق"}</StatusPill></span></span></button>)}</div>{selected ? <div className="flex flex-col"><div className="flex items-center justify-between border-b border-[hsl(var(--border)/.65)] px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-[#dcecf5] text-[11px] font-bold text-[#22617d]">{selected.name.slice(0, 2)}</span><div><strong className="block text-xs">{selected.name}</strong><span className="text-[10px] text-[hsl(var(--muted-foreground))]">{selected.channel}</span></div></div><button data-testid="button-toggle-conversation-mode" onClick={toggleMode} className="flex items-center gap-1.5 rounded-lg bg-[hsl(var(--muted))] px-2.5 py-1.5 text-[10px] font-bold">{selected.mode === "AI" ? <Bot size={13} /> : <UserRound size={13} />}{selected.mode === "AI" ? "المساعد الذكي" : "الفريق"}<ToggleRight size={15} /></button></div><div className="flex-1 space-y-3 overflow-auto bg-[hsl(var(--background)/.45)] p-5">{messages.length ? messages.map((message) => <div key={message.id} className={`${message.direction === "outgoing" ? "ml-auto bg-[hsl(var(--primary))] text-white" : "mr-auto border bg-[hsl(var(--card))]"} max-w-[75%] rounded-2xl p-3 text-[11px] leading-6`}>{message.content}<small className="mt-1 block text-[9px] opacity-60">{message.created_at ? new Date(message.created_at).toLocaleString("ar-EG") : ""}</small></div>) : <div className="p-10 text-center text-xs text-[hsl(var(--muted-foreground))]">لا توجد رسائل بعد</div>}</div><div className="border-t border-[hsl(var(--border)/.65)] p-4"><div className="flex gap-2"><input data-testid="input-inbox-reply" value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="اكتب ردك هنا..." className="flex-1 rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--background))] px-3 py-2.5 text-xs outline-none" /><button data-testid="button-send-reply" onClick={send} className="grid size-10 place-items-center rounded-xl bg-[hsl(var(--primary))] text-white"><Send size={16} /></button></div></div></div> : <div className="grid place-items-center text-sm text-[hsl(var(--muted-foreground))]">لا توجد محادثة محددة</div>}</div></section>;
 }
 
 export function TasksPage() {
