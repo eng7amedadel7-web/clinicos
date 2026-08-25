@@ -7,6 +7,7 @@ import patientsRouter from "./patients";
 import appointmentsRouter from "./appointments";
 import inboxRouter from "./inbox";
 import operationsRouter from "./operations";
+import organizationRouter from "./organization";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(patientsRouter);
 router.use(appointmentsRouter);
 router.use(inboxRouter);
 router.use(operationsRouter);
+router.use(organizationRouter);
 
 export default router;
