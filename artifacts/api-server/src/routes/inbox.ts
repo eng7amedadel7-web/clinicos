@@ -36,7 +36,7 @@ router.get("/inbox", async (req, res) => {
   let session;
   try { session = await requireClinicPermission(req, "inbox", "conversations", "read"); } catch (error) { respondToPermissionError(res, error); return; }
   const [conversationsResult, patientsResult, channelsResult] = await Promise.all([
-    supabaseRequest<Conversation[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,channel_conversation_id,last_patient_message,assigned_staff_id,ai_status,is_handoff,last_activity_at,status,priority&${clinicFilter(session.clinicId)}&is_archived=eq.false&order=last_activity_at.desc&limit=100`, { headers: headers(session.accessToken) }),
+    supabaseRequest<Conversation[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,channel_conversation_id,last_patient_message,assigned_staff_id,ai_status,is_handoff,last_activity_at,status,priority&${clinicFilter(session.clinicId)}&is_archived=eq.false&order=last_activity_at.desc&limit=500`, { headers: headers(session.accessToken) }),
     supabaseRequest<Patient[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter(session.clinicId)}&limit=1000`, { headers: headers(session.accessToken) }),
     supabaseRequest<Channel[]>(`/rest/v1/channels?select=id,type,provider,status,is_enabled,config&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&limit=100`, { headers: headers(session.accessToken) }),
   ]);
