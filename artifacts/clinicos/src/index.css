@@ -139,6 +139,11 @@
 .workspace-route { min-height: 0; }
 .workspace-page { overflow-x: hidden; }
 .workspace-page-header { min-height: 4.25rem; }
+.inbox-layout { gap: .5rem; }
+.inbox-layout .workspace-page-header { min-height: 0; }
+.inbox-layout .workspace-page-header h1 { font-size: 1.65rem; line-height: 1.15; }
+.inbox-layout .workspace-page-header > div > p:last-child { margin-top: 0; font-size: .72rem; line-height: 1.25; }
+.inbox-layout [role="tablist"] button { padding-block: .55rem; }
 .workspace-toolbar { min-height: 3.75rem; }
 .toolbar-button, .toolbar-language { position: relative; display: inline-flex; min-width: 2.5rem; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid #dbe5ea; border-radius: .75rem; background: #fff; color: #607c89; font-size: .72rem; font-weight: 800; transition: color .18s ease, background-color .18s ease, border-color .18s ease, transform .18s ease; }
 .toolbar-button:hover, .toolbar-language:hover { border-color: #9fc0ca; background: #f1f7f7; color: #23677c; transform: translateY(-1px); }
