@@ -64,7 +64,7 @@ router.get("/appointments", async (req, res) => {
   ]);
   if (!appointmentsResult.ok) { res.status(appointmentsResult.status || 502).json({ error: "Appointments could not be loaded." }); return; }
   const patients = new Map((patientsResult.data ?? []).map((p) => [String(p.id), p]));
-  res.json((appointmentsResult.data ?? []).map((row) => {
+  const appointments = (appointmentsResult.data ?? []).map((row) => {
     const patient = patients.get(String(row.patient_id));
     return {
       id: row.id,
@@ -76,7 +76,23 @@ router.get("/appointments", async (req, res) => {
       slotId: row.slot_id || null,
       notes: row.notes || null,
     };
-  }));
+  });
+  if (req.query.includeOptions === "true") {
+    const [doctorsResult, servicesResult, slotsResult] = await Promise.all([
+      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${filter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
+      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${filter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
+      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${filter}&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date().toISOString())}&order=start_time.asc&limit=200`, { headers }),
+    ]);
+    const doctors = (doctorsResult.data ?? []).map((doctor) => ({ id: doctor.id, name: doctor.name || "طبيب بدون اسم", specialization: doctor.specialization || null }));
+    const services = (servicesResult.data ?? []).map((service) => ({ id: service.id, name: service.name || "خدمة بدون اسم", durationMinutes: service.duration_minutes ?? null }));
+    const validDoctorIds = new Set(doctors.map((doctor) => String(doctor.id)));
+    const validServiceIds = new Set(services.map((service) => String(service.id)));
+    const slots = (slotsResult.data ?? []).filter((slot) => validDoctorIds.has(String(slot.doctor_id)) && validServiceIds.has(String(slot.service_id))).map((slot) => ({ id: slot.id, doctorId: slot.doctor_id, serviceId: slot.service_id, startTime: slot.start_time, endTime: slot.end_time, status: slot.slot_status }));
+    const bookingPatients = (patientsResult.data ?? []).map((patient) => ({ id: patient.id, name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم" }));
+    res.json({ appointments, options: { patients: bookingPatients, doctors, services, slots } });
+    return;
+  }
+  res.json(appointments);
 });
 
 router.post("/appointments", async (req, res) => {
