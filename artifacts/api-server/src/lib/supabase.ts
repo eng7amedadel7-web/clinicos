@@ -54,14 +54,21 @@ export async function supabaseRequest<T>(
   path: string,
   init: RequestInitLike = {},
 ): Promise<SupabaseResponse<T>> {
-  const direct = directSupabaseConfig();
-  if (direct) {
-    return directRequest<T>(direct.url, direct.key, path, init);
-  }
+  try {
+    const direct = directSupabaseConfig();
+    if (direct) {
+      return await directRequest<T>(direct.url, direct.key, path, init);
+    }
 
-  const connectors = new ReplitConnectors();
-  const response = await connectors.proxy("supabase", path, init);
-  return parseResponse<T>(response);
+    const connectors = new ReplitConnectors();
+    const response = await connectors.proxy("supabase", path, init);
+    return await parseResponse<T>(response);
+  } catch (error) {
+    console.error("[Supabase] Request failed", {
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
+    return { ok: false, status: 503, data: undefined as T };
+  }
 }
 
 export async function supabaseAuthRequest<T>(
