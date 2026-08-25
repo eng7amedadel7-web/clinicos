@@ -227,6 +227,10 @@ importers:
         version: 3.1.0
 
   artifacts/clinicos:
+    dependencies:
+      '@paddle/paddle-js':
+        specifier: 1.4.2
+        version: 1.4.2
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
@@ -855,6 +859,9 @@ packages:
 
   '@orval/zod@8.23.0':
     resolution: {integrity: sha512-As/epqTSLpuzvmXwpYtQk1wanBfcgZ77MBnnuVAdGD+fna1x4b9Ah5PA/J/157PdUeoIzQQwC+9NpDeWGTSr0g==}
+
+  '@paddle/paddle-js@1.4.2':
+    resolution: {integrity: sha512-pY9jYS+g3vk6ecc7GbCsVSuBEo1Yh+hxYE4i2XoY5/ZBAZLuCkQi/80hOmSBkFoaETohOpDmurILlQdgUHUcvw==}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -3407,6 +3414,8 @@ snapshots:
       - '@faker-js/faker'
       - supports-color
       - typescript
+
+  '@paddle/paddle-js@1.4.2': {}
 
   '@pinojs/redact@0.4.0': {}
 

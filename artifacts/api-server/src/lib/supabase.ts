@@ -74,3 +74,21 @@ export async function supabaseAuthRequest<T>(
     body: JSON.stringify(body),
   });
 }
+
+export async function supabaseAdminRequest<T>(
+  path: string,
+  init: RequestInitLike = {},
+): Promise<SupabaseResponse<T>> {
+  const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+  const key = (process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
+  if (!url || !key) {
+    return { ok: false, status: 503, data: undefined as T };
+  }
+  return directRequest<T>(url, key, path, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      ...(init.headers ?? {}),
+    },
+  });
+}

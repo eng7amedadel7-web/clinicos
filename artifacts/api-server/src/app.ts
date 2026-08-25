@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
 import router from "./routes";
+import { paddleWebhook } from "./routes/billing";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -28,6 +29,7 @@ app.use(
 );
 app.use(cors());
 app.use(cookieParser(process.env.SESSION_SECRET ?? "development-session-secret"));
+app.post("/api/billing/webhook", express.raw({ type: "application/json" }), paddleWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

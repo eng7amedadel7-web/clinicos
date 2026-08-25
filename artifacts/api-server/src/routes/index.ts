@@ -8,6 +8,7 @@ import appointmentsRouter from "./appointments";
 import inboxRouter from "./inbox";
 import operationsRouter from "./operations";
 import organizationRouter from "./organization";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(appointmentsRouter);
 router.use(inboxRouter);
 router.use(operationsRouter);
 router.use(organizationRouter);
+router.use(billingRouter);
 
 export default router;
