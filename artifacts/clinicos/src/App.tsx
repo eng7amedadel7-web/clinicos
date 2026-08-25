@@ -411,10 +411,10 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
         <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> مفتوحة اليوم</p></div>
         <ChevronDown size={14} className={`mr-auto text-[#7895a2] ${collapsed ? 'md:hidden' : ''}`} />
       </div>
-      <nav className={`sidebar-nav space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
+      <nav className={`sidebar-nav min-h-0 overflow-y-auto space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
         {links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href ? 'active' : ''}`} data-testid={`link-nav-${label}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>)}
       </nav>
-      <div className={`sidebar-footer mt-auto border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
+      <div className={`sidebar-footer mt-auto shrink-0 border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
         <div className={`mb-4 flex items-center gap-3 px-2 ${collapsed ? 'md:justify-center md:px-0' : ''}`} title={collapsed ? userName : undefined}><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">مالك العيادة</p></div></div>
         <button onClick={doLogout} disabled={logout.isPending} title={collapsed ? 'تسجيل الخروج' : undefined} aria-label="تسجيل الخروج" className={`sidebar-link w-full px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''}`} data-testid="button-logout"><LogOut size={18} /><span className={collapsed ? 'md:sr-only' : ''}>{logout.isPending ? 'جارٍ الخروج...' : 'تسجيل الخروج'}</span></button>
       </div>
@@ -499,7 +499,7 @@ function ProtectedShell() {
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (needsLogin) return null;
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} />{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : location === '/billing' ? <BillingPage /> : <LiveDashboard session={session} />}</div>;
+  return <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} /><div className="main-content min-h-0 min-w-0 flex-1" dir="rtl">{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : location === '/billing' ? <BillingPage /> : <LiveDashboard session={session} />}</div></div>;
 }
 
 function NotFound() {
