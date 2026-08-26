@@ -35,6 +35,7 @@ import {
   UserRound,
   UsersRound,
   PhoneCall,
+  Menu,
   X,
 } from 'lucide-react';
 import {
@@ -58,6 +59,8 @@ import { FollowUpsPage, LiveAppointmentsPage, LiveInboxPage, LivePatientsPage, N
 import LiveDashboard from '@/pages/live-dashboard';
 import LiveVoiceAgentPage from '@/pages/live-voice-agent';
 import BillingPage from '@/pages/billing';
+import Patient360Page from '@/pages/patient-360-page';
+import AppointmentJourneyPage from '@/pages/appointment-journey-page';
 import MerunaHome from '@/pages/meruna-home';
 import CurrentMerunaHome from '@/pages/meruna-home-current';
 import MergedMerunaHome from '@/pages/meruna-home-merged';
@@ -363,7 +366,7 @@ function RegisterPage() {
   );
 }
 
-function Sidebar({ clinicName, userName }: { clinicName: string; userName: string }) {
+function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { clinicName: string; userName: string; mobileOpen?: boolean; onNavigate?: () => void }) {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('meruna-sidebar-collapsed') === 'true');
@@ -405,7 +408,8 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
 
   const sidebarStyle = { '--sidebar-width': `${collapsed ? 84 : sidebarWidth}px` } as CSSProperties;
   return (
-    <aside className="sidebar relative flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[var(--sidebar-width)] md:shrink-0 md:px-5 md:py-7" style={sidebarStyle} dir="rtl">
+    <aside className={`sidebar relative flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[var(--sidebar-width)] md:shrink-0 md:px-5 md:py-7 ${mobileOpen ? 'sidebar-open' : ''}`} style={sidebarStyle} dir="rtl" aria-hidden={undefined}>
+      <button type="button" className="sidebar-close" onClick={onNavigate} aria-label="إغلاق القائمة"><X size={18} /></button>
       <div className={`brand-lockup mb-10 flex items-center ${collapsed ? 'justify-center gap-2 px-0' : 'justify-between px-2'}`}>
         {collapsed ? <div className="brand-mark" aria-label="MERUNA SYSTEM"><span /></div> : <Logo />}
         <button type="button" onClick={() => setCollapsed((value) => !value)} className="sidebar-tool" aria-label={collapsed ? 'توسيع الشريط الجانبي' : 'طي الشريط الجانبي'} title={collapsed ? 'توسيع الشريط الجانبي' : 'طي الشريط الجانبي'} data-testid="button-toggle-sidebar">
@@ -427,7 +431,7 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
         </div>}
       </div>
       <nav className={`sidebar-nav min-h-0 overflow-y-auto space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
-        {links.map(({ href, key, icon: Icon }) => { const label = t(key); return <Link key={href} href={href} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>; })}
+        {links.map(({ href, key, icon: Icon }) => { const label = t(key); return <Link key={href} href={href} onClick={() => onNavigate?.()} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>; })}
       </nav>
       <div className={`sidebar-footer mt-auto shrink-0 border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
         <div className="relative">
@@ -440,7 +444,7 @@ function Sidebar({ clinicName, userName }: { clinicName: string; userName: strin
   );
 }
 
-function WorkspaceToolbar() {
+function WorkspaceToolbar({ onOpenMenu }: { onOpenMenu?: () => void }) {
   const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId } = usePreferences();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications', selectedBranchId], queryFn: ({ signal }) => getOperationsSummary(signal, selectedBranchId === 'all' ? undefined : selectedBranchId), enabled: notificationsOpen, staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
@@ -453,6 +457,7 @@ function WorkspaceToolbar() {
   ].filter((item) => item.count > 0);
   const unreadCount = notifications.length;
   return <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
+    <button type="button" onClick={onOpenMenu} className="toolbar-button md:hidden" aria-label="فتح القائمة" data-testid="button-open-menu"><Menu size={18} /></button>
     <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-bold text-[#78909c]">MERUNA SYSTEM</p><p className="truncate text-xs text-[#8a9ba4]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
     <div className="relative">
       <button type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-expanded={notificationsOpen} aria-label={t('notifications')} className="toolbar-button" data-testid="button-notifications"><Bell size={17} />{unreadCount > 0 && <span className="toolbar-badge">{unreadCount}</span>}</button>
@@ -528,6 +533,7 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
 function ProtectedShell() {
   const sessionQuery = useGetAuthSession({ query: { retry: false, queryKey: getGetAuthSessionQueryKey() } });
   const [location, setLocation] = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const needsLogin = sessionQuery.isError || !sessionQuery.data;
 
   useEffect(() => {
@@ -536,10 +542,40 @@ function ProtectedShell() {
     }
   }, [location, needsLogin, setLocation]);
 
+  useEffect(() => { setMenuOpen(false); }, [location]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (needsLogin) return null;
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr"><Sidebar clinicName={session.clinic.name} userName={session.user.fullName} /><div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl"><WorkspaceToolbar /><div className="workspace-route flex min-h-0 flex-1 flex-col">{location === '/settings' ? <SettingsPage session={session} /> : location === '/patients' ? <LivePatientsPage /> : location === '/appointments' ? <LiveAppointmentsPage /> : location === '/inbox' ? <LiveInboxPage /> : location === '/waitlist' ? <WaitlistPage /> : location === '/follow-ups' ? <FollowUpsPage /> : location === '/no-shows' ? <NoShowsPage /> : location === '/voice-agent' ? <LiveVoiceAgentPage /> : location === '/billing' ? <BillingPage /> : <LiveDashboard session={session} />}</div></div></div>;
+  return <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr">
+    <Sidebar clinicName={session.clinic.name} userName={session.user.fullName} mobileOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
+    {menuOpen ? <div className="sidebar-overlay md:hidden" role="presentation" onClick={() => setMenuOpen(false)} /> : null}
+    <div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl">
+      <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} />
+      <div className="workspace-route flex min-h-0 flex-1 flex-col">
+        <Switch>
+          <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
+          <Route path="/patients" component={LivePatientsPage} />
+          <Route path="/patients/:id" component={Patient360Page} />
+          <Route path="/appointments" component={LiveAppointmentsPage} />
+          <Route path="/appointments/:id" component={AppointmentJourneyPage} />
+          <Route path="/inbox" component={LiveInboxPage} />
+          <Route path="/waitlist" component={WaitlistPage} />
+          <Route path="/follow-ups" component={FollowUpsPage} />
+          <Route path="/no-shows" component={NoShowsPage} />
+          <Route path="/voice-agent" component={LiveVoiceAgentPage} />
+          <Route path="/billing" component={BillingPage} />
+          <Route>{() => <LiveDashboard session={session} />}</Route>
+        </Switch>
+      </div>
+    </div>
+  </div>;
 }
 
 function NotFound() {
@@ -551,7 +587,7 @@ function Router() {
   const [location] = useLocation();
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || legalRoutes.includes(location);
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 
 function App() {
