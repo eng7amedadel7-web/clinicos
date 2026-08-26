@@ -23,7 +23,7 @@ function sendFailure(res: Parameters<typeof respondToPermissionError>[0], result
 router.get("/organization/branches", async (req, res) => {
   const session = await protect(req, res, "Settings", "clinic_settings", "read");
   if (!session) return;
-  const result = await supabaseRequest<Row[]>(`/rest/v1/branches?select=id,clinic_id,name,address,phone,is_active,created_at,updated_at&clinic_id=eq.${clinic(session)}&deleted_at=is.null&order=name&limit=200`, { headers: headers(session) });
+  const result = await supabaseRequest<Row[]>(`/rest/v1/branches?select=id,name,address,phone,is_active,created_at,updated_at&clinic_id=eq.${clinic(session)}&deleted_at=is.null&order=name&limit=200`, { headers: headers(session) });
   if (sendFailure(res, result, "تعذر تحميل الفروع.")) return;
   res.json(result.data ?? []);
 });

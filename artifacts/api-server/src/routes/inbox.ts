@@ -36,7 +36,7 @@ router.get("/inbox", async (req, res) => {
   let session;
   try { session = await requireClinicPermission(req, "inbox", "conversations", "read"); } catch (error) { respondToPermissionError(res, error); return; }
   const [conversationsResult, patientsResult, channelsResult] = await Promise.all([
-    supabaseRequest<Conversation[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,channel_conversation_id,last_patient_message,assigned_staff_id,ai_status,is_handoff,last_activity_at,status,priority&${clinicFilter(session.clinicId)}&is_archived=eq.false&order=last_activity_at.desc&limit=100`, { headers: headers(session.accessToken) }),
+    supabaseRequest<Conversation[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,channel_conversation_id,last_patient_message,assigned_staff_id,ai_status,is_handoff,last_activity_at,status,priority&${clinicFilter(session.clinicId)}&is_archived=eq.false&order=last_activity_at.desc&limit=500`, { headers: headers(session.accessToken) }),
     supabaseRequest<Patient[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter(session.clinicId)}&limit=1000`, { headers: headers(session.accessToken) }),
     supabaseRequest<Channel[]>(`/rest/v1/channels?select=id,type,provider,status,is_enabled,config&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&limit=100`, { headers: headers(session.accessToken) }),
   ]);
@@ -48,7 +48,7 @@ router.get("/inbox", async (req, res) => {
     const config = safeChannelConfig(channel?.config);
     return typeof config.display_name === "string" && config.display_name.trim() ? config.display_name : channel?.type || "قناة غير محددة";
   };
-  const conversations = (conversationsResult.data ?? []).map((conversation) => {
+  const allConversations = (conversationsResult.data ?? []).map((conversation) => {
     const channel = channels.get(String(conversation.channel_id));
     return {
       id: conversation.id,
@@ -67,7 +67,12 @@ router.get("/inbox", async (req, res) => {
       priority: conversation.priority || "normal",
     };
   });
-  const conversationId = typeof req.query.conversationId === "string" ? req.query.conversationId : conversations[0]?.id;
+  const supportedChannelTypes = ["whatsapp", "instagram", "messenger", "telegram"] as const;
+  const requestedChannelType = typeof req.query.channelType === "string" && supportedChannelTypes.includes(req.query.channelType as typeof supportedChannelTypes[number]) ? req.query.channelType : null;
+  const conversations = requestedChannelType ? allConversations.filter((item) => item.channelType === requestedChannelType) : allConversations;
+  const channelCounts = Object.fromEntries(supportedChannelTypes.map((type) => [type, allConversations.filter((item) => item.channelType === type).length]));
+  const requestedConversationId = typeof req.query.conversationId === "string" ? req.query.conversationId : null;
+  const conversationId = requestedConversationId && conversations.some((item) => item.id === requestedConversationId) ? requestedConversationId : conversations[0]?.id;
   let messages: Message[] = [];
   if (conversationId) {
     const messageResult = await supabaseRequest<Message[]>(`/rest/v1/messages?select=id,conversation_id,content,direction,sender_type,created_at,message_status&conversation_id=eq.${encodeURIComponent(conversationId)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=created_at.asc&limit=200`, { headers: headers(session.accessToken) });
@@ -76,6 +81,7 @@ router.get("/inbox", async (req, res) => {
   }
   res.json({
     channels: (channelsResult.data ?? []).filter((channel) => ["whatsapp", "instagram", "messenger", "telegram"].includes(channel.type || "")).map((channel) => ({ id: channel.id, type: channel.type, provider: channel.provider, status: channel.status, isEnabled: channel.is_enabled !== false, displayName: channelDisplayName(channel) })),
+    channelCounts,
     conversations,
     selectedConversationId: conversationId || null,
     messages,
@@ -137,7 +143,7 @@ router.patch("/inbox/:id/mode", async (req, res) => {
 
 router.post("/inbox/:id/messages", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "handoff"); } catch (error) { respondToPermissionError(res, error); return; }
+  try { session = await requireClinicPermission(req, "inbox", "conversations", "handoff"); await assertConversation(session, req.params.id); } catch (error) { respondToPermissionError(res, error); return; }
   const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
   if (!content) { res.status(400).json({ error: "نص الرسالة مطلوب." }); return; }
   const queued = await supabaseRequest<{ conversation_id?: string; message_id?: string }>("/rest/v1/rpc/fn_send_inbox_reply", {
