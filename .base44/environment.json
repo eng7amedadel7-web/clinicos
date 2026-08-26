@@ -1,0 +1,32 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/api/healthz",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "SUPABASE_URL",
+      "description": "Supabase project URL (Project Settings > API > Project URL). Used for auth and all data via the Supabase REST API.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase anon/publishable key. SUPABASE_ANON_KEY is read as a fallback.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SUPABASE_SECRET_KEY",
+      "description": "Supabase service role/secret key. SUPABASE_SERVICE_ROLE_KEY is read as a fallback.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "PADDLE_API_KEY",
+      "description": "Optional. Paddle API key for billing checkout/subscriptions.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "PADDLE_WEBHOOK_SECRET",
+      "description": "Optional. Paddle webhook signing secret for /api/billing/webhook.",
+      "requiredAtBoot": false
+    }
+  ]
+}

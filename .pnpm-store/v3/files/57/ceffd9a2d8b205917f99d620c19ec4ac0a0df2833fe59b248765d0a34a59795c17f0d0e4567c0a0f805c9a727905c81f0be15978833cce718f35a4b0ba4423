@@ -1,0 +1,36 @@
+{
+  "name": "@orval/zod",
+  "version": "8.23.0",
+  "homepage": "https://orval.dev/docs/guides/zod",
+  "bugs": {
+    "url": "https://github.com/orval-labs/orval/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/orval-labs/orval.git",
+    "directory": "packages/zod"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.d.ts.map",
+    "!dist/**/*.d.mts.map"
+  ],
+  "type": "module",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@orval/core": "8.23.0",
+    "jsesc": "^3.0.0",
+    "remeda": "^2.33.6"
+  },
+  "devDependencies": {
+    "@types/jsesc": "^3.0.3",
+    "rimraf": "6.1.2",
+    "typescript": "6.0.3",
+    "vitest": "4.0.18"
+  }
+}

@@ -9,10 +9,12 @@ import inboxRouter from "./inbox";
 import operationsRouter from "./operations";
 import organizationRouter from "./organization";
 import billingRouter from "./billing";
+import realtimeRouter from "./realtime";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(realtimeRouter);
 router.use("/auth", authRouter);
 router.use("/dashboard", dashboardRouter);
 router.use(settingsRouter);

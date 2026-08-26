@@ -1,0 +1,1 @@
+{"version":3,"file":"upgrade.d.ts","sourceRoot":"","sources":["../../src/utils/upgrade.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,QAAQ,IAAI,mBAAmB,EAAE,MAAM,2BAA2B,CAAA;AAGhF,OAAO,KAAK,EAAE,UAAU,EAAE,aAAa,EAAE,aAAa,EAAE,MAAM,eAAe,CAAA;AAM7E;;GAEG;AACH,wBAAgB,OAAO,CAAC,KAAK,EAAE,MAAM,GAAG,aAAa,GAAG,UAAU,GAAG,aAAa,CAAC,mBAAmB,CAAC,CAmBtG"}

@@ -1,0 +1,105 @@
+{
+  "name": "orval",
+  "version": "8.23.0",
+  "description": "A swagger client generator for typescript",
+  "keywords": [
+    "angular",
+    "axios",
+    "client",
+    "code-generation",
+    "data fetching",
+    "effect",
+    "fetch",
+    "hono",
+    "mock",
+    "msw",
+    "open-api",
+    "react",
+    "react-query",
+    "rest",
+    "svelte",
+    "svelte-query",
+    "swagger",
+    "swr",
+    "vue",
+    "vue-query",
+    "zod"
+  ],
+  "homepage": "https://orval.dev",
+  "bugs": {
+    "url": "https://github.com/orval-labs/orval/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Victor Bury",
+    "email": "victor@anymaniax.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/orval-labs/orval.git"
+  },
+  "bin": {
+    "orval": "./dist/bin/orval.mjs"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.d.ts.map",
+    "!dist/**/*.d.mts.map"
+  ],
+  "type": "module",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./bin/orval": "./dist/bin/orval.mjs",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^15.0.0",
+    "@orval/angular": "8.23.0",
+    "@orval/axios": "8.23.0",
+    "@orval/core": "8.23.0",
+    "@orval/effect": "8.23.0",
+    "@orval/fetch": "8.23.0",
+    "@orval/hono": "8.23.0",
+    "@orval/mcp": "8.23.0",
+    "@orval/mock": "8.23.0",
+    "@orval/query": "8.23.0",
+    "@orval/solid-start": "8.23.0",
+    "@orval/swr": "8.23.0",
+    "@orval/zod": "8.23.0",
+    "@scalar/json-magic": "^0.12.16",
+    "@scalar/openapi-parser": "^0.28.7",
+    "@scalar/openapi-types": "0.8.0",
+    "chokidar": "^5.0.0",
+    "commander": "^15.0.0",
+    "execa": "^9.6.1",
+    "find-up": "8.0.0",
+    "fs-extra": "^11.3.2",
+    "get-tsconfig": "^4.14.0",
+    "jiti": "^2.6.1",
+    "js-yaml": "4.3.0",
+    "remeda": "^2.33.6",
+    "string-argv": "^0.3.2",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-coverage": "^4.0.2",
+    "typedoc-plugin-markdown": "^4.10.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
+    "rimraf": "6.1.2",
+    "typescript": "6.0.3",
+    "vitest": "4.0.18"
+  },
+  "peerDependencies": {
+    "prettier": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "prettier": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

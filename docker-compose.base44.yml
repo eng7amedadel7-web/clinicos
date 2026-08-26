@@ -10,7 +10,7 @@ services:
       - ./:/app
       - pnpm-store:/root/.local/share/pnpm
       - corepack-cache:/root/.cache
-    command: sh -c "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --frozen-lockfile"
+    command: sh -c "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --no-frozen-lockfile"
 
   api:
     image: node:22-slim

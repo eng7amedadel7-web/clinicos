@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { AlertTriangle, Bot, CheckCircle2, Clock3, FileText, Filter, RefreshCw, Search, Send, ToggleRight, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getInboxPayload, inboxAction, type InboxChannel, type InboxConversation, type InboxMessage } from "@/lib/inbox-api";
+import { useRealtimeInvalidation } from "@/lib/use-realtime";
 
 function StatusPill({ children, tone = "teal" }: { children: React.ReactNode; tone?: string }) {
   const tones: Record<string, string> = {
@@ -34,11 +35,13 @@ export default function InboxPage() {
   const [channelType, setChannelType] = useState("all");
   const [channelId, setChannelId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
+  const realtimeConnected = useRealtimeInvalidation("inbox", ["inbox"]);
   const inboxQuery = useQuery({
     queryKey: ["inbox", selectedId],
     queryFn: ({ signal }) => getInboxPayload(selectedId, signal),
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    // Realtime via SSE invalidates the cache on change; fall back to polling only if disconnected.
+    refetchInterval: realtimeConnected ? false : 30_000,
     refetchIntervalInBackground: false,
     placeholderData: keepPreviousData,
   });
