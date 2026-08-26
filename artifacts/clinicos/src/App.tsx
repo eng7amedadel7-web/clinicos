@@ -5,6 +5,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster, toast } from 'sonner';
 import {
   Activity,
+  Search,
   ArrowLeft,
   ArrowRight,
   Bell,
@@ -65,6 +66,9 @@ import MerunaHome from '@/pages/meruna-home';
 import CurrentMerunaHome from '@/pages/meruna-home-current';
 import MergedMerunaHome from '@/pages/meruna-home-merged';
 import LegalPage from '@/pages/legal-pages';
+import OperationsDashboard from '@/pages/operations-dashboard';
+import OrganizationSettings from '@/pages/organization-settings';
+import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/components/command-palette';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { getOperationsSummary } from '@/lib/operations-api';
 
@@ -378,7 +382,26 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   const [clinicMenuOpen, setClinicMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError, loadBranches } = usePreferences();
-  const links: Array<{ href: string; key: TranslationKey; icon: typeof Home }> = [{ href: '/dashboard', key: 'overview', icon: Home }, { href: '/patients', key: 'patients', icon: UsersRound }, { href: '/appointments', key: 'appointments', icon: Clock3 }, { href: '/inbox', key: 'inbox', icon: Inbox }, { href: '/waitlist', key: 'waitlist', icon: Clock3 }, { href: '/follow-ups', key: 'followUps', icon: Sparkles }, { href: '/no-shows', key: 'noShowsOpen', icon: ShieldCheck }, { href: '/voice-agent', key: 'voiceAgent', icon: PhoneCall }, { href: '/billing', key: 'reports', icon: CreditCard }, { href: '/settings', key: 'settings', icon: Settings2 }];
+  const navGroups: Array<{ id: string; title: string; links: Array<{ href: string; label: string; icon: typeof Home }> }> = [
+    { id: 'operations', title: language === 'ar' ? 'التشغيل' : 'Operations', links: [
+      { href: '/dashboard', label: t('overview'), icon: Home },
+      { href: '/operations', label: language === 'ar' ? 'لوحة التشغيل' : 'Operations board', icon: Activity },
+      { href: '/waitlist', label: t('waitlist'), icon: Clock3 },
+      { href: '/follow-ups', label: t('followUps'), icon: Sparkles },
+      { href: '/no-shows', label: t('noShowsOpen'), icon: ShieldCheck },
+    ] },
+    { id: 'patients', title: language === 'ar' ? 'المرضى' : 'Patients', links: [
+      { href: '/patients', label: t('patients'), icon: UsersRound },
+      { href: '/appointments', label: t('appointments'), icon: Clock3 },
+      { href: '/inbox', label: t('inbox'), icon: Inbox },
+      { href: '/voice-agent', label: t('voiceAgent'), icon: PhoneCall },
+    ] },
+    { id: 'settings', title: language === 'ar' ? 'الإعدادات' : 'Settings', links: [
+      { href: '/organization', label: language === 'ar' ? 'بيانات المنشأة' : 'Organization', icon: Building2 },
+      { href: '/billing', label: t('reports'), icon: CreditCard },
+      { href: '/settings', label: t('settings'), icon: Settings2 },
+    ] },
+  ];
   const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
 
   useEffect(() => {
@@ -431,7 +454,10 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
         </div>}
       </div>
       <nav className={`sidebar-nav min-h-0 overflow-y-auto space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
-        {links.map(({ href, key, icon: Icon }) => { const label = t(key); return <Link key={href} href={href} onClick={() => onNavigate?.()} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>; })}
+        {navGroups.map((group) => <div key={group.id} className="sidebar-group">
+          <p className={`sidebar-group-label ${collapsed ? 'md:sr-only' : ''}`}>{group.title}</p>
+          {group.links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => onNavigate?.()} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>)}
+        </div>)}
       </nav>
       <div className={`sidebar-footer mt-auto shrink-0 border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
         <div className="relative">
@@ -444,7 +470,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   );
 }
 
-function WorkspaceToolbar({ onOpenMenu }: { onOpenMenu?: () => void }) {
+function WorkspaceToolbar({ onOpenMenu, onOpenSearch }: { onOpenMenu?: () => void; onOpenSearch?: () => void }) {
   const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId } = usePreferences();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications', selectedBranchId], queryFn: ({ signal }) => getOperationsSummary(signal, selectedBranchId === 'all' ? undefined : selectedBranchId), enabled: notificationsOpen, staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
@@ -458,7 +484,9 @@ function WorkspaceToolbar({ onOpenMenu }: { onOpenMenu?: () => void }) {
   const unreadCount = notifications.length;
   return <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
     <button type="button" onClick={onOpenMenu} className="toolbar-button md:hidden" aria-label="فتح القائمة" data-testid="button-open-menu"><Menu size={18} /></button>
-    <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-bold text-[#78909c]">MERUNA SYSTEM</p><p className="truncate text-xs text-[#8a9ba4]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
+    <div className="min-w-0 flex-1 md:hidden"><p className="truncate text-[11px] font-bold text-[#78909c]">MERUNA SYSTEM</p><p className="truncate text-xs text-[#8a9ba4]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
+    {onOpenSearch ? <div className="hidden min-w-0 flex-1 md:block"><CommandPaletteTrigger onOpen={onOpenSearch} language={language} /></div> : null}
+    {onOpenSearch ? <button type="button" onClick={onOpenSearch} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'بحث' : 'Search'} data-testid="button-open-search-mobile"><Search size={17} /></button> : null}
     <div className="relative">
       <button type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-expanded={notificationsOpen} aria-label={t('notifications')} className="toolbar-button" data-testid="button-notifications"><Bell size={17} />{unreadCount > 0 && <span className="toolbar-badge">{unreadCount}</span>}</button>
       {notificationsOpen && <div className="toolbar-popover absolute left-0 top-full z-30 mt-2 w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-[#dbe5ea] bg-white p-2 text-right shadow-xl" role="dialog" aria-label={t('notifications')}><div className="border-b border-[#edf1f3] px-3 py-2"><p className="text-sm font-bold text-[#18374d]">{t('notifications')}</p><p className="mt-0.5 text-[10px] text-[#8496a0]">{t('notificationsSubtitle')}</p></div>{notifications.length ? notifications.map((item) => <Link key={item.id} href={item.href} onClick={() => setNotificationsOpen(false)} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-xs text-[#28495b] transition hover:bg-[#f1f7f7]"><span className="min-w-0 truncate">{item.label}</span><strong className="rounded-md bg-[#dcecf5] px-2 py-1 text-[10px] text-[#22617d]">{item.count}</strong></Link>) : <p className="px-3 py-5 text-center text-xs text-[#8496a0]">{t('noNotifications')}</p>}{summaryQuery.isError && <p className="px-3 pb-2 text-[10px] text-[#a64036]">{language === 'ar' ? 'تعذر تحديث الإشعارات.' : 'Notifications could not be refreshed.'}</p>}</div>}
@@ -530,10 +558,16 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
   return <div className="main-content min-w-0 flex-1" dir="rtl"><header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 md:px-9"><div><p className="text-xs font-semibold text-[#78909c]">مساحتك الخاصة</p><h1 className="ar mt-1 text-xl font-bold text-[#15364b]" data-testid="heading-settings">الإعدادات</h1></div><button className="quiet-button" onClick={() => form.reset()} data-testid="button-reset-settings"><RefreshCw size={17} /> إعادة الضبط</button></header><div className="mx-auto max-w-[1020px] space-y-6 p-5 md:p-9"><div className="animate-rise rounded-2xl bg-[#dcebef] p-6 md:p-8"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f2fafb] text-[#4c8a9b]"><Settings2 size={22} /></div><div><h2 className="ar text-xl font-bold text-[#173f54]">تفاصيل الحساب والعيادة</h2><p className="mt-1 text-sm leading-6 text-[#587785]">حدّث معلوماتك الأساسية لتبقى مساحة العمل دقيقة وواضحة لفريقك.</p></div></div></div>{updateSettings.error ? <div className="surface rounded-xl border-[#edc4c0] bg-[#fff7f6] p-3 text-sm text-[#a54c46]" data-testid="alert-settings-error">تعذر حفظ التغييرات. حاول مرة أخرى.</div> : null}<form onSubmit={form.handleSubmit(save)} className="space-y-6"><section className="surface animate-rise delay-1 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5"><UserRound size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b]">بيانات المسؤول</h2><p className="mt-1 text-xs text-[#8999a1]">بيانات تسجيل الدخول والهوية</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label="الاسم الكامل"><input {...form.register('fullName')} className="input-field" data-testid="input-settings-full-name" /></Field><Field label="البريد الإلكتروني"><input {...form.register('email')} className="input-field text-left bg-[#f3f6f7]" dir="ltr" type="email" readOnly data-testid="input-settings-email" /></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b]"><ShieldCheck size={15} /> صلاحية الحساب: <strong className="text-[#3d7587]">{session.user.role === 'owner' ? 'مالك العيادة' : 'مدير'}</strong></div></section><section className="surface animate-rise delay-2 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5"><Building2 size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b]">معلومات العيادة</h2><p className="mt-1 text-xs text-[#8999a1]">تظهر هذه المعلومات لفريقك</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label="اسم العيادة"><input {...form.register('clinicName')} className="input-field" data-testid="input-settings-clinic-name" /></Field><Field label="المدينة"><div className="relative"><MapPin size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('city')} className="input-field pr-11" data-testid="input-settings-city" /></div></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b]"><span className="status-dot" /> حالة العيادة: <strong className="text-[#3d7587]">{session.clinic.status || 'نشطة'}</strong></div></section><div className="flex items-center justify-end gap-3"><span className={`text-xs font-bold text-[#4d967f] transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} data-testid="text-settings-saved"><Check size={14} className="inline" /> تم الحفظ</span><button type="submit" className="primary-button" disabled={updateSettings.isPending} data-testid="button-save-settings"><Check size={17} /> {updateSettings.isPending ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}</button></div></form></div></div>;
 }
 
+function ShellCommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { language } = usePreferences();
+  return <CommandPalette open={open} onOpenChange={onOpenChange} language={language} />;
+}
+
 function ProtectedShell() {
   const sessionQuery = useGetAuthSession({ query: { retry: false, queryKey: getGetAuthSessionQueryKey() } });
   const [location, setLocation] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
   const needsLogin = sessionQuery.isError || !sessionQuery.data;
 
   useEffect(() => {
@@ -557,7 +591,8 @@ function ProtectedShell() {
     <Sidebar clinicName={session.clinic.name} userName={session.user.fullName} mobileOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
     {menuOpen ? <div className="sidebar-overlay md:hidden" role="presentation" onClick={() => setMenuOpen(false)} /> : null}
     <div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl">
-      <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} />
+      <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
+      <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
       <div className="workspace-route flex min-h-0 flex-1 flex-col">
         <Switch>
           <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
@@ -571,6 +606,8 @@ function ProtectedShell() {
           <Route path="/no-shows" component={NoShowsPage} />
           <Route path="/voice-agent" component={LiveVoiceAgentPage} />
           <Route path="/billing" component={BillingPage} />
+          <Route path="/operations">{() => <OperationsDashboard session={session} />}</Route>
+          <Route path="/organization" component={OrganizationSettings} />
           <Route>{() => <LiveDashboard session={session} />}</Route>
         </Switch>
       </div>
@@ -587,7 +624,7 @@ function Router() {
   const [location] = useLocation();
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || legalRoutes.includes(location);
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/operations" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 
 function App() {
