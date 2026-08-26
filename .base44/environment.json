@@ -1,0 +1,22 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "SUPABASE_URL",
+      "description": "Supabase project URL (e.g. https://<ref>.supabase.co). Used by the API server for auth + data via the Supabase REST API. Find it in your Supabase dashboard > Project Settings > API > Project URL.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase anon/publishable key. Supabase dashboard > Project Settings > API > anon public key. Used for client-facing REST calls.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SUPABASE_SECRET_KEY",
+      "description": "Supabase service_role secret key. Supabase dashboard > Project Settings > API > service_role secret. Used for privileged admin REST calls.",
+      "requiredAtBoot": false
+    }
+  ]
+}

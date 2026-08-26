@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Base44 pnpm store (shared across compose containers)
+.pnpm-store/
