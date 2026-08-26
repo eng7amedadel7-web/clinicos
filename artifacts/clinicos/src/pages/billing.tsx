@@ -10,11 +10,14 @@ const plans = [
   { key: "pro", name: "Pro", monthly: 349, yearly: 280, description: "للمجموعات الطبية", features: ["فروع ومستخدمون بلا حدود", "الاستقبال الصوتي الذكي", "أولوية الدعم", "تكاملات متقدمة"] },
 ] as const;
 
+type Entitlement = { status: "trial" | "active" | "expired" | "canceled" | "none"; plan: string | null; trialEndsAt: string | null; daysRemaining: number | null };
+
 type BillingData = {
   subscription: null | { plan: string; status: string; billing_interval: string; trial_ends_at?: string; current_period_ends_at?: string; cancel_at_period_end?: boolean };
   transactions: Array<{ id: string; status: string; total?: string; currency_code: string; billed_at?: string }>;
   canManage: boolean;
   clientToken: string | null;
+  entitlement?: Entitlement;
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -80,6 +83,9 @@ export default function BillingPage() {
           {subscription?.status === "active" && <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold transition hover:bg-white/15 disabled:opacity-60" disabled={pending === "portal"} onClick={openPortal}>{pending === "portal" ? <Loader2 className="animate-spin" size={17} /> : <ExternalLink size={17} />} إدارة الدفع والإلغاء</button>}
         </div><Sparkles className="absolute -left-8 -top-8 size-52 text-white/[.035]" />
       </section>
+      {query.data?.entitlement?.status === "trial" && <div className="flex items-center gap-3 rounded-2xl border border-[#e9c27b] bg-[#fff8e6] px-5 py-4 text-sm"><Clock3 size={18} className="shrink-0 text-[#9a6513]" /><p className="text-[#6b4a12]"><strong>فترة تجريبية:</strong> متبقّي {query.data.entitlement.daysRemaining ?? 0} يومًا. أضف طريقة دفع قبل {formatDate(query.data.entitlement.trialEndsAt)} لتجنّب انقطاع الخدمة.</p></div>}
+      {query.data?.entitlement?.status === "expired" && <div className="flex items-center gap-3 rounded-2xl border border-[#e3b8b3] bg-[#fdecea] px-5 py-4 text-sm"><AlertCircle size={18} className="shrink-0 text-[#a64036]" /><p className="text-[#7a2d28]"><strong>انتهت الفترة التجريبية.</strong> اشترك في إحدى الباقات بالأسفل لاستئناف الوصول الكامل.</p></div>}
+      {query.data?.entitlement?.status === "canceled" && <div className="flex items-center gap-3 rounded-2xl border border-[#c9dce3] bg-[#eef3f7] px-5 py-4 text-sm"><AlertCircle size={18} className="shrink-0 text-[#3c7e93]" /><p className="text-[#2a4a58]"><strong>أُلغي الاشتراك.</strong> أعِد الاشتراك في إحدى الباقات بالأسفل لتفعيل الخدمة.</p></div>}
 
       <section><div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><h2 className="ar text-2xl font-bold text-[#173f54]">اختر الباقة المناسبة</h2><p className="mt-2 text-sm text-[#728995]">10 أيام مجانًا، ثم تُحاسب حسب الفترة المختارة. يمكنك الإلغاء بنهاية الدورة.</p></div><div className="inline-flex w-fit rounded-xl bg-[#dfecef] p-1"><button className={`rounded-lg px-4 py-2 text-xs font-bold ${interval === "month" ? "bg-white text-[#173f54] shadow-sm" : "text-[#66808e]"}`} onClick={() => setInterval("month")}>شهري</button><button className={`rounded-lg px-4 py-2 text-xs font-bold ${interval === "year" ? "bg-white text-[#173f54] shadow-sm" : "text-[#66808e]"}`} onClick={() => setInterval("year")}>سنوي · وفر 20%</button></div></div>
         <div className="grid gap-4 lg:grid-cols-3">{plans.map((plan) => <article key={plan.key} className={`surface relative flex flex-col p-6 ${plan.key === "growth" ? "border-[#78aeba] shadow-[0_18px_45px_rgba(38,95,114,.12)]" : ""}`}>{plan.key === "growth" && <span className="absolute -top-3 right-5 rounded-full bg-[#2d7188] px-3 py-1 text-[10px] font-bold text-white">الأكثر اختيارًا</span>}<p className="text-xs font-bold text-[#64808e]">{plan.description}</p><h3 className="mt-2 text-xl font-extrabold text-[#15364b]">{plan.name}</h3><div className="mt-5 flex items-end gap-2"><strong className="text-4xl font-extrabold text-[#15364b]">${interval === "year" ? plan.yearly : plan.monthly}</strong><span className="pb-1 text-xs text-[#7a909b]">/ شهريًا</span></div><div className="my-6 flex flex-col gap-3">{plan.features.map((feature) => <p key={feature} className="flex items-center gap-2 text-sm text-[#4e6977]"><span className="grid size-5 place-items-center rounded-full bg-[#e0eff1] text-[#347b98]"><Check size={12} /></span>{feature}</p>)}</div><button className="primary-button mt-auto w-full justify-center disabled:opacity-60" disabled={!query.data?.canManage || pending === plan.key} onClick={() => checkout(plan.key)}>{pending === plan.key ? <Loader2 className="animate-spin" size={17} /> : <CreditCard size={17} />} اختيار {plan.name}</button></article>)}</div>

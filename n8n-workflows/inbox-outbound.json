@@ -1,0 +1,185 @@
+{
+  "name": "ClinicOS — Inbox Outbound Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clinicos-inbox-outbound",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Outbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "clinicos-inbox-outbound"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations?id=eq.{{ $json.body.conversation_id }}&select=patient_id,channel_id,channel_conversation_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_PUBLISHABLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-conversation",
+      "name": "Fetch Conversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/messages?id=eq.{{ $json.body.message_id }}&select=id,content,direction,message_status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_PUBLISHABLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-message",
+      "name": "Fetch Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/channels?id=eq.{{ $('Fetch Conversation').item.json[0].channel_id }}&select=type,provider,config",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_PUBLISHABLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-channel",
+      "name": "Fetch Channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/patients?id=eq.{{ $('Fetch Conversation').item.json[0].patient_id }}&select=phone,contact_phone",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_PUBLISHABLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-patient",
+      "name": "Fetch Patient",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-whatsapp",
+              "leftValue": "={{ $('Fetch Channel').item.json[0].type }}",
+              "rightValue": "whatsapp",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-channel",
+      "name": "Channel Type?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v20.0/{{ $env.WHATSAPP_PHONE_NUMBER_ID }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $('Fetch Patient').item.json[0].phone || $('Fetch Patient').item.json[0].contact_phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"{{ $('Fetch Message').item.json[0].content }}\" }\n}",
+        "options": {}
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/messages?id=eq.{{ $('Fetch Message').item.json[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_PUBLISHABLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message_status\": \"{{ $json.status >= 200 && $json.status < 300 ? 'sent' : 'failed' }}\"\n}",
+        "options": {}
+      },
+      "id": "update-status",
+      "name": "Update Message Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"delivered\": true,\n  \"channel\": \"{{ $('Fetch Channel').item.json[0].type }}\",\n  \"message_id\": \"{{ $('Fetch Message').item.json[0].id }}\"\n}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ok",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Outbound Webhook": { "main": [[{ "node": "Fetch Conversation", "type": "main", "index": 0 }]] },
+    "Fetch Conversation": { "main": [[{ "node": "Fetch Message", "type": "main", "index": 0 }]] },
+    "Fetch Message": { "main": [[{ "node": "Fetch Channel", "type": "main", "index": 0 }]] },
+    "Fetch Channel": { "main": [[{ "node": "Fetch Patient", "type": "main", "index": 0 }]] },
+    "Fetch Patient": { "main": [[{ "node": "Channel Type?", "type": "main", "index": 0 }]] },
+    "Channel Type?": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }], [{ "node": "Update Message Status", "type": "main", "index": 0 }]] },
+    "Send WhatsApp": { "main": [[{ "node": "Update Message Status", "type": "main", "index": 0 }]] },
+    "Update Message Status": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

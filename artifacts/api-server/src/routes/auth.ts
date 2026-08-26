@@ -327,6 +327,14 @@ router.post("/register", async (req, res) => {
     return;
   }
 
+  // Provision a 14-day trial for the new clinic (best-effort; must not block signup).
+  try {
+    const { createTrialSubscription } = await import("../lib/entitlement");
+    await createTrialSubscription(onboarding.data.clinic_id);
+  } catch (error) {
+    console.error("[Auth] Trial provisioning failed", { err: error });
+  }
+
   const profile = await getProfile(result.data.user, result.data.access_token);
   if (!profile) {
     res.status(400).json({ error: "Account created, but the clinic owner profile could not be loaded." });

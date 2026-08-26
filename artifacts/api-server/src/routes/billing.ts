@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getProfile } from "./auth";
 import { readSession } from "../lib/session";
 import { supabaseAdminRequest, supabaseRequest } from "../lib/supabase";
+import { resolveEntitlement } from "../lib/entitlement";
 
 const router = Router();
 const PADDLE_API = "https://api.paddle.com";

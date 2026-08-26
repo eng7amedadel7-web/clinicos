@@ -152,7 +152,7 @@ router.post("/inbox/:id/messages", async (req, res) => {
   if (!queued.ok) { res.status(queued.status || 502).json({ error: "تعذر تجهيز الرسالة للإرسال." }); return; }
   const conversationId = queued.data?.conversation_id || req.params.id;
   try {
-    await dispatchOutbound(conversationId);
+    await dispatchOutbound(conversationId, { messageId: queued.data?.message_id, content });
   } catch (error) {
     const statusCode = typeof error === "object" && error && "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : 502;
     res.status(statusCode).json({ error: error instanceof Error ? error.message : "تعذر الوصول إلى مسار إرسال الرسائل." });

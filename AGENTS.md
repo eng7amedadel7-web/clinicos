@@ -31,6 +31,14 @@ import it — `DATABASE_URL` is NOT required to boot.
   `useRealtimeInvalidation` (src/lib/use-realtime.ts) invalidates React Query cache
   and falls back to polling when SSE is down. Used by the inbox.
 - Code-splitting: route pages are `React.lazy`-loaded with a Suspense fallback.
+- Billing/trial lifecycle: `lib/entitlement.ts` provisions a 14-day trial on
+  registration (`createTrialSubscription`, service-role) and resolves entitlement
+  (`resolveEntitlement`); `GET /billing` returns `entitlement`; the billing page
+  shows trial/expired/canceled banners. Synthetic `paddle_subscription_id = trial:<clinicId>`.
+- Outbound delivery: `lib/outbound.ts` tries a direct provider adapter first
+  (`lib/channels.ts` — WhatsApp Cloud API via `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID`),
+  then falls back to the n8n dispatcher (`N8N_INBOX_OUTBOUND_WEBHOOK`) forwarding the
+  full message context. n8n workflow definition: `n8n-workflows/inbox-outbound.json`.
 - pnpm lockfile must NOT be installed with `--frozen-lockfile` here (overrides
   mismatch with the corepack pnpm version); install-deps uses `--no-frozen-lockfile`.
 
