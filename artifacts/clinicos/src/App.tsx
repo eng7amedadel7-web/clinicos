@@ -1,4 +1,4 @@
-import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, lazy, Suspense, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -56,18 +56,26 @@ import {
   useUpdateClinicSettings,
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { FollowUpsPage, LiveAppointmentsPage, LiveInboxPage, LivePatientsPage, NoShowsPage, WaitlistPage } from '@/pages/live-operations-pages';
-import LiveDashboard from '@/pages/live-dashboard';
-import LiveVoiceAgentPage from '@/pages/live-voice-agent';
-import BillingPage from '@/pages/billing';
-import Patient360Page from '@/pages/patient-360-page';
-import AppointmentJourneyPage from '@/pages/appointment-journey-page';
-import MerunaHome from '@/pages/meruna-home';
-import CurrentMerunaHome from '@/pages/meruna-home-current';
-import MergedMerunaHome from '@/pages/meruna-home-merged';
-import LegalPage from '@/pages/legal-pages';
-import OperationsDashboard from '@/pages/operations-dashboard';
-import OrganizationSettings from '@/pages/organization-settings';
+
+const liveOperationsPages = () => import('@/pages/live-operations-pages');
+const FollowUpsPage = lazy(() => liveOperationsPages().then((m) => ({ default: m.FollowUpsPage })));
+const LiveAppointmentsPage = lazy(() => liveOperationsPages().then((m) => ({ default: m.LiveAppointmentsPage })));
+const LiveInboxPage = lazy(() => liveOperationsPages().then((m) => ({ default: m.LiveInboxPage })));
+const LivePatientsPage = lazy(() => liveOperationsPages().then((m) => ({ default: m.LivePatientsPage })));
+const NoShowsPage = lazy(() => liveOperationsPages().then((m) => ({ default: m.NoShowsPage })));
+const WaitlistPage = lazy(() => liveOperationsPages().then((m) => ({ default: m.WaitlistPage })));
+const LiveDashboard = lazy(() => import('@/pages/live-dashboard'));
+const LiveVoiceAgentPage = lazy(() => import('@/pages/live-voice-agent'));
+const BillingPage = lazy(() => import('@/pages/billing'));
+const Patient360Page = lazy(() => import('@/pages/patient-360-page'));
+const AppointmentJourneyPage = lazy(() => import('@/pages/appointment-journey-page'));
+const MerunaHome = lazy(() => import('@/pages/meruna-home'));
+const CurrentMerunaHome = lazy(() => import('@/pages/meruna-home-current'));
+const MergedMerunaHome = lazy(() => import('@/pages/meruna-home-merged'));
+const LegalPage = lazy(() => import('@/pages/legal-pages'));
+const OperationsDashboard = lazy(() => import('@/pages/operations-dashboard'));
+const OrganizationSettings = lazy(() => import('@/pages/organization-settings'));
+
 import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/components/command-palette';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { getOperationsSummary } from '@/lib/operations-api';
@@ -93,6 +101,36 @@ function ErrorMessage({ onRetry, compact = false }: { onRetry: () => void; compa
       <h2 className="text-lg font-bold text-[#18374d]">تعذّر تحميل البيانات</h2>
       <p className="mt-1 max-w-sm text-sm leading-6 text-[#718591]">حدث خلل مؤقت. حاول مرة أخرى، وسنستأنف من حيث توقفت.</p>
       <button className="primary-button mt-5" onClick={onRetry} data-testid="button-retry"><RefreshCw size={16} /> إعادة المحاولة</button>
+    </div>
+  );
+}
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60dvh] flex-1 items-center justify-center p-6" data-testid="state-route-loading" dir="rtl">
+      <div className="w-full max-w-3xl space-y-4">
+        <div className="skeleton h-4 w-32" />
+        <div className="skeleton h-9 w-64" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="skeleton h-24 w-full" />
+          <div className="skeleton h-24 w-full" />
+          <div className="skeleton h-24 w-full" />
+        </div>
+        <div className="skeleton h-56 w-full" />
+      </div>
+    </div>
+  );
+}
+
+function PublicRouteFallback() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7] p-6" data-testid="state-public-route-loading" dir="rtl">
+      <div className="w-full max-w-4xl space-y-5">
+        <div className="skeleton h-4 w-28" />
+        <div className="skeleton h-12 w-3/4" />
+        <div className="skeleton h-5 w-1/2" />
+        <div className="skeleton h-72 w-full" />
+      </div>
     </div>
   );
 }
@@ -143,7 +181,7 @@ const authCopy = {
       login: {
       greeting: 'مساء الخير', title: 'تسجيل الدخول', subtitle: 'أدخل بياناتك للوصول إلى لوحة عيادتك.', email: 'البريد الإلكتروني', emailHint: 'استخدم البريد المرتبط بحسابك', emailPlaceholder: 'name@clinic.com', password: 'كلمة المرور', passwordPlaceholder: '••••••••', remember: 'تذكرني على هذا الجهاز', forgot: 'نسيت كلمة المرور؟', submit: 'دخول إلى MERUNA SYSTEM', loading: 'جارٍ التحقق...', noAccount: 'ليس لديك حساب؟', register: 'أنشئ عيادتك الآن', or: 'أو', healthy: 'الأنظمة تعمل بشكل طبيعي', degraded: 'الخدمة تواجه ضغطًا مؤقتًا', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', requiredPassword: 'أدخل كلمة المرور', minPassword: 'يجب أن تتكون من 6 أحرف على الأقل', showPassword: 'إظهار كلمة المرور', hidePassword: 'إخفاء كلمة المرور', errorInvalid: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'
     },
-    registerPage: { eyebrow: 'خطوة واحدة ونبدأ', title: 'إنشاء حساب المالك', subtitle: 'أخبرنا عنك وعن عيادتك لنجهز مساحتك الخاصة.', fullName: 'الاسم الكامل', fullNamePlaceholder: 'د. سارة أحمد', clinicName: 'اسم العيادة', clinicNamePlaceholder: 'عيادة مدار الصحية', email: 'البريد الإلكتروني', password: 'كلمة المرور', passwordHint: 'ثمانية أحرف على الأقل', terms: 'أوافق على شروط الاستخدام وسياسة الخصوصية الخاصة بMERUNA SYSTEM.', submit: 'إنشاء حسابي', loading: 'جارٍ إنشاء المساحة...', haveAccount: 'لديك حساب بالفعل؟', login: 'سجل الدخول', requiredName: 'أدخل الاسم الكامل', validName: 'أدخل اسمًا صحيحًا', requiredClinic: 'أدخل اسم العيادة', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', requiredPassword: 'أدخل كلمة المرور', minPassword: 'يجب أن تتكون من 8 أحرف على الأقل', success: 'تم إنشاء عيادتك' },
+    registerPage: { eyebrow: 'خطوة واحدة ونبدأ', title: 'إنشاء حساب المالك', subtitle: 'أخبرنا عنك وعن عيادتك لنجهز مساحتك الخاصة.', fullName: 'الاسم الكامل', fullNamePlaceholder: 'د. سارة أحمد', clinicName: 'اسم العيادة', clinicNamePlaceholder: 'عيادة مدار الصحية', email: 'البريد الإلكتروني', password: 'كلمة المرور', passwordHint: 'ثمانية أحرف على الأقل', terms: 'أوافق على شرو�� الاستخدام وسياسة الخصوصية الخاصة بMERUNA SYSTEM.', submit: 'إنشاء حسابي', loading: 'جارٍ إنشاء المساحة...', haveAccount: 'لديك حساب بالفعل؟', login: 'سجل الدخول', requiredName: 'أدخل الاسم الكامل', validName: 'أدخل اسمًا صحيحًا', requiredClinic: 'أدخل اسم العيادة', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', requiredPassword: 'أدخل كلمة المرور', minPassword: 'يجب أن تتكون من 8 أحرف على الأقل', success: 'تم إنشاء عيادتك' },
     recovery: { eyebrow: 'استعادة الوصول', title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريد الحساب وسنرسل رابطًا آمنًا لإعادة تعيين كلمة المرور.', email: 'البريد الإلكتروني', emailHint: 'استخدم البريد المرتبط بحسابك', emailPlaceholder: 'name@clinic.com', requiredEmail: 'أدخل البريد الإلكتروني', invalidEmail: 'تحقق من صيغة البريد الإلكتروني', send: 'إرسال رابط الاستعادة', sending: 'جارٍ إرسال الرابط...', success: 'إذا كان البريد مرتبطًا بحساب، فسيصلك رابط استعادة خلال دقائق. افحص البريد الوارد ومجلد الرسائل غير المرغوب فيها.', back: 'العودة إلى تسجيل الدخول' },
     reset: { eyebrow: 'كلمة مرور جديدة', title: 'إعادة تعيين كلمة المرور', subtitle: 'أنشئ كلمة مرور جديدة من 8 أحرف على الأقل.', password: 'كلمة المرور الجديدة', confirm: 'تأكيد كلمة المرور', requiredPassword: 'أدخل كلمة المرور الجديدة', minPassword: 'يجب أن تتكون من 8 أحرف على الأقل', requiredConfirm: 'أكد كلمة المرور', mismatch: 'كلمتا المرور غير متطابقتين', update: 'تحديث كلمة المرور', updating: 'جارٍ تحديث كلمة المرور...', success: 'تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.', back: 'العودة إلى تسجيل الدخول' }
   },
@@ -594,6 +632,7 @@ function ProtectedShell() {
       <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
       <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
       <div className="workspace-route flex min-h-0 flex-1 flex-col">
+        <Suspense fallback={<RouteFallback />}>
         <Switch>
           <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
           <Route path="/patients" component={LivePatientsPage} />
@@ -610,6 +649,7 @@ function ProtectedShell() {
           <Route path="/organization" component={OrganizationSettings} />
           <Route>{() => <LiveDashboard session={session} />}</Route>
         </Switch>
+        </Suspense>
       </div>
     </div>
   </div>;
@@ -624,7 +664,7 @@ function Router() {
   const [location] = useLocation();
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || legalRoutes.includes(location);
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/operations" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<PublicRouteFallback />}><Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch></Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/operations" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 
 function App() {
