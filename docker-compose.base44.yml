@@ -1,0 +1,65 @@
+# Base44 development environment for the ClinicOS / MERUNA SYSTEM workspace.
+#
+# Single-origin wiring: the Vite dev server (web, host port 3000) proxies
+# /api/* to the Express API server (api, internal port 5000) so the
+# browser sees one origin and session cookies work. Both app services run
+# from the cloned source (bind-mounted) with dependencies installed once by
+# the `setup` one-shot service.
+#
+# Bring up:  docker compose -f docker-compose.base44.yml up -d --build
+# Logs:      docker compose -f docker-compose.base44.yml logs -f web api
+# Reset:     docker compose -f docker-compose.base44.yml down
+
+services:
+  setup:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - CI=true
+      - PNPM_HOME=/app/.pnpm-store
+    command: >
+      sh -c "corepack enable && corepack prepare pnpm@9 --activate
+      && pnpm config set store-dir /app/.pnpm-store
+      && pnpm install --no-frozen-lockfile"
+
+  web:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+    environment:
+      - PORT=3000
+      - VITE_API_PROXY_TARGET=http://api:5000
+      - PNPM_HOME=/app/.pnpm-store
+    command: >
+      sh -c "corepack enable && corepack prepare pnpm@9 --activate
+      && pnpm config set store-dir /app/.pnpm-store
+      && pnpm --filter @workspace/clinicos run dev"
+    ports:
+      - "3000:3000"
+
+  api:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    environment:
+      - PORT=5000
+      - NODE_ENV=development
+      - PNPM_HOME=/app/.pnpm-store
+    command: >
+      sh -c "corepack enable && corepack prepare pnpm@9 --activate
+      && pnpm config set store-dir /app/.pnpm-store
+      && pnpm --filter @workspace/api-server run dev"
+    expose:
+      - "5000"
