@@ -137,13 +137,26 @@ export default function InboxPage() {
       setOptimisticMessages((prev) => [...prev, optMsg]);
       return { optMsg };
     },
-    onSuccess: () => {
-      setOptimisticMessages([]);
-      queryClient.invalidateQueries({ queryKey: ["inbox", selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["inbox-operations", selectedId] });
+    onSuccess: (data, variables, context) => {
+      const persisted = data && typeof data === "object" && "id" in data ? data as InboxMessage : null;
+      if (persisted?.id) {
+        queryClient.setQueryData<{ messages: InboxMessage[] }>(["inbox", variables.id], (current) => {
+          if (!current || current.messages.some((message) => message.id === persisted.id)) return current;
+          return {
+            ...current,
+            messages: [...current.messages, { ...persisted, conversation_id: persisted.conversation_id ?? variables.id }],
+          };
+        });
+      }
+      setOptimisticMessages((prev) => prev.filter((message) => message.id !== context?.optMsg.id));
+      void queryClient.invalidateQueries({ queryKey: ["inbox", variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ["inbox-operations", variables.id] });
     },
     onError: (err, variables, context) => {
-      setOptimisticMessages([]);
+      setOptimisticMessages((prev) => prev.map((message) => (
+        message.id === context?.optMsg.id ? { ...message, message_status: "failed" } : message
+      )));
+      void queryClient.invalidateQueries({ queryKey: ["inbox", variables.id] });
       toast.error(err instanceof Error ? err.message : en ? "Failed to send message" : "تعذر إرسال الرسالة");
     },
   });
