@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -13,7 +13,9 @@ import {
   MessageSquareText,
   PhoneCall,
   RefreshCw,
+  Rows3,
   Sparkles,
+  UserPlus,
   UsersRound,
   XCircle,
 } from "lucide-react";
@@ -90,6 +92,54 @@ type BillingSnapshot = {
   lifecycle: { phase: string; statusLabel: string; periodLabel: string; effectiveEndsAt: string | null; isTrialing: boolean; needsAttention: boolean };
 };
 
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(timer);
+  }, [intervalMs]);
+  return now;
+}
+
+function formatAgo(iso: string | null | undefined, now: number, en: boolean) {
+  if (!iso) return "";
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "";
+  const seconds = Math.max(0, Math.floor((now - then) / 1000));
+  if (seconds < 10) return en ? "just now" : "الآن";
+  if (seconds < 60) return en ? `${seconds}s ago` : `منذ ${seconds} ث`;
+  const minutes = Math.floor(seconds / 60);
+  return en ? `${minutes}m ago` : `منذ ${minutes} د`;
+}
+
+function greetingFor(hour: number, en: boolean) {
+  if (hour >= 5 && hour < 12) return en ? "Good morning" : "صباح الخير";
+  if (hour >= 12 && hour < 17) return en ? "Good afternoon" : "مساء الخير";
+  return en ? "Good evening" : "مساء الخير";
+}
+
+function AnimatedNumber({ value }: { value: string }) {
+  const target = Number.parseInt(value, 10);
+  const isNumeric = Number.isFinite(target) && String(target) === value.trim();
+  const [display, setDisplay] = useState(isNumeric ? 0 : Number.NaN);
+  const frame = useRef<number>(0);
+  useEffect(() => {
+    if (!isNumeric) return;
+    const start = performance.now();
+    const duration = 600;
+    const tick = (t: number) => {
+      const progress = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(target * eased));
+      if (progress < 1) frame.current = requestAnimationFrame(tick);
+    };
+    frame.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame.current);
+  }, [target, isNumeric]);
+  if (!isNumeric) return <>{value}</>;
+  return <>{display}</>;
+}
+
 function KpiCard({ label, value, helper, accent, icon, href, index, alerts }: {
   label: string;
   value: string;
@@ -108,7 +158,7 @@ function KpiCard({ label, value, helper, accent, icon, href, index, alerts }: {
       {alerts ? <span className="flex items-center gap-1.5 rounded-full bg-[#fff0d8] px-2.5 py-1 text-[10px] font-bold text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]"><span className="size-1.5 animate-pulse rounded-full bg-[#d08327]" /> {en ? "Needs action" : "يحتاج إجراء"}</span> : null}
     </div>
     <p className="text-xs font-bold text-[#66808e] dark:text-[#7e939e]">{label}</p>
-    <div className="mt-1 flex items-baseline gap-2"><strong className="text-3xl tracking-tight text-[#18374d] dark:text-[#e2ecf1]">{value}</strong></div>
+    <div className="mt-1 flex items-baseline gap-2"><strong className="text-3xl tracking-tight text-[#18374d] dark:text-[#e2ecf1] tabular-nums"><AnimatedNumber value={value} /></strong></div>
     <p className="mt-2 text-[11px] text-[#8a9ba4] dark:text-[#7e939e]">{helper}</p>
   </>;
   return <article className="surface stat-card animate-rise p-5" style={{ animationDelay: `${index * 70}ms` }} data-testid={`card-kpi-${index}`}>
@@ -143,6 +193,11 @@ function EmptyHint({ icon, title, hint }: { icon: React.ReactNode; title: string
 export default function LiveDashboard({ session }: { session: Session }) {
   const { language } = usePreferences();
   const en = language === "en";
+  const [dense, setDense] = useState(() => window.localStorage.getItem("meruna-dash-density") === "compact");
+  useEffect(() => {
+    window.localStorage.setItem("meruna-dash-density", dense ? "compact" : "comfortable");
+  }, [dense]);
+  const nowTick = useNow(1000);
   const summaryQuery = useQuery({
     queryKey: ["operations", "summary", "dashboard"],
     queryFn: ({ signal }) => getOperationsSummary(signal),
@@ -167,7 +222,6 @@ export default function LiveDashboard({ session }: { session: Session }) {
   const stats = summary?.stats;
   const firstName = session.user.fullName.split(" ")[0] || session.user.fullName;
   const todayLabel = new Intl.DateTimeFormat(en ? "en-GB" : "ar-SA", { weekday: "long", day: "numeric", month: "long", timeZone: clinicTimeZone }).format(new Date());
-  const updatedAt = summary ? formatTime(summary.generatedAt) : null;
 
   const attentionConversations = useMemo(
     () => (summary?.recentConversations ?? []).filter((item) => item.is_handoff === true || !item.assigned_staff_id).slice(0, 4),
@@ -183,16 +237,19 @@ export default function LiveDashboard({ session }: { session: Session }) {
 
   const busy = summaryQuery.isLoading;
   const failed = summaryQuery.isError;
+  const greeting = greetingFor(new Date(nowTick).getHours(), en);
+  const updatedAgo = summary ? formatAgo(summary.generatedAt, nowTick, en) : "";
 
   const refresh = () => { void summaryQuery.refetch(); void billingQuery.refetch(); };
 
-  return <div className="main-content min-w-0 flex-1" dir="rtl">
+  return <div className={`main-content min-w-0 flex-1 ${dense ? "dash-compact" : ""}`} dir="rtl">
     <header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 backdrop-blur md:px-9 dark:border-[#1e3a4d] dark:bg-[#0b1824]/90">
       <div>
         <p className="text-xs font-semibold text-[#78909c] dark:text-[#7e939e]" data-testid="text-current-date">{todayLabel}</p>
-        <h1 className="ar mt-1 text-xl font-bold text-[#15364b] dark:text-[#e2ecf1]" data-testid="heading-dashboard">{en ? `Good morning, ${firstName}` : `صباح الخير، ${firstName}`}</h1>
+        <h1 className="ar mt-1 text-xl font-bold text-[#15364b] dark:text-[#e2ecf1]" data-testid="heading-dashboard">{greeting}، {firstName}</h1>
       </div>
       <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setDense((value) => !value)} aria-pressed={dense} title={dense ? (en ? "Comfortable view" : "عرض مريح") : (en ? "Compact view" : "عرض مضغوط")} aria-label={dense ? (en ? "Switch to comfortable view" : "التبديل للعرض المريح") : (en ? "Switch to compact view" : "التبديل للعرض المضغوط")} className="quiet-button hidden sm:inline-flex" data-testid="button-density-toggle"><Rows3 size={16} /> {dense ? (en ? "Compact" : "مضغوط") : (en ? "Comfortable" : "مريح")}</button>
         <span className="hidden items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3 py-1.5 text-[11px] font-bold text-[#41707f] sm:inline-flex dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd]" data-testid="chip-live-status">
           <span className="size-2 animate-pulse rounded-full bg-[#3d8a72]" /> {en ? "Live clinic data" : "بيانات حية"}
         </span>
@@ -215,6 +272,13 @@ export default function LiveDashboard({ session }: { session: Session }) {
           <KpiCard index={1} label={en ? "Conversations need staff" : "محادثات تحتاج موظفًا"} value={String(stats.conversationsNeedingStaff ?? 0)} helper={en ? "Waiting for a human reply" : "بانتظار رد من فريقك"} accent="bg-[#fff0d8] text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]" icon={<Inbox size={19} />} href="/inbox" alerts={(stats.conversationsNeedingStaff ?? 0) > 0} />
           <KpiCard index={2} label={en ? "Open follow-ups" : "متابعات مفتوحة"} value={String(stats.openFollowUps ?? 0)} helper={en ? "Patients due for a follow-up" : "مرضى مستحقون للمتابعة"} accent="bg-[#dcecf5] text-[#22617d] dark:bg-[#143242] dark:text-[#8cc3dd]" icon={<Sparkles size={19} />} href="/follow-ups" />
           <KpiCard index={3} label={en ? "Active waitlist" : "قائمة الانتظار"} value={String(stats.activeWaitlist ?? 0)} helper={en ? "Patients seeking the nearest slot" : "مرضى يبحثون عن أقرب موعد"} accent="bg-[#e8e1f4] text-[#65518b] dark:bg-[#2a2440] dark:text-[#bcaede]" icon={<Clock3 size={19} />} href="/waitlist" />
+        </section>
+
+        <section className="flex flex-wrap items-center gap-2" data-testid="strip-quick-actions" aria-label={en ? "Quick actions" : "إجراءات سريعة"}>
+          <span className="text-[11px] font-bold text-[#66808e] dark:text-[#7e939e]">{en ? "Quick actions:" : "إجراءات سريعة:"}</span>
+          <Link href="/appointments" className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#22617d] transition hover:border-[#9fc0ca] hover:bg-[#f1f7f7] dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd] dark:hover:bg-[#10222f]" data-testid="quick-new-appointment"><CalendarPlus size={14} /> {en ? "New appointment" : "حجز موعد"}</Link>
+          <Link href="/patients" className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#22617d] transition hover:border-[#9fc0ca] hover:bg-[#f1f7f7] dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd] dark:hover:bg-[#10222f]" data-testid="quick-add-patient"><UserPlus size={14} /> {en ? "Add patient" : "إضافة مريض"}</Link>
+          <Link href="/inbox" className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#22617d] transition hover:border-[#9fc0ca] hover:bg-[#f1f7f7] dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd] dark:hover:bg-[#10222f]" data-testid="quick-open-inbox"><Inbox size={14} /> {en ? "Open inbox" : "صندوق الوارد"}</Link>
         </section>
 
         <section className="grid gap-4 xl:grid-cols-2" data-testid="strip-live-queue-billing">
@@ -254,7 +318,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
           <span className="flex items-center gap-2"><UsersRound size={15} className="text-[#6f69a0]" /> {en ? "Active patients" : "مرضى نشطون"}: <strong className="text-[#28495b] dark:text-[#dbe7ee]">{stats.activePatients ?? "—"}</strong></span>
           <span className="flex items-center gap-2"><AlertCircle size={15} className="text-[#ad8248]" /> {en ? "Open no-shows" : "حالات عدم حضور"}: <strong className="text-[#28495b] dark:text-[#dbe7ee]">{stats.openNoShows ?? "—"}</strong></span>
           <span className="flex items-center gap-2"><PhoneCall size={15} className="text-[#3d8a72]" /> {en ? "Connected channels" : "قنوات متصلة"}: <strong className="text-[#28495b] dark:text-[#dbe7ee]">{stats.connectedChannels ?? "—"}</strong></span>
-          {updatedAt && <span className="ms-auto text-[10px] text-[#93a6ae] dark:text-[#7e939e]" data-testid="text-updated-at">{en ? "Updated" : "آخر تحديث"} {updatedAt}</span>}
+          {updatedAgo && <span className="ms-auto text-[10px] text-[#93a6ae] dark:text-[#7e939e] tabular-nums" data-testid="text-updated-at">{en ? "Updated" : "آخر تحديث"} {updatedAgo}</span>}
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">

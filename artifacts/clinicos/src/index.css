@@ -171,6 +171,14 @@
 .dark .skeleton { background: linear-gradient(90deg, #16324a 25%, #1d3d58 50%, #16324a 75%); background-size: 200% 100%; }
 .dark .primary-button { background: #2a6c8c; color: #eaf6fa; }
 .dark .primary-button:hover { background: #35809f; }
+
+/* Compact density mode for the live dashboard (comfort toggle). */
+.dash-compact .stat-card { padding: .9rem; }
+.dash-compact .stat-card .text-3xl { font-size: 1.55rem; }
+.dash-compact .stat-card .mb-5 { margin-bottom: .7rem; }
+.dash-compact [data-testid^="dashboard-appointment-"],
+.dash-compact [data-testid^="dashboard-conversation-"] { padding-block: .55rem; }
+.dash-compact .surface { box-shadow: none; }
 .sidebar-nav { scrollbar-width: thin; scrollbar-color: rgba(141,187,206,.35) transparent; }
 .sidebar-nav::-webkit-scrollbar { width: 5px; }
 .sidebar-nav::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(141,187,206,.35); }
