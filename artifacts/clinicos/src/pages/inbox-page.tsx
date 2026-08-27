@@ -86,8 +86,11 @@ export default function InboxPage() {
     queryKey: ["inbox", selectedId],
     queryFn: ({ signal }) => getInboxPayload(selectedId, signal),
     staleTime: 15_000,
-    refetchInterval: streamConnected ? 5 * 60_000 : 25_000,
+    // Vercel instances do not share the in-memory SSE event bus. Keep a short
+    // authenticated refresh as a durable fallback for inbound channel events.
+    refetchInterval: 15_000,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
 
