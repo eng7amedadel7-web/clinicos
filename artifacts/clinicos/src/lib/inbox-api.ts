@@ -88,8 +88,11 @@ export async function getSavedReplies(language: "ar" | "en" = "ar", signal?: Abo
 
 export async function getConversationOperations(conversationId: string, signal?: AbortSignal): Promise<ConversationOperation[]> {
   const response = await fetch(`/api/inbox/${encodeURIComponent(conversationId)}/operations`, { credentials: "include", signal });
-  const payload = (await response.json().catch(() => [])) as ConversationOperation[] | { error?: string };
-  if (!response.ok || !Array.isArray(payload)) return [];
+  const payload = (await response.json().catch(() => null)) as ConversationOperation[] | { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل سجل المحادثة.");
+  }
+  if (!Array.isArray(payload)) throw new Error("تعذر تحميل سجل المحادثة.");
   return payload;
 }
 

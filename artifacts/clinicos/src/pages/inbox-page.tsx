@@ -1194,7 +1194,13 @@ export default function InboxPage() {
                           {en ? "Activity & Notes" : "سجل الأحداث والملاحظات"}
                         </strong>
 
-                        {operationsQuery.data && operationsQuery.data.length > 0 ? (
+                        {operationsQuery.isError ? (
+                          <p className="py-2 text-center text-[11px] text-destructive">
+                            {operationsQuery.error instanceof Error
+                              ? operationsQuery.error.message
+                              : (en ? "Could not load activity." : "تعذر تحميل سجل الأحداث.")}
+                          </p>
+                        ) : operationsQuery.data && operationsQuery.data.length > 0 ? (
                           <div className="space-y-2">
                             {operationsQuery.data.slice(0, 4).map((op) => (
                               <div key={op.id} className="rounded-lg bg-muted/40 p-2 text-[10px]">
