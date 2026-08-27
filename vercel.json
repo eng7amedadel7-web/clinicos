@@ -3,7 +3,7 @@
   "buildCommand": "pnpm run build:vercel",
   "outputDirectory": "artifacts/clinicos/dist/public",
   "functions": {
-    "api/index": {
+    "api/index.mjs": {
       "maxDuration": 60
     }
   },
