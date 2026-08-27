@@ -44,6 +44,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Globe,
 } from 'lucide-react';
 import {
   getGetAuthSessionQueryKey,
@@ -149,9 +150,9 @@ function RouteLoadingFallback({ fullHeight = false }: { fullHeight?: boolean }) 
 function Field({ label, error, children, hint }: { label: string; error?: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block text-right">
-      <span className="mb-2 block text-[.78rem] font-bold text-white/70">{label}</span>
+      <span className="mb-2 block text-[.78rem] font-bold text-slate-700 dark:text-slate-200">{label}</span>
       {children}
-      {error ? <span className="mt-1.5 block text-xs font-semibold text-red-400" data-testid="text-field-error">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-white/40">{hint}</span> : null}
+      {error ? <span className="mt-1.5 block text-xs font-semibold text-red-500" data-testid="text-field-error">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
     </label>
   );
 }
@@ -235,188 +236,72 @@ function AuthLocaleProvider({ children }: { children: ReactNode }) {
   return <AuthLocaleContext.Provider value={value}>{children}</AuthLocaleContext.Provider>;
 }
 
-function LiveShowcaseRail({ mode }: { mode: 'login' | 'register' }) {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 3500);
-    return () => clearInterval(id);
-  }, []);
-
-  const calls = [
-    { name: 'حجز كشف جديد', time: '0:42', color: 'from-cyan-500/20 to-sky-600/10', label: 'استفسار عيادة' },
-    { name: 'استفسار أسعار الأسنان', time: '1:18', color: 'from-violet-500/20 to-purple-600/10', label: 'طلب موعد' },
-    { name: 'تعديل موعد السبت', time: '0:57', color: 'from-emerald-500/20 to-teal-600/10', label: 'تعديل موعد' },
-  ];
-  const activeCall = calls[tick % calls.length];
+function AuthLayout({ children, mode, languageToggle = false }: { children: ReactNode; mode: 'login' | 'register'; languageToggle?: boolean }) {
+  const { lang, text, toggleLanguage } = useAuthLocale();
+  const en = lang === 'en';
 
   return (
-    <div className="relative flex h-full flex-col justify-between" dir="rtl">
-      {/* Brand */}
-      <div className="flex items-center gap-3">
-        <BrandMark size={36} />
-        <div>
-          <strong className="block text-base font-extrabold tracking-[.18em] text-white">MERUNA</strong>
-          <span className="text-[.6rem] text-white/35 tracking-wider uppercase">Clinic Intelligence</span>
-        </div>
+    <div className="min-h-[100dvh] w-full bg-[#081624] text-slate-100 flex flex-col justify-between relative overflow-x-hidden selection:bg-sky-500 selection:text-white" dir={en ? 'ltr' : 'rtl'} data-testid="auth-layout">
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-32 -left-32 size-96 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="absolute -bottom-32 -right-32 size-96 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full bg-sky-600/5 blur-[90px]" />
       </div>
 
-      {/* Middle content */}
-      <div className="space-y-5 my-auto py-8">
-        {/* Trust badge */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/8 px-3.5 py-1.5 text-xs font-semibold text-cyan-300">
-          <span className="auth-live-dot" />
-          <ShieldCheck size={12} />
-          {mode === 'login' ? 'منصة موثوقة لإدارة عيادتك' : 'ابدأ تنظيم عيادتك الذكية'}
+      {/* Top Header */}
+      <header className="relative z-10 w-full max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <BrandMark size={38} />
+          <div>
+            <span className="font-extrabold tracking-wider text-base text-white block">MERUNA</span>
+            <span className="text-[10px] text-sky-400 font-semibold tracking-widest uppercase block -mt-1">Clinic System</span>
+          </div>
         </div>
 
-        {/* Headline */}
-        <h1 className="ar text-4xl font-extrabold leading-[1.45] tracking-tight text-white xl:text-5xl">
-          {mode === 'login' ? (
-            <>كل ما يحتاج<br />انتباهك، في<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">مكان واحد.</span></>
-          ) : (
-            <>ابدأ تنظيم<br />عيادتك<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">بثقة وسهولة.</span></>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 transition-colors"
+          >
+            <ArrowRight className={`size-3.5 ${en ? 'rotate-180' : ''}`} />
+            <span>{en ? 'Home' : 'الرئيسية'}</span>
+          </Link>
+          {languageToggle && (
+            <button
+              type="button"
+              onClick={toggleLanguage}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 transition-colors"
+              data-testid="button-auth-language"
+            >
+              <Globe className="size-3.5 text-sky-400" />
+              <span>{text.language}</span>
+            </button>
           )}
-        </h1>
-        <p className="ar text-sm leading-7 text-white/45 max-w-[320px]">
-          MERUNA يمنح فريق الاستقبال رؤية أوضح، وقرارات أسرع، ويوماً أكثر هدوءاً — مدعوماً بالذكاء الاصطناعي.
-        </p>
-
-        {/* Stats row */}
-        <div className="flex items-center gap-4 pt-1">
-          {[
-            { value: '4.9k+', label: 'مريض شهرياً' },
-            { value: '99.9%', label: 'وقت التشغيل' },
-            { value: '< 2s', label: 'استجابة فورية' },
-          ].map((stat) => (
-            <div key={stat.label} className="flex-1 text-center rounded-xl border border-white/[.06] bg-white/[.03] py-2.5 px-2">
-              <p className="text-sm font-extrabold text-cyan-300">{stat.value}</p>
-              <p className="text-[.6rem] text-white/35 mt-0.5">{stat.label}</p>
-            </div>
-          ))}
         </div>
+      </header>
 
-        {/* Live Voice Call Card */}
-        <div className={`auth-showcase-card bg-gradient-to-br ${activeCall.color}`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-white/10">
-                <PhoneCall className="size-4 text-white" />
-              </div>
-              <div>
-                <p className="text-[.7rem] font-bold text-cyan-300/80 mb-0.5">{activeCall.label}</p>
-                <p className="text-xs font-bold text-white">{activeCall.name}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
-              <span className="auth-live-dot" style={{ width: '6px', height: '6px', background: '#34d399' }} />
-              <span className="font-mono text-[10px] text-white/70">{activeCall.time}</span>
-            </div>
-          </div>
-          {/* Audio waveform */}
-          <div className="mt-3 flex items-end gap-0.5 h-5" aria-hidden="true">
-            {[4,8,12,6,16,10,14,8,18,12,6,14,10,16,8,12,6,18,10,14].map((h, i) => (
-              <span key={i} className="flex-1 rounded-full bg-white/30" style={{ height: h, animationDelay: `${i * 80}ms`, animation: 'wave-bar 1s ease-in-out infinite alternate' }} />
-            ))}
-          </div>
+      {/* Center Auth Card */}
+      <main className="relative z-10 w-full max-w-md mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
+        <div className="auth-animate-in w-full bg-[#0d2238] border border-[#1b3a56] shadow-2xl shadow-black/50 rounded-3xl p-7 sm:p-9">
+          {children}
         </div>
-
-        {/* WhatsApp Confirmation Toast */}
-        <div className="auth-showcase-card flex items-start gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/20">
-            <span className="text-sm">💬</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white">تأكيد حجز واتساب</p>
-            <p className="mt-0.5 text-[.68rem] leading-5 text-white/45 truncate">تم تأكيد موعد الكشف — غداً 5:30 م مع الطبيب ✓✓</p>
-          </div>
-          <span className="text-[10px] text-white/25 shrink-0">الآن</span>
-        </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-[.65rem] text-white/25">
-        <span>© 2026 MERUNA SYSTEM</span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-1.5 rounded-full bg-emerald-400" />
-          الاستقبال يعمل 24/7
-        </span>
-      </div>
+      <footer className="relative z-10 w-full max-w-5xl mx-auto px-6 py-5 flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center gap-2">
+          <span className="size-2 rounded-full bg-emerald-400 live-pulse-dot" />
+          <span>{en ? 'System Operational 24/7' : 'النظام يعمل بكفاءة 24/7'}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <ShieldCheck size={13} className="text-slate-400" />
+          <span>{text.secure}</span>
+        </div>
+      </footer>
     </div>
   );
 }
-
-
-function AuthLayout({ children, mode, languageToggle = false }: { children: ReactNode; mode: 'login' | 'register'; languageToggle?: boolean }) {
-  const { lang, text, toggleLanguage } = useAuthLocale();
-  return (
-    <main className="auth-page" dir="ltr" data-testid="auth-layout">
-      {/* Ambient background orbs */}
-      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
-        <div className="auth-bg-orb auth-bg-orb-1" />
-        <div className="auth-bg-orb auth-bg-orb-2" />
-        <div className="auth-bg-orb auth-bg-orb-3" />
-        <div className="auth-grid-overlay" />
-      </div>
-
-      {/* Left — Live Showcase Rail */}
-      <section className="auth-rail-panel">
-        <LiveShowcaseRail mode={mode} />
-      </section>
-
-      {/* Right — Form pane */}
-      <section className="auth-form-panel" dir="rtl">
-        {/* Top nav bar */}
-        <div className="flex items-center justify-between mb-auto pb-6">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-4 lg:hidden">
-            <Logo />
-            <Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-white/45 hover:text-white transition-colors" data-testid="link-auth-switch">
-              {mode === 'login' ? text.mobileRegister : text.mobileLogin}
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-2 ms-auto">
-            {/* Back to home */}
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[.04] px-3.5 py-1.5 text-[.72rem] font-semibold text-white/55 backdrop-blur-sm transition-all hover:bg-white/[.08] hover:text-white hover:border-white/20"
-            >
-              <ArrowRight className="size-3.5" />
-              <span>{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
-            </Link>
-            {/* Language toggle */}
-            {languageToggle && (
-              <button
-                type="button"
-                className="rounded-full border border-white/10 bg-white/[.04] px-3.5 py-1.5 text-[.72rem] font-bold text-white/55 backdrop-blur-sm transition-all hover:bg-white/[.08] hover:text-white hover:border-white/20"
-                onClick={toggleLanguage}
-                data-testid="button-auth-language"
-                aria-label={lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
-              >
-                {text.language}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Form area */}
-        <div className="m-auto w-full max-w-[460px]">
-          <div className="auth-card">{children}</div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-auto pt-6 flex items-center justify-between text-[.65rem] text-white/20">
-          <span className="flex items-center gap-1.5">
-            <span className="auth-live-dot" />
-            MERUNA
-          </span>
-          <span className="flex items-center gap-1.5"><ShieldCheck size={10} /> {text.secure}</span>
-        </div>
-      </section>
-    </main>
-  );
-}
-
 
 type RecoveryValues = { email: string };
 type ResetValues = { password: string; confirmPassword: string };
@@ -444,7 +329,8 @@ function RecoveryPage({ onBack }: { onBack: () => void }) {
   const recovery = useRecoverPassword();
   const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
   const apiError = getApiErrorMessage(recovery.error);
-  const { text } = useAuthLocale();
+  const { lang, text } = useAuthLocale();
+  const en = lang === 'en';
   const copy = text.recovery;
 
   const submit = (values: RecoveryValues) => {
@@ -453,37 +339,69 @@ function RecoveryPage({ onBack }: { onBack: () => void }) {
 
   return (
     <AuthLayout mode="login" languageToggle>
-      <div className="animate-rise" dir="rtl">
-        <div className="mb-8">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.eyebrow}</p>
-          <h2 className="ar text-3xl font-extrabold tracking-tight text-white">{copy.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+      <div>
+        <div className="mb-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-sky-400 mb-1">{copy.eyebrow}</p>
+          <h2 className="text-2xl font-black text-white">{copy.title}</h2>
+          <p className="mt-1.5 text-xs text-slate-400 leading-5">{copy.subtitle}</p>
         </div>
+
         {apiError ? (
-          <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-6 text-red-300" data-testid="alert-recovery-error">{apiError}</div>
+          <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs leading-5 text-red-300" data-testid="alert-recovery-error">
+            {apiError}
+          </div>
         ) : null}
+
         {recovery.isSuccess ? (
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm leading-7 text-emerald-300" data-testid="alert-recovery-success">{copy.success}</div>
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs leading-6 text-emerald-300 text-center" data-testid="alert-recovery-success">
+            {copy.success}
+          </div>
         ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir="rtl">
-            <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
+            <label className="block text-right">
+              <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.email}</span>
               <div className="relative">
-                <Mail size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+                <Mail size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
                 <input
                   {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
-                  className="auth-input pr-10 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-recovery-email"
+                  className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none transition-all"
+                  dir="ltr"
+                  type="email"
+                  placeholder={copy.emailPlaceholder}
+                  autoComplete="email"
+                  data-testid="input-recovery-email"
                 />
               </div>
-            </Field>
+              {form.formState.errors.email?.message ? (
+                <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.email.message}</span>
+              ) : (
+                <span className="block text-[11px] text-slate-400 mt-1">{copy.emailHint}</span>
+              )}
+            </label>
+
             <button
-              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 active:scale-[.98] disabled:opacity-60"
-              type="submit" disabled={recovery.isPending} data-testid="button-recovery"
+              className="w-full bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-500 hover:opacity-95 text-white font-extrabold py-3 rounded-xl text-sm shadow-lg shadow-sky-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+              type="submit"
+              disabled={recovery.isPending}
+              data-testid="button-recovery"
             >
-              {recovery.isPending ? <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.sending}</> : <>{copy.send} <ArrowLeft size={16} className="inline ms-1" /></>}
+              {recovery.isPending ? (
+                <><RefreshCw size={16} className="animate-spin" /><span>{copy.sending}</span></>
+              ) : (
+                <><span>{copy.send}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
+              )}
             </button>
           </form>
         )}
-        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-cyan-400 hover:text-cyan-300 transition" onClick={onBack} data-testid="button-back-to-login">{copy.back}</button>
+
+        <button
+          type="button"
+          className="mt-6 w-full text-center text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
+          onClick={onBack}
+          data-testid="button-back-to-login"
+        >
+          {copy.back}
+        </button>
       </div>
     </AuthLayout>
   );
@@ -493,7 +411,8 @@ function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDon
   const reset = useResetPassword();
   const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
   const apiError = getApiErrorMessage(reset.error);
-  const { text } = useAuthLocale();
+  const { lang, text } = useAuthLocale();
+  const en = lang === 'en';
   const copy = text.reset;
 
   const submit = (values: ResetValues) => {
@@ -502,33 +421,77 @@ function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDon
 
   return (
     <AuthLayout mode="login" languageToggle>
-      <div className="animate-rise" dir="rtl">
-        <div className="mb-8">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.eyebrow}</p>
-          <h2 className="ar text-3xl font-extrabold tracking-tight text-white">{copy.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+      <div>
+        <div className="mb-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-sky-400 mb-1">{copy.eyebrow}</p>
+          <h2 className="text-2xl font-black text-white">{copy.title}</h2>
+          <p className="mt-1.5 text-xs text-slate-400 leading-5">{copy.subtitle}</p>
         </div>
+
         {apiError ? (
-          <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-300" data-testid="alert-reset-error">{apiError}</div>
+          <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-300" data-testid="alert-reset-error">
+            {apiError}
+          </div>
         ) : null}
+
         {reset.isSuccess ? (
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm leading-7 text-emerald-300" data-testid="alert-reset-success">{copy.success}</div>
-            <button type="button" className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90" onClick={onDone} data-testid="button-reset-done">{copy.back} <ArrowLeft size={16} className="inline ms-1" /></button>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs leading-6 text-emerald-300 text-center" data-testid="alert-reset-success">
+              {copy.success}
+            </div>
+            <button
+              type="button"
+              className="w-full bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-500 hover:opacity-95 text-white font-extrabold py-3 rounded-xl text-sm shadow-lg shadow-sky-500/25 transition-all flex items-center justify-center gap-2"
+              onClick={onDone}
+              data-testid="button-reset-done"
+            >
+              <span>{copy.back}</span>
+              <ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} />
+            </button>
           </div>
         ) : (
-          <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir="rtl">
-            <Field label={copy.password} error={form.formState.errors.password?.message}>
-              <input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="auth-input text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" />
-            </Field>
-            <Field label={copy.confirm} error={form.formState.errors.confirmPassword?.message}>
-              <input {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: value => value === form.getValues('password') || copy.mismatch })} className="auth-input text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" />
-            </Field>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
+            <label className="block text-right">
+              <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.password}</span>
+              <input
+                {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })}
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
+                dir="ltr"
+                type="password"
+                autoComplete="new-password"
+                data-testid="input-reset-password"
+              />
+              {form.formState.errors.password?.message && (
+                <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.password.message}</span>
+              )}
+            </label>
+
+            <label className="block text-right">
+              <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.confirm}</span>
+              <input
+                {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: value => value === form.getValues('password') || copy.mismatch })}
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
+                dir="ltr"
+                type="password"
+                autoComplete="new-password"
+                data-testid="input-reset-confirm-password"
+              />
+              {form.formState.errors.confirmPassword?.message && (
+                <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.confirmPassword.message}</span>
+              )}
+            </label>
+
             <button
-              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 active:scale-[.98] disabled:opacity-60"
-              type="submit" disabled={reset.isPending} data-testid="button-reset-password"
+              className="w-full bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-500 hover:opacity-95 text-white font-extrabold py-3 rounded-xl text-sm shadow-lg shadow-sky-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+              type="submit"
+              disabled={reset.isPending}
+              data-testid="button-reset-password"
             >
-              {reset.isPending ? <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.updating}</> : <>{copy.update} <ArrowLeft size={16} className="inline ms-1" /></>}
+              {reset.isPending ? (
+                <><RefreshCw size={16} className="animate-spin" /><span>{copy.updating}</span></>
+              ) : (
+                <><span>{copy.update}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
+              )}
             </button>
           </form>
         )}
@@ -547,7 +510,9 @@ function LoginPage() {
   const form = useForm<LoginValues>({ defaultValues: { email: '', password: '' }, mode: 'onTouched' });
   const [showPassword, setShowPassword] = useState(false);
   const { lang, text } = useAuthLocale();
+  const en = lang === 'en';
   const copy = text.login;
+
   const onSubmit = (values: LoginValues) => {
     login.mutate({ data: values }, {
       onSuccess: (session) => {
@@ -557,56 +522,60 @@ function LoginPage() {
       },
     });
   };
+
   const apiError = getApiErrorMessage(login.error, lang);
   if (recoveryToken) return <ResetPasswordPage accessToken={recoveryToken} onDone={() => { window.history.replaceState(null, '', '/login'); setShowRecovery(false); window.location.reload(); }} />;
   if (showRecovery) return <RecoveryPage onBack={() => setShowRecovery(false)} />;
   const displayApiError = apiError?.toLowerCase().includes('email') || apiError?.toLowerCase().includes('password') ? copy.errorInvalid : apiError;
+
   return (
     <AuthLayout mode="login" languageToggle>
-      <div className="animate-rise" dir="rtl">
+      <div>
         {/* Header */}
-        <div className="mb-7">
-          <p className="mb-1.5 text-[.68rem] font-bold uppercase tracking-widest text-cyan-400/75">{copy.greeting}</p>
-          <h2 className="ar text-[1.75rem] font-extrabold tracking-tight text-white leading-tight" data-testid="heading-login">{copy.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-white/40">{copy.subtitle}</p>
+        <div className="mb-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-sky-400 mb-1">{copy.greeting}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white" data-testid="heading-login">{copy.title}</h1>
+          <p className="mt-1.5 text-xs text-slate-400 leading-5">{copy.subtitle}</p>
         </div>
 
         {/* API Error */}
         {displayApiError ? (
-          <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-red-500/25 bg-red-500/8 p-3.5 text-sm leading-6 text-red-300/90 backdrop-blur-sm" data-testid="alert-login-error">
-            <X size={16} className="mt-0.5 shrink-0 text-red-400" /> {displayApiError}
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-300" data-testid="alert-login-error">
+            <X size={15} className="mt-0.5 shrink-0 text-red-400" />
+            <span>{displayApiError}</span>
           </div>
         ) : null}
 
         {/* Demo Login Button */}
         <button
           type="button"
-          className="auth-demo-btn mb-5"
+          className="w-full mb-4 py-2.5 px-4 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
           onClick={() => {
             form.setValue('email', 'demo@meruna.app');
             form.setValue('password', 'demo1234');
           }}
           data-testid="button-demo-login"
         >
-          <Sparkles className="size-4 text-cyan-400" />
+          <Sparkles className="size-4 text-sky-400" />
           <span>{lang === 'ar' ? 'تجربة فورية كمدير عيادة (Demo)' : 'Quick Demo Login as Clinic Admin'}</span>
         </button>
 
         {/* Divider */}
-        <div className="auth-divider mb-5">
-          <span>{copy.or}</span>
+        <div className="relative my-4 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700/60" /></div>
+          <span className="relative bg-[#0d2238] px-3 text-[11px] font-semibold text-slate-400 uppercase">{copy.or}</span>
         </div>
 
         {/* Form */}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir="rtl">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
           {/* Email field */}
           <label className="block text-right">
-            <span className="auth-label">{copy.email}</span>
+            <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.email}</span>
             <div className="relative">
-              <Mail size={15} className="absolute right-3.5 top-[13px] text-white/25 pointer-events-none" />
+              <Mail size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
               <input
                 {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
-                className="auth-input-v2 pr-10 text-left"
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none transition-all"
                 dir="ltr"
                 type="email"
                 placeholder={copy.emailPlaceholder}
@@ -614,19 +583,21 @@ function LoginPage() {
                 data-testid="input-login-email"
               />
             </div>
-            {form.formState.errors.email?.message
-              ? <span className="auth-field-error" data-testid="text-field-error">{form.formState.errors.email.message}</span>
-              : <span className="auth-field-hint">{copy.emailHint}</span>}
+            {form.formState.errors.email?.message ? (
+              <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.email.message}</span>
+            ) : (
+              <span className="block text-[11px] text-slate-400 mt-1">{copy.emailHint}</span>
+            )}
           </label>
 
           {/* Password field */}
           <label className="block text-right">
-            <span className="auth-label">{copy.password}</span>
+            <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.password}</span>
             <div className="relative">
-              <ShieldCheck size={15} className="absolute right-3.5 top-[13px] text-white/25 pointer-events-none" />
+              <ShieldCheck size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
               <input
                 {...form.register('password', { required: copy.requiredPassword, minLength: { value: 6, message: copy.minPassword } })}
-                className="auth-input-v2 pl-10 pr-10 text-left"
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 pl-10 text-sm outline-none transition-all"
                 dir="ltr"
                 type={showPassword ? 'text' : 'password'}
                 placeholder={copy.passwordPlaceholder}
@@ -635,28 +606,28 @@ function LoginPage() {
               />
               <button
                 type="button"
-                className="absolute left-3.5 top-[13px] text-white/25 transition-colors hover:text-white/60"
+                className="absolute left-3.5 top-3.5 text-slate-400 hover:text-white transition-colors"
                 onClick={() => setShowPassword(v => !v)}
                 aria-label={showPassword ? copy.hidePassword : copy.showPassword}
                 data-testid="button-toggle-password"
               >
-                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             {form.formState.errors.password?.message && (
-              <span className="auth-field-error" data-testid="text-field-error">{form.formState.errors.password.message}</span>
+              <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.password.message}</span>
             )}
           </label>
 
           {/* Remember + Forgot */}
-          <div className="flex items-center justify-between text-xs pt-0.5">
-            <label className="flex items-center gap-2 cursor-pointer text-white/35 hover:text-white/55 transition-colors select-none">
-              <input type="checkbox" className="h-3.5 w-3.5 rounded accent-cyan-500" data-testid="input-remember" />
-              {copy.remember}
+          <div className="flex items-center justify-between text-xs pt-1">
+            <label className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition-colors select-none">
+              <input type="checkbox" className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-sky-400 accent-sky-500" data-testid="input-remember" />
+              <span>{copy.remember}</span>
             </label>
             <button
               type="button"
-              className="font-bold text-cyan-400/90 hover:text-cyan-300 transition-colors text-[.75rem]"
+              className="font-bold text-sky-400 hover:text-sky-300 transition-colors"
               onClick={() => { login.reset(); setShowRecovery(true); }}
               data-testid="button-forgot-password"
             >
@@ -666,37 +637,36 @@ function LoginPage() {
 
           {/* Submit Button */}
           <button
-            className="auth-cta mt-1"
+            className="w-full bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-500 hover:opacity-95 text-white font-extrabold py-3 rounded-xl text-sm shadow-lg shadow-sky-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
             type="submit"
             disabled={login.isPending}
             data-testid="button-login"
           >
             {login.isPending ? (
-              <><RefreshCw size={16} className="animate-spin" />{copy.loading}</>
+              <><RefreshCw size={16} className="animate-spin" /><span>{copy.loading}</span></>
             ) : (
-              <><span>{copy.submit}</span><ArrowLeft size={15} /></>
+              <><span>{copy.submit}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
             )}
           </button>
         </form>
 
         {/* Register link */}
-        <p className="mt-7 text-center text-[.8rem] text-white/35">
+        <p className="mt-6 text-center text-xs text-slate-400">
           {copy.noAccount}{' '}
-          <Link href="/register" className="font-bold text-cyan-400/90 hover:text-cyan-300 transition-colors" data-testid="link-register">
+          <Link href="/register" className="font-bold text-sky-400 hover:text-sky-300 hover:underline transition-colors" data-testid="link-register">
             {copy.register}
           </Link>
         </p>
 
         {/* System status */}
-        <p className="mt-4 flex items-center justify-center gap-1.5 text-[.65rem] text-white/20" data-testid="status-api">
-          <span className={`inline-block size-1.5 rounded-full ${health.isError ? 'bg-red-400' : 'bg-emerald-400/80'}`} />
-          {health.isError ? copy.degraded : copy.healthy}
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-500" data-testid="status-api">
+          <span className={`inline-block size-1.5 rounded-full ${health.isError ? 'bg-red-400' : 'bg-emerald-400'}`} />
+          <span>{health.isError ? copy.degraded : copy.healthy}</span>
         </p>
       </div>
     </AuthLayout>
   );
 }
-
 
 function RegisterPage() {
   const [, setLocation] = useLocation();
@@ -704,58 +674,70 @@ function RegisterPage() {
   const register = useRegister();
   const form = useForm<RegisterValues>({ defaultValues: { fullName: '', clinicName: '', email: '', password: '' }, mode: 'onTouched' });
   const { lang, text } = useAuthLocale();
+  const en = lang === 'en';
   const copy = text.registerPage;
   const onSubmit = (values: RegisterValues) => register.mutate({ data: values }, { onSuccess: (session) => { client.setQueryData(getGetAuthSessionQueryKey(), session); toast.success(copy.success); setLocation('/dashboard'); } });
   const apiError = getApiErrorMessage(register.error, lang);
+
   return (
     <AuthLayout mode="register" languageToggle>
-      <div className="animate-rise" dir="rtl">
+      <div>
         {/* Header */}
-        <div className="mb-8">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.eyebrow}</p>
-          <h2 className="ar text-3xl font-extrabold tracking-tight text-white" data-testid="heading-register">{copy.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+        <div className="mb-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-sky-400 mb-1">{copy.eyebrow}</p>
+          <h2 className="text-2xl font-black text-white" data-testid="heading-register">{copy.title}</h2>
+          <p className="mt-1.5 text-xs text-slate-400 leading-5">{copy.subtitle}</p>
         </div>
 
         {/* API Error */}
         {apiError ? (
-          <div className="mb-5 flex items-start gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-6 text-red-300" data-testid="alert-register-error">
-            <X size={16} className="mt-0.5 shrink-0" /> {apiError}
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-300" data-testid="alert-register-error">
+            <X size={15} className="mt-0.5 shrink-0 text-red-400" />
+            <span>{apiError}</span>
           </div>
         ) : null}
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir="rtl">
-          <Field label={copy.fullName} error={form.formState.errors.fullName?.message}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <label className="block text-right">
+            <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.fullName}</span>
             <div className="relative">
-              <UserRound size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <UserRound size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
               <input
                 {...form.register('fullName', { required: copy.requiredName, minLength: { value: 2, message: copy.validName } })}
-                className="auth-input pr-10"
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none transition-all"
                 placeholder={copy.fullNamePlaceholder}
                 autoComplete="name"
                 data-testid="input-register-full-name"
               />
             </div>
-          </Field>
+            {form.formState.errors.fullName?.message && (
+              <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.fullName.message}</span>
+            )}
+          </label>
 
-          <Field label={copy.clinicName} error={form.formState.errors.clinicName?.message}>
+          <label className="block text-right">
+            <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.clinicName}</span>
             <div className="relative">
-              <Building2 size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <Building2 size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
               <input
                 {...form.register('clinicName', { required: copy.requiredClinic, minLength: { value: 2, message: copy.validName } })}
-                className="auth-input pr-10"
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none transition-all"
                 placeholder={copy.clinicNamePlaceholder}
                 data-testid="input-register-clinic-name"
               />
             </div>
-          </Field>
+            {form.formState.errors.clinicName?.message && (
+              <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.clinicName.message}</span>
+            )}
+          </label>
 
-          <Field label={copy.email} error={form.formState.errors.email?.message}>
+          <label className="block text-right">
+            <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.email}</span>
             <div className="relative">
-              <Mail size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <Mail size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
               <input
                 {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
-                className="auth-input pr-10 text-left"
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none transition-all"
                 dir="ltr"
                 type="email"
                 placeholder="name@clinic.com"
@@ -763,14 +745,18 @@ function RegisterPage() {
                 data-testid="input-register-email"
               />
             </div>
-          </Field>
+            {form.formState.errors.email?.message && (
+              <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.email.message}</span>
+            )}
+          </label>
 
-          <Field label={copy.password} error={form.formState.errors.password?.message} hint={copy.passwordHint}>
+          <label className="block text-right">
+            <span className="block text-xs font-bold text-slate-200 mb-1.5">{copy.password}</span>
             <div className="relative">
-              <ShieldCheck size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <ShieldCheck size={16} className="absolute right-3.5 top-3.5 text-slate-400 pointer-events-none" />
               <input
                 {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })}
-                className="auth-input pr-10 text-left"
+                className="w-full bg-[#081829] border border-[#1e3e5c] focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none transition-all"
                 dir="ltr"
                 type="password"
                 placeholder="••••••••"
@@ -778,30 +764,36 @@ function RegisterPage() {
                 data-testid="input-register-password"
               />
             </div>
-          </Field>
+            {form.formState.errors.password?.message ? (
+              <span className="block text-xs font-semibold text-red-400 mt-1" data-testid="text-field-error">{form.formState.errors.password.message}</span>
+            ) : (
+              <span className="block text-[11px] text-slate-400 mt-1">{copy.passwordHint}</span>
+            )}
+          </label>
 
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-white/50 transition hover:bg-white/10">
-            <input type="checkbox" required className="mt-0.5 h-3.5 w-3.5 rounded accent-cyan-500" data-testid="input-terms" />
-            {copy.terms}
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-700/60 bg-slate-800/40 p-3 text-xs leading-5 text-slate-300 transition hover:bg-slate-800/60">
+            <input type="checkbox" required className="mt-0.5 h-4 w-4 rounded accent-sky-500" data-testid="input-terms" />
+            <span>{copy.terms}</span>
           </label>
 
           <button
-            className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 hover:shadow-cyan-500/40 active:scale-[.98] disabled:opacity-60"
+            className="w-full bg-gradient-to-r from-sky-600 via-sky-500 to-cyan-500 hover:opacity-95 text-white font-extrabold py-3 rounded-xl text-sm shadow-lg shadow-sky-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
             type="submit"
             disabled={register.isPending}
             data-testid="button-register"
           >
             {register.isPending ? (
-              <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.loading}</>
+              <><RefreshCw size={16} className="animate-spin" /><span>{copy.loading}</span></>
             ) : (
-              <><span>{copy.submit}</span> <ArrowLeft size={16} className="inline ms-1" /></>
+              <><span>{copy.submit}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
             )}
           </button>
         </form>
 
-        <p className="mt-7 text-center text-sm text-white/40">
-          {copy.haveAccount}{' '}
-          <Link href="/login" className="font-bold text-cyan-400 hover:text-cyan-300 transition" data-testid="link-login">{copy.login}</Link>
+        <p className="mt-6 text-center text-xs text-slate-400">
+          <Link href="/login" className="font-bold text-sky-400 hover:text-sky-300 hover:underline transition-colors" data-testid="link-login">
+            {copy.haveAccount} {copy.login}
+          </Link>
         </p>
       </div>
     </AuthLayout>
