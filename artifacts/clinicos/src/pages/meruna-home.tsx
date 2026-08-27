@@ -248,7 +248,7 @@ const globalStats = [
 ];
 
 function App() {
-  const [lang, setLang] = useState<Lang>('ar');
+  const [lang, setLang] = useState<Lang>('en');
   const [theme, setTheme] = useState<Theme>('dark');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -420,7 +420,7 @@ function App() {
   useEffect(() => () => { if (replyTimerRef.current) window.clearTimeout(replyTimerRef.current); }, []);
 
   return (
-    <div className={`landing-home ${theme === 'dark' ? 'is-dark' : ''} ${isArabic ? 'is-arabic' : ''} cf-page cf-grain cf-section min-h-[100dvh]`} dir="rtl">
+    <div className={`landing-home ${theme === 'dark' ? 'is-dark' : ''} ${isArabic ? 'is-arabic' : ''} cf-page cf-grain cf-section min-h-[100dvh]`} dir="ltr">
       <header className="fixed inset-x-0 top-0 z-30 border-b border-[hsl(var(--border)/.65)] bg-[hsl(var(--background)/.8)] backdrop-blur-xl">
         <div className="cf-container flex h-[76px] items-center justify-between">
           <a href="#top" data-testid="link-brand" aria-label="MERUNA home"><BrandMark /></a>
