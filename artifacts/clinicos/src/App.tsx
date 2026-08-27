@@ -64,6 +64,8 @@ import {
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/components/command-palette';
 import { NotificationsBell } from '@/components/notifications-panel';
+import { ShortcutsModal } from '@/components/shortcuts-modal';
+import { NetworkStatusBanner } from '@/components/network-status';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
@@ -533,7 +535,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   );
 }
 
-function WorkspaceToolbar({ onOpenMenu, onOpenSearch }: { onOpenMenu?: () => void; onOpenSearch?: () => void }) {
+function WorkspaceToolbar({ onOpenMenu, onOpenSearch, onOpenShortcuts }: { onOpenMenu?: () => void; onOpenSearch?: () => void; onOpenShortcuts?: () => void }) {
   const { language, theme, t, toggleLanguage, toggleTheme } = usePreferences();
   return (
     <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
@@ -542,6 +544,18 @@ function WorkspaceToolbar({ onOpenMenu, onOpenSearch }: { onOpenMenu?: () => voi
       {onOpenSearch ? <div className="hidden min-w-0 flex-1 md:block"><CommandPaletteTrigger onOpen={onOpenSearch} language={language} /></div> : null}
       {onOpenSearch ? <button type="button" onClick={onOpenSearch} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'بحث' : 'Search'} data-testid="button-open-search-mobile"><Search size={17} /></button> : null}
       <NotificationsBell />
+      {onOpenShortcuts ? (
+        <button
+          type="button"
+          onClick={onOpenShortcuts}
+          aria-label={language === 'ar' ? 'اختصارات لوحة المفاتيح' : 'Keyboard shortcuts'}
+          title={language === 'ar' ? 'اختصارات لوحة المفاتيح (?)' : 'Keyboard shortcuts (?)'}
+          className="toolbar-button hidden sm:flex"
+          data-testid="button-shortcuts-toggle"
+        >
+          <span className="font-mono text-xs font-bold">?</span>
+        </button>
+      ) : null}
       <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? t('lightMode') : t('darkMode')} title={theme === 'dark' ? t('lightMode') : t('darkMode')} className="toolbar-button" data-testid="button-theme-toggle">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
       <button type="button" onClick={toggleLanguage} aria-label={t('switchLanguage')} title={t('switchLanguage')} className="toolbar-language" data-testid="button-language-toggle">{language === 'ar' ? 'EN' : 'ع'}</button>
     </div>
@@ -621,6 +635,8 @@ function ProtectedShell() {
   const sessionQuery = useGetAuthSession({ query: { retry: false, queryKey: getGetAuthSessionQueryKey() } });
   const [location, setLocation] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const { language } = usePreferences();
   const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
   const needsLogin = sessionQuery.isError || !sessionQuery.data;
 
@@ -644,6 +660,7 @@ function ProtectedShell() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === '/') { event.preventDefault(); setSearchOpen(true); return; }
+      if (event.key === '?' || (event.shiftKey && event.key === '/')) { event.preventDefault(); setShortcutsOpen(v => !v); return; }
       const map: Record<string, string> = { d: '/dashboard', c: '/calendar', t: '/tasks', i: '/inbox', a: '/appointments', p: '/patients', w: '/waitlist', f: '/follow-ups', n: '/no-shows', b: '/billing', r: '/analytics' };
       const to = map[event.key.toLowerCase()];
       if (to) setLocation(to);
@@ -661,8 +678,10 @@ function ProtectedShell() {
         <Sidebar clinicName={session.clinic.name} userName={session.user.fullName} mobileOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
         {menuOpen ? <div className="sidebar-overlay md:hidden" role="presentation" onClick={() => setMenuOpen(false)} /> : null}
         <div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl">
-          <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
+          <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} onOpenShortcuts={() => setShortcutsOpen(true)} />
           <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+          <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} en={language === 'en'} />
+          <NetworkStatusBanner />
           <div className="workspace-route flex min-h-0 flex-1 flex-col">
             <Suspense fallback={<RouteLoadingFallback />}>
               <Switch>

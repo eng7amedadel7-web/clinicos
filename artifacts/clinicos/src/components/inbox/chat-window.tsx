@@ -20,6 +20,16 @@ import type { InboxConversation, InboxMessage, SavedReply } from "@/lib/inbox-ap
 import { ChannelIcon } from "./inbox-icons";
 import { MessageBubble } from "./message-bubble";
 
+function interpolateTemplate(template: string, patientName?: string): string {
+  if (!template) return "";
+  let res = template;
+  const name = patientName || "عزيزي المراجع";
+  res = res.replace(/\{\{\s*patient_name\s*\}\}/gi, name);
+  res = res.replace(/\{\{\s*clinic_name\s*\}\}/gi, "العيادة");
+  res = res.replace(/\{\{\s*appointment_time\s*\}\}/gi, "المحدد");
+  return res;
+}
+
 export function ChatWindow({
   conversation,
   messages,
@@ -201,33 +211,89 @@ export function ChatWindow({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Canned Replies Row */}
-      <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border/50 bg-muted/20 px-3 py-1.5 scrollbar-none">
-        <button
-          onClick={() => setCannedRepliesOpen((v) => !v)}
-          className="flex shrink-0 items-center gap-1 rounded-md bg-muted px-2 py-1 text-[10px] font-bold text-foreground hover:bg-muted/80"
-        >
-          <MessageSquareShare className="size-3 text-primary" />
-          <span>{en ? "Quick Replies" : "الردود السريعة"}</span>
-        </button>
+      {/* Quick Canned Replies Row & Popover */}
+      <div className="relative border-t border-border/50 bg-muted/20 px-3 py-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => setCannedRepliesOpen((v) => !v)}
+            className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition ${
+              cannedRepliesOpen
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground hover:bg-muted/80"
+            }`}
+            data-testid="button-open-templates-popover"
+          >
+            <MessageSquareShare className="size-3" />
+            <span>{en ? "Templates" : "القوالب الجاهزة"}</span>
+          </button>
 
-        {savedReplies.length > 0 ? savedReplies.slice(0, 4).map((reply, i) => {
-          const body = "body_template" in reply ? reply.body_template : reply.content;
-          const title = "template_key" in reply ? reply.template_key : reply.title;
-          return (
-            <button
-              key={reply.id || i}
-              onClick={() => setReplyText((prev) => (prev ? `${prev} ${body}` : body))}
-              className="shrink-0 max-w-[140px] truncate rounded-md border border-border/60 bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground transition"
-              title={body}
-            >
-              {title}
-            </button>
-          );
-        }) : (
-          <span className="text-[10px] text-muted-foreground px-1">
-            {en ? "No saved replies configured" : "لا توجد ردود محفوظة"}
-          </span>
+          {savedReplies.length > 0 ? (
+            savedReplies.slice(0, 5).map((reply, i) => {
+              const rawBody = "body_template" in reply ? reply.body_template : reply.content;
+              const title = "template_key" in reply ? reply.template_key : reply.title;
+              const interpolated = interpolateTemplate(rawBody, conversation.name);
+              return (
+                <button
+                  key={reply.id || i}
+                  onClick={() => setReplyText((prev) => (prev ? `${prev} ${interpolated}` : interpolated))}
+                  className="shrink-0 max-w-[140px] truncate rounded-md border border-border/60 bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground transition"
+                  title={interpolated}
+                  data-testid={`quick-reply-btn-${reply.id || i}`}
+                >
+                  {title}
+                </button>
+              );
+            })
+          ) : (
+            <span className="text-[10px] text-muted-foreground px-1">
+              {en ? "No saved replies configured" : "لا توجد ردود محفوظة"}
+            </span>
+          )}
+        </div>
+
+        {/* Searchable Template Picker Dropdown */}
+        {cannedRepliesOpen && (
+          <div className="absolute bottom-full mb-1 inset-x-3 z-30 max-h-72 overflow-hidden rounded-xl border border-border bg-card shadow-xl p-3 flex flex-col gap-2 animate-rise">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <span className="text-xs font-bold text-foreground">
+                {en ? "Select Reply Template" : "اختر قالباً جاهزاً"}
+              </span>
+              <button
+                onClick={() => setCannedRepliesOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-56 space-y-1.5">
+              {savedReplies.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">
+                  {en ? "No templates available" : "لا توجد قوالب متاحة"}
+                </p>
+              ) : (
+                savedReplies.map((reply, i) => {
+                  const rawBody = "body_template" in reply ? reply.body_template : reply.content;
+                  const title = "template_key" in reply ? reply.template_key : reply.title;
+                  const interpolated = interpolateTemplate(rawBody, conversation.name);
+                  return (
+                    <button
+                      key={reply.id || i}
+                      onClick={() => {
+                        setReplyText((prev) => (prev ? `${prev} ${interpolated}` : interpolated));
+                        setCannedRepliesOpen(false);
+                      }}
+                      className="w-full text-right p-2 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/80 hover:border-primary/40 transition flex flex-col gap-0.5"
+                    >
+                      <span className="text-xs font-bold text-foreground">{title}</span>
+                      <span className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                        {interpolated}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
         )}
       </div>
 

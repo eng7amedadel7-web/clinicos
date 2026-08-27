@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, RefreshCw } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Plus, RefreshCw, User, X } from "lucide-react";
 import { Link } from "wouter";
+import { toast } from "sonner";
 import { usePreferences } from "@/lib/preferences";
 import { WorkspacePage, WorkspacePageHeader } from "@/components/workspace-page";
 
@@ -16,6 +17,13 @@ type Appointment = {
   doctorName?: string;
 };
 
+type BookingOptions = {
+  patients: Array<{ id: string; name: string }>;
+  slots: Array<{ id: string; startTime: string; doctorId: string; serviceId: string }>;
+  doctors: Array<{ id: string; name: string }>;
+  services: Array<{ id: string; name: string }>;
+};
+
 async function getCalendarAppointments(signal?: AbortSignal): Promise<Appointment[]> {
   const response = await fetch("/api/appointments?includeOptions=false", { credentials: "include", signal });
   if (!response.ok) throw new Error("تعذر تحميل المواعيد");
@@ -23,10 +31,16 @@ async function getCalendarAppointments(signal?: AbortSignal): Promise<Appointmen
   return Array.isArray(data?.appointments) ? data.appointments : [];
 }
 
+async function getBookingOptions(signal?: AbortSignal): Promise<BookingOptions | null> {
+  const response = await fetch("/api/appointments?includeOptions=true", { credentials: "include", signal });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => null);
+  return data?.options || null;
+}
+
 function getWeekDays(baseDate: Date): Date[] {
   const start = new Date(baseDate);
   const dayOfWeek = start.getDay(); // 0=Sun, 6=Sat
-  // start from Saturday (Saudi week)
   const diff = (dayOfWeek + 1) % 7;
   start.setDate(start.getDate() - diff);
   return Array.from({ length: 7 }, (_, i) => {
@@ -34,10 +48,6 @@ function getWeekDays(baseDate: Date): Date[] {
     d.setDate(start.getDate() + i);
     return d;
   });
-}
-
-function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 function statusColors(status: string) {
@@ -78,12 +88,15 @@ function formatMonthYear(d: Date, en: boolean) {
 }
 
 export default function CalendarPage() {
+  const queryClient = useQueryClient();
   const { language, selectedBranchId } = usePreferences();
   const en = language === "en";
   const today = useMemo(() => new Date(), []);
 
   const [baseDate, setBaseDate] = useState<Date>(today);
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingForm, setBookingForm] = useState({ patientId: "", slotId: "", notes: "" });
 
   const query = useQuery({
     queryKey: ["calendar-appointments", selectedBranchId],
@@ -93,8 +106,37 @@ export default function CalendarPage() {
     refetchIntervalInBackground: false,
   });
 
-  const appointments = query.data ?? [];
+  const optionsQuery = useQuery({
+    queryKey: ["booking-options"],
+    queryFn: ({ signal }) => getBookingOptions(signal),
+    enabled: bookingOpen,
+    staleTime: 60_000,
+  });
 
+  const bookMutation = useMutation({
+    mutationFn: async (form: { patientId: string; slotId: string; notes: string }) => {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error("تعذر حجز الموعد");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success(en ? "Appointment booked successfully" : "تم حجز الموعد بنجاح");
+      setBookingOpen(false);
+      setBookingForm({ patientId: "", slotId: "", notes: "" });
+      queryClient.invalidateQueries({ queryKey: ["calendar-appointments"] });
+      query.refetch();
+    },
+    onError: () => {
+      toast.error(en ? "Failed to book appointment" : "تعذر إتمام الحجز");
+    },
+  });
+
+  const appointments = query.data ?? [];
   const weekDays = useMemo(() => getWeekDays(baseDate), [baseDate]);
 
   const appointmentsByDay = useMemo(() => {
@@ -122,6 +164,19 @@ export default function CalendarPage() {
     ? `${formatDateShort(weekDays[0], en)} — ${formatDateShort(weekDays[6], en)} · ${formatMonthYear(weekDays[3], en)}`
     : formatDateShort(baseDate, en);
 
+  const options = optionsQuery.data;
+  const doctorName = (id: string) => options?.doctors.find((d) => d.id === id)?.name || (en ? "Doctor" : "الطبيب");
+  const serviceName = (id: string) => options?.services.find((s) => s.id === id)?.name || (en ? "Service" : "الخدمة");
+
+  const handleBookSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingForm.patientId || !bookingForm.slotId) {
+      toast.error(en ? "Please select a patient and a time slot" : "يرجى اختيار المريض والموعد المتاح");
+      return;
+    }
+    bookMutation.mutate(bookingForm);
+  };
+
   return (
     <WorkspacePage>
       <WorkspacePageHeader
@@ -130,6 +185,14 @@ export default function CalendarPage() {
         description={en ? "View and navigate clinic appointments by week or day" : "استعرض مواعيد العيادة بعرض أسبوعي أو يومي"}
         action={
           <div className="flex items-center gap-2">
+            <button
+              className="primary-button"
+              onClick={() => setBookingOpen(true)}
+              data-testid="button-quick-book-calendar"
+            >
+              <Plus size={15} />
+              {en ? "Quick Book" : "حجز موعد"}
+            </button>
             <button className="quiet-button" onClick={() => query.refetch()} disabled={query.isFetching} data-testid="button-refresh-calendar">
               <RefreshCw size={15} className={query.isFetching ? "animate-spin" : ""} />
               {en ? "Refresh" : "تحديث"}
@@ -245,14 +308,15 @@ export default function CalendarPage() {
                   ))}
                 </div>
 
-                {/* Add button */}
-                <Link
-                  href="/appointments"
-                  className="mt-2 block rounded-lg border border-dashed border-[#cfe2e8] py-1 text-center text-[9px] font-bold text-[#8a9ba4] transition hover:border-[#9fc0ca] hover:text-[#22617d] dark:border-[#1e3a4d] dark:text-[#4a6475] dark:hover:border-[#1e5a6d] dark:hover:text-[#8cc3dd]"
+                {/* Quick Add button */}
+                <button
+                  type="button"
+                  onClick={() => setBookingOpen(true)}
+                  className="mt-2 block w-full rounded-lg border border-dashed border-[#cfe2e8] py-1 text-center text-[9px] font-bold text-[#8a9ba4] transition hover:border-[#9fc0ca] hover:text-[#22617d] dark:border-[#1e3a4d] dark:text-[#4a6475] dark:hover:border-[#1e5a6d] dark:hover:text-[#8cc3dd]"
                   data-testid={`calendar-add-appt-${key}`}
                 >
                   + {en ? "Book" : "حجز"}
-                </Link>
+                </button>
               </div>
             );
           })}
@@ -285,9 +349,9 @@ export default function CalendarPage() {
               <div className="flex flex-col items-center py-14 text-center">
                 <CalendarDays size={32} className="mb-3 text-[#a8bfc9] dark:text-[#4a6475]" />
                 <p className="text-sm font-bold text-[#527080] dark:text-[#a8bfc9]">{en ? "No appointments this day" : "لا توجد مواعيد في هذا اليوم"}</p>
-                <Link href="/appointments" className="primary-button mt-4">
-                  {en ? "Book appointment" : "حجز موعد"}
-                </Link>
+                <button onClick={() => setBookingOpen(true)} className="primary-button mt-4">
+                  <Plus size={15} /> {en ? "Book appointment" : "حجز موعد"}
+                </button>
               </div>
             ) : (
               <div className="divide-y divide-[#edf1f3] dark:divide-[#1e3a4d]">
@@ -316,6 +380,84 @@ export default function CalendarPage() {
           </div>
         );
       })()}
+
+      {/* Quick Booking Modal */}
+      {bookingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1824]/50 p-4" onClick={() => setBookingOpen(false)}>
+          <form className="surface w-full max-w-lg space-y-4 rounded-2xl p-6" dir="rtl" onClick={(e) => e.stopPropagation()} onSubmit={handleBookSubmit}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-[#3c7e93] dark:text-[#a8bfc9]">{en ? "Quick Booking" : "حجز فوري"}</p>
+                <h2 className="mt-1 text-lg font-extrabold text-[#18374d] dark:text-[#e2ecf1]">{en ? "Book New Appointment" : "حجز موعد جديد"}</h2>
+              </div>
+              <button type="button" onClick={() => setBookingOpen(false)} aria-label={en ? "Close" : "إغلاق"}><X size={18} /></button>
+            </div>
+
+            <label className="block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
+              {en ? "Patient *" : "المريض *"}
+              <select
+                required
+                value={bookingForm.patientId}
+                onChange={(e) => setBookingForm({ ...bookingForm, patientId: e.target.value, slotId: "" })}
+                className="input-field mt-1.5 w-full"
+                data-testid="select-calendar-patient"
+              >
+                <option value="">{en ? "Select a patient from the clinic" : "اختر مريضاً من العيادة"}</option>
+                {options?.patients.map((p) => (
+                  <option value={p.id} key={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
+              {en ? "Available slot *" : "الموعد المتاح *"}
+              <select
+                required
+                value={bookingForm.slotId}
+                onChange={(e) => setBookingForm({ ...bookingForm, slotId: e.target.value })}
+                className="input-field mt-1.5 w-full"
+                data-testid="select-calendar-slot"
+              >
+                <option value="">{en ? "Select an available slot" : "اختر موعداً متاحاً"}</option>
+                {options?.slots.map((s) => (
+                  <option value={s.id} key={s.id}>
+                    {formatTime(s.startTime)} · {doctorName(s.doctorId)} · {serviceName(s.serviceId)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {options && options.slots.length === 0 && (
+              <p className="rounded-xl bg-[#fffaf0] p-3 text-xs leading-6 text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]">
+                {en ? "No available slots currently configured in this clinic." : "لا توجد مواعيد متاحة مسجلة حالياً في هذه العيادة."}
+              </p>
+            )}
+
+            <textarea
+              value={bookingForm.notes}
+              onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+              placeholder={en ? "Optional notes for the appointment..." : "ملاحظات إضافية للموعد..."}
+              className="input-field min-h-20 w-full"
+              data-testid="input-calendar-booking-notes"
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button type="button" className="quiet-button" onClick={() => setBookingOpen(false)}>
+                {en ? "Cancel" : "إلغاء"}
+              </button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={bookMutation.isPending || !options?.slots.length}
+                data-testid="button-submit-calendar-booking"
+              >
+                {bookMutation.isPending ? (en ? "Booking..." : "جارٍ الحجز...") : (en ? "Confirm Booking" : "تأكيد الحجز")}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </WorkspacePage>
   );
 }
+
