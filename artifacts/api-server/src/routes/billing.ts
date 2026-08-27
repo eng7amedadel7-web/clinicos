@@ -217,11 +217,13 @@ router.get("/billing", async (req, res) => {
   }
 
   let currentSubscription = subscription.data?.[0] ?? null;
-  if (currentSubscription?.paddle_subscription_id) {
+  const subscriptionForSync = currentSubscription;
+  if (subscriptionForSync?.paddle_subscription_id) {
     try {
-      currentSubscription = await syncSubscriptionSnapshot(context.session.clinicId, currentSubscription);
+      const syncedSubscription = await syncSubscriptionSnapshot(context.session.clinicId, subscriptionForSync);
+      if (syncedSubscription) currentSubscription = syncedSubscription;
     } catch (error) {
-      req.log?.warn({ err: error, subscriptionId: currentSubscription.paddle_subscription_id }, "Billing subscription sync skipped");
+      req.log?.warn({ err: error, subscriptionId: subscriptionForSync.paddle_subscription_id }, "Billing subscription sync skipped");
     }
   }
   const lifecycle = summarizeLifecycle(currentSubscription);

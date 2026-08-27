@@ -67,6 +67,59 @@ export async function getVoiceAgentData(signal?: AbortSignal): Promise<VoiceAgen
   return operationsRequest<VoiceAgentData>("/api/operations/voice-agent", { signal });
 }
 
+export type VoiceApiRecord = Record<string, unknown>;
+
+function voiceQuery(params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== "") query.set(key, String(value)); });
+  const suffix = query.toString();
+  return suffix ? `?${suffix}` : "";
+}
+
+export async function getVoiceOverview(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/overview", { signal });
+}
+
+export async function getVoiceCallsPage(params: Record<string, string | number | undefined> = {}, signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>(`/api/operations/voice-agent/calls${voiceQuery(params)}`, { signal });
+}
+
+export async function getVoiceBookingsPage(params: Record<string, string | number | undefined> = {}, signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>(`/api/operations/voice-agent/bookings${voiceQuery(params)}`, { signal });
+}
+
+export async function getVoiceClinic(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/clinic", { signal });
+}
+
+export async function getVoiceAgentSnapshot(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/agent", { signal });
+}
+
+export async function getVoiceKnowledgeSources(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/knowledge", { signal });
+}
+
+export async function getVoicePhoneChannels(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/phone", { signal });
+}
+
+export async function getVoicePerformance(params: Record<string, string | number | undefined> = {}, signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>(`/api/operations/voice-agent/performance${voiceQuery(params)}`, { signal });
+}
+
+export async function getVoiceUsage(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/usage", { signal });
+}
+
+export async function getVoiceBilling(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/billing", { signal });
+}
+
+export async function getVoiceSettings(signal?: AbortSignal): Promise<VoiceApiRecord> {
+  return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/settings", { signal });
+}
+
 export async function getOperationsSummary(signal?: AbortSignal, branchId?: string): Promise<OperationsSummary> {
   const suffix = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
   const response = await fetch(`/api/operations/summary${suffix}`, { credentials: "include", signal });

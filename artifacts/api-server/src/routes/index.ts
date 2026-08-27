@@ -7,6 +7,7 @@ import patientsRouter from "./patients";
 import appointmentsRouter from "./appointments";
 import inboxRouter from "./inbox";
 import operationsRouter from "./operations";
+import voiceRouter from "./voice";
 import organizationRouter from "./organization";
 import billingRouter from "./billing";
 
@@ -20,6 +21,7 @@ router.use(patientsRouter);
 router.use(appointmentsRouter);
 router.use(inboxRouter);
 router.use(operationsRouter);
+router.use(voiceRouter);
 router.use(organizationRouter);
 router.use(billingRouter);
 
