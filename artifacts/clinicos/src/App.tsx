@@ -59,6 +59,7 @@ import {
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/components/command-palette';
+import { NotificationsBell } from '@/components/notifications-panel';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
@@ -78,6 +79,7 @@ const OrganizationSettings = lazy(() => import('@/pages/organization-settings'))
 const LivePatientsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.LivePatientsPage })));
 const LiveAppointmentsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.LiveAppointmentsPage })));
 const InboxPage = lazy(() => import('@/pages/inbox-page'));
+const AnalyticsPage = lazy(() => import('@/pages/analytics-page'));
 const WaitlistPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.WaitlistPage })));
 const FollowUpsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.FollowUpsPage })));
 const NoShowsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.NoShowsPage })));
@@ -422,6 +424,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
       { href: '/voice-agent', label: t('voiceAgent'), icon: PhoneCall },
     ] },
     { id: 'settings', title: language === 'ar' ? 'الإعدادات' : 'Settings', links: [
+      { href: '/analytics', label: language === 'ar' ? 'التقارير والإحصائيات' : 'Analytics', icon: Activity },
       { href: '/organization', label: language === 'ar' ? 'بيانات المنشأة' : 'Organization', icon: Building2 },
       { href: '/billing', label: t('reports'), icon: CreditCard },
       { href: '/settings', label: t('settings'), icon: Settings2 },
@@ -519,66 +522,18 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
 }
 
 function WorkspaceToolbar({ onOpenMenu, onOpenSearch }: { onOpenMenu?: () => void; onOpenSearch?: () => void }) {
-  const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId } = usePreferences();
-  const { isMuted, toggleMute, unreadHandoffs, unreadMessages, recentAlerts, markAllAsRead } = useClinicNotifications();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const notificationsRef = useRef<HTMLDivElement>(null);
-  const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications', selectedBranchId], queryFn: ({ signal }) => getOperationsSummary(signal, selectedBranchId === 'all' ? undefined : selectedBranchId), enabled: notificationsOpen, staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
-  useEffect(() => {
-    if (!notificationsOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setNotificationsOpen(false);
-    };
-    const handlePointerDown = (event: PointerEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) setNotificationsOpen(false);
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('pointerdown', handlePointerDown);
-    };
-  }, [notificationsOpen]);
-  const stats = summaryQuery.data?.stats;
-  const notifications = [
-    { id: 'inbox', label: t('conversationsNeedStaff'), count: (stats?.conversationsNeedingStaff ?? 0) + unreadHandoffs, href: '/inbox' },
-    { id: 'follow-ups', label: t('followUpsDue'), count: stats?.openFollowUps ?? 0, href: '/follow-ups' },
-    { id: 'no-shows', label: t('noShowsOpen'), count: stats?.openNoShows ?? 0, href: '/no-shows' },
-    { id: 'waitlist', label: t('waitlistActive'), count: stats?.activeWaitlist ?? 0, href: '/waitlist' },
-  ].filter((item) => item.count > 0);
-  const unreadCount = notifications.length + (recentAlerts.some((a) => !a.read) ? 1 : 0);
-  return <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
-    <button type="button" onClick={onOpenMenu} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'فتح القائمة' : 'Open menu'} data-testid="button-open-menu"><Menu size={18} /></button>
-    <div className="min-w-0 flex-1 md:hidden"><p className="truncate text-[11px] font-bold text-[#78909c] dark:text-[#a8bfc9]">MERUNA</p><p className="truncate text-xs text-[#8a9ba4] dark:text-[#7e939e]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
-    {onOpenSearch ? <div className="hidden min-w-0 flex-1 md:block"><CommandPaletteTrigger onOpen={onOpenSearch} language={language} /></div> : null}
-    {onOpenSearch ? <button type="button" onClick={onOpenSearch} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'بحث' : 'Search'} data-testid="button-open-search-mobile"><Search size={17} /></button> : null}
-    <div ref={notificationsRef} className="relative">
-      <button type="button" onClick={() => { setNotificationsOpen((value) => !value); if (!notificationsOpen) markAllAsRead(); }} aria-expanded={notificationsOpen} aria-haspopup="dialog" aria-label={t('notifications')} className="toolbar-button" data-testid="button-notifications"><Bell size={17} />{unreadCount > 0 && <span className="toolbar-badge">{unreadCount}</span>}</button>
-      {notificationsOpen && <div className="toolbar-popover absolute right-0 top-full z-30 mt-2 max-h-[min(70vh,28rem)] w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-y-auto rounded-2xl border border-[#dbe5ea] bg-white p-2 text-right shadow-xl" role="dialog" aria-modal="false" aria-label={t('notifications')} data-testid="notifications-popover">
-        <div className="border-b border-[#edf1f3] px-3 py-2 flex items-center justify-between">
-          <div><p className="text-sm font-bold text-[#18374d]">{t('notifications')}</p><p className="mt-0.5 text-[10px] text-[#8496a0]">{t('notificationsSubtitle')}</p></div>
-          <span className="text-[10px] font-semibold text-[#4d869a]">{recentAlerts.length} {language === 'ar' ? 'تنبيه' : 'alerts'}</span>
-        </div>
-        {recentAlerts.length > 0 && (
-          <div className="border-b border-[#edf1f3] py-1">
-            {recentAlerts.slice(0, 3).map((alert) => (
-              <Link key={alert.id} href={alert.link || '/inbox'} onClick={() => setNotificationsOpen(false)} className="flex flex-col gap-1 rounded-xl p-2 text-xs transition hover:bg-[#f1f7f7]">
-                <div className="flex items-center justify-between">
-                  <span className={`font-bold ${alert.type === 'handoff' ? 'text-[#ad514a]' : 'text-[#28495b]'}`}>{alert.title}</span>
-                  <time className="text-[9px] text-[#8ea9b5]">{alert.time}</time>
-                </div>
-                <p className="line-clamp-1 text-[11px] text-[#718591]">{alert.description}</p>
-              </Link>
-            ))}
-          </div>
-        )}
-        {notifications.length ? notifications.map((item) => <Link key={item.id} href={item.href} onClick={() => setNotificationsOpen(false)} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-xs text-[#28495b] transition hover:bg-[#f1f7f7]"><span className="min-w-0 truncate">{item.label}</span><strong className="rounded-md bg-[#dcecf5] px-2 py-1 text-[10px] text-[#22617d]">{item.count}</strong></Link>) : recentAlerts.length === 0 ? <p className="px-3 py-5 text-center text-xs text-[#8496a0]">{t('noNotifications')}</p> : null}{summaryQuery.isError && <p className="px-3 pb-2 text-[10px] text-[#a64036]">{language === 'ar' ? 'تعذر تحديث الإشعارات.' : 'Notifications could not be refreshed.'}</p>}
-      </div>}
+  const { language, theme, t, toggleLanguage, toggleTheme } = usePreferences();
+  return (
+    <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
+      <button type="button" onClick={onOpenMenu} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'فتح القائمة' : 'Open menu'} data-testid="button-open-menu"><Menu size={18} /></button>
+      <div className="min-w-0 flex-1 md:hidden"><p className="truncate text-[11px] font-bold text-[#78909c] dark:text-[#a8bfc9]">MERUNA</p><p className="truncate text-xs text-[#8a9ba4] dark:text-[#7e939e]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
+      {onOpenSearch ? <div className="hidden min-w-0 flex-1 md:block"><CommandPaletteTrigger onOpen={onOpenSearch} language={language} /></div> : null}
+      {onOpenSearch ? <button type="button" onClick={onOpenSearch} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'بحث' : 'Search'} data-testid="button-open-search-mobile"><Search size={17} /></button> : null}
+      <NotificationsBell />
+      <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? t('lightMode') : t('darkMode')} title={theme === 'dark' ? t('lightMode') : t('darkMode')} className="toolbar-button" data-testid="button-theme-toggle">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
+      <button type="button" onClick={toggleLanguage} aria-label={t('switchLanguage')} title={t('switchLanguage')} className="toolbar-language" data-testid="button-language-toggle">{language === 'ar' ? 'EN' : 'ع'}</button>
     </div>
-    <button type="button" onClick={toggleMute} aria-label={isMuted ? (language === 'ar' ? 'تفعيل الصوت' : 'Unmute alerts') : (language === 'ar' ? 'كتم الصوت' : 'Mute alerts')} title={isMuted ? (language === 'ar' ? 'تفعيل الصوت' : 'Unmute alerts') : (language === 'ar' ? 'كتم الصوت' : 'Mute alerts')} className={`toolbar-button ${isMuted ? 'text-[#a64036]' : ''}`} data-testid="button-sound-toggle">{isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
-    <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? t('lightMode') : t('darkMode')} title={theme === 'dark' ? t('lightMode') : t('darkMode')} className="toolbar-button" data-testid="button-theme-toggle">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-    <button type="button" onClick={toggleLanguage} aria-label={t('switchLanguage')} title={t('switchLanguage')} className="toolbar-language" data-testid="button-language-toggle">{language === 'ar' ? 'EN' : 'ع'}</button>
-  </div>;
+  );
 }
 
 function DashboardSkeleton() {
@@ -677,7 +632,7 @@ function ProtectedShell() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === '/') { event.preventDefault(); setSearchOpen(true); return; }
-      const map: Record<string, string> = { d: '/dashboard', i: '/inbox', a: '/appointments', p: '/patients', w: '/waitlist', f: '/follow-ups', n: '/no-shows', b: '/billing' };
+      const map: Record<string, string> = { d: '/dashboard', i: '/inbox', a: '/appointments', p: '/patients', w: '/waitlist', f: '/follow-ups', n: '/no-shows', b: '/billing', r: '/analytics' };
       const to = map[event.key.toLowerCase()];
       if (to) setLocation(to);
     };
@@ -705,6 +660,7 @@ function ProtectedShell() {
                 <Route path="/appointments" component={LiveAppointmentsPage} />
                 <Route path="/appointments/:id" component={AppointmentJourneyPage} />
                 <Route path="/inbox" component={InboxPage} />
+                <Route path="/analytics" component={AnalyticsPage} />
                 <Route path="/waitlist" component={WaitlistPage} />
                 <Route path="/follow-ups" component={FollowUpsPage} />
                 <Route path="/no-shows" component={NoShowsPage} />
@@ -734,7 +690,7 @@ function Router() {
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || location.startsWith('/queue/') || legalRoutes.includes(location);
   return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<RouteLoadingFallback fullHeight />}>{location.startsWith('/queue/') ? <PublicQueuePage /> : <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch>}</Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} />      <Route path="/voice-agent/:view" component={ProtectedShell} />
-      <Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
+      <Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route path="/analytics" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 
 function App() {

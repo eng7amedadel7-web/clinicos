@@ -1,15 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { Clock3, CreditCard, Home, Inbox, PhoneCall, Search, Settings2, ShieldCheck, Sparkles, UserRound, UsersRound } from 'lucide-react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { appointmentDateLabel, getSearchAppointments, getSearchPatients } from '@/lib/search-api';
+import {
+  Clock3,
+  CreditCard,
+  BarChart3,
+  Home,
+  Inbox,
+  MessageSquare,
+  PhoneCall,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command';
+import {
+  appointmentDateLabel,
+  getSearchAppointments,
+  getSearchConversations,
+  getSearchPatients,
+} from '@/lib/search-api';
 
 const pages: Array<{ href: string; ar: string; en: string; icon: typeof Home }> = [
   { href: '/dashboard', ar: 'الرئيسية', en: 'Overview', icon: Home },
   { href: '/patients', ar: 'المرضى', en: 'Patients', icon: UsersRound },
   { href: '/appointments', ar: 'المواعيد', en: 'Appointments', icon: Clock3 },
   { href: '/inbox', ar: 'صندوق الوارد', en: 'Inbox', icon: Inbox },
+  { href: '/analytics', ar: 'التقارير والإحصائيات', en: 'Analytics & Reports', icon: BarChart3 },
   { href: '/waitlist', ar: 'قائمة الانتظار', en: 'Waitlist', icon: Clock3 },
   { href: '/follow-ups', ar: 'المتابعات', en: 'Follow-ups', icon: Sparkles },
   { href: '/no-shows', ar: 'عدم الحضور', en: 'No-shows', icon: ShieldCheck },
@@ -37,15 +65,43 @@ export function useCommandPalette() {
   return { open, setOpen };
 }
 
-export function CommandPalette({ open, onOpenChange, language }: { open: boolean; onOpenChange: (open: boolean) => void; language: 'ar' | 'en' }) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  language,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  language: 'ar' | 'en';
+}) {
   const [query, setQuery] = useState('');
   const [, setLocation] = useLocation();
   const ar = language === 'ar';
 
-  const patientsQuery = useQuery({ queryKey: ['search', 'patients'], queryFn: ({ signal }) => getSearchPatients(signal), enabled: open, staleTime: 60_000 });
-  const appointmentsQuery = useQuery({ queryKey: ['search', 'appointments'], queryFn: ({ signal }) => getSearchAppointments(signal), enabled: open, staleTime: 60_000 });
+  const patientsQuery = useQuery({
+    queryKey: ['search', 'patients'],
+    queryFn: ({ signal }) => getSearchPatients(signal),
+    enabled: open,
+    staleTime: 60_000,
+  });
 
-  useEffect(() => { if (!open) setQuery(''); }, [open]);
+  const appointmentsQuery = useQuery({
+    queryKey: ['search', 'appointments'],
+    queryFn: ({ signal }) => getSearchAppointments(signal),
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const conversationsQuery = useQuery({
+    queryKey: ['search', 'conversations'],
+    queryFn: ({ signal }) => getSearchConversations(signal),
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (!open) setQuery('');
+  }, [open]);
 
   const term = query.trim();
   const pageResults = useMemo(
@@ -53,60 +109,139 @@ export function CommandPalette({ open, onOpenChange, language }: { open: boolean
     [term, ar],
   );
   const patientResults = useMemo(
-    () => (patientsQuery.data ?? []).filter((patient) => !term || matches(patient.name, term) || matches(patient.phone, term)).slice(0, 6),
+    () =>
+      (patientsQuery.data ?? [])
+        .filter((patient) => !term || matches(patient.name, term) || matches(patient.phone, term))
+        .slice(0, 5),
     [patientsQuery.data, term],
   );
   const appointmentResults = useMemo(
-    () => (appointmentsQuery.data ?? []).filter((item) => !term || matches(item.name, term)).slice(0, 6),
+    () =>
+      (appointmentsQuery.data ?? [])
+        .filter((item) => !term || matches(item.name, term))
+        .slice(0, 5),
     [appointmentsQuery.data, term],
   );
+  const conversationResults = useMemo(
+    () =>
+      (conversationsQuery.data ?? [])
+        .filter(
+          (item) =>
+            !term ||
+            matches(item.patientName, term) ||
+            (item.lastMessage && matches(item.lastMessage, term)),
+        )
+        .slice(0, 5),
+    [conversationsQuery.data, term],
+  );
 
-  const go = (href: string) => { onOpenChange(false); setLocation(href); };
-  const loading = patientsQuery.isLoading || appointmentsQuery.isLoading;
+  const go = (href: string) => {
+    onOpenChange(false);
+    setLocation(href);
+  };
+  const loading = patientsQuery.isLoading || appointmentsQuery.isLoading || conversationsQuery.isLoading;
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <div dir={ar ? 'rtl' : 'ltr'}>
-        <CommandInput value={query} onValueChange={setQuery} placeholder={ar ? 'ابحث عن مريض، موعد، أو صفحة...' : 'Search patients, appointments, pages...'} data-testid="input-command-search" />
-        <CommandList>
+      <div dir={ar ? 'rtl' : 'ltr'} className="overflow-hidden">
+        <CommandInput
+          value={query}
+          onValueChange={setQuery}
+          placeholder={ar ? 'ابحث عن مريض، موعد، محادثة، أو صفحة...' : 'Search patients, appointments, chats, pages...'}
+          data-testid="input-command-search"
+        />
+        <CommandList className="max-h-[360px] overflow-y-auto">
           <CommandEmpty>{loading ? (ar ? 'جارٍ البحث...' : 'Searching...') : ar ? 'لا توجد نتائج مطابقة.' : 'No matching results.'}</CommandEmpty>
-          {patientResults.length ? (
+          
+          {patientResults.length > 0 && (
             <CommandGroup heading={ar ? 'المرضى' : 'Patients'}>
               {patientResults.map((patient) => (
-                <CommandItem key={patient.id} value={`patient-${patient.id}`} onSelect={() => go(`/patients/${patient.id}`)} data-testid={`command-patient-${patient.id}`}>
-                  <UserRound className="me-2 size-4" />
-                  <span className="flex-1 truncate">{patient.name}</span>
-                  <span className="text-[10px] text-muted-foreground" dir="ltr">{patient.phone}</span>
+                <CommandItem
+                  key={patient.id}
+                  value={`patient-${patient.id}-${patient.name}`}
+                  onSelect={() => go(`/patients/${patient.id}`)}
+                  data-testid={`command-patient-${patient.id}`}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <UserRound className="size-4 text-sky-600 shrink-0" />
+                  <span className="flex-1 truncate font-medium">{patient.name}</span>
+                  <span className="text-[11px] text-muted-foreground font-mono" dir="ltr">{patient.phone}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
-          ) : null}
-          {appointmentResults.length ? (
+          )}
+
+          {appointmentResults.length > 0 && (
             <CommandGroup heading={ar ? 'المواعيد' : 'Appointments'}>
               {appointmentResults.map((item) => (
-                <CommandItem key={item.id} value={`appointment-${item.id}`} onSelect={() => go(`/appointments/${item.id}`)} data-testid={`command-appointment-${item.id}`}>
-                  <Clock3 className="me-2 size-4" />
-                  <span className="flex-1 truncate">{item.name}</span>
+                <CommandItem
+                  key={item.id}
+                  value={`appointment-${item.id}-${item.name}`}
+                  onSelect={() => go(`/appointments/${item.id}`)}
+                  data-testid={`command-appointment-${item.id}`}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Clock3 className="size-4 text-emerald-600 shrink-0" />
+                  <span className="flex-1 truncate font-medium">{item.name}</span>
                   <span className="text-[10px] text-muted-foreground">{appointmentDateLabel(item.scheduledAt, language)}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
-          ) : null}
-          {patientResults.length || appointmentResults.length ? <CommandSeparator /> : null}
-          {pageResults.length ? (
+          )}
+
+          {conversationResults.length > 0 && (
+            <CommandGroup heading={ar ? 'محادثات صندوق الوارد' : 'Inbox Chats'}>
+              {conversationResults.map((conv) => (
+                <CommandItem
+                  key={conv.id}
+                  value={`conv-${conv.id}-${conv.patientName}`}
+                  onSelect={() => go(`/inbox?conversationId=${conv.id}`)}
+                  data-testid={`command-conv-${conv.id}`}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <MessageSquare className="size-4 text-indigo-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate font-medium">{conv.patientName}</p>
+                    {conv.lastMessage && (
+                      <p className="truncate text-[10px] text-muted-foreground">{conv.lastMessage}</p>
+                    )}
+                  </div>
+                  {conv.channelType && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase font-semibold text-muted-foreground">
+                      {conv.channelType}
+                    </span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
+          {(patientResults.length > 0 || appointmentResults.length > 0 || conversationResults.length > 0) && <CommandSeparator />}
+          
+          {pageResults.length > 0 && (
             <CommandGroup heading={ar ? 'الصفحات' : 'Pages'}>
               {pageResults.map((page) => {
                 const Icon = page.icon;
                 return (
-                  <CommandItem key={page.href} value={`page-${page.href}`} onSelect={() => go(page.href)} data-testid={`command-page-${page.href.slice(1)}`}>
-                    <Icon className="me-2 size-4" />
+                  <CommandItem
+                    key={page.href}
+                    value={`page-${page.href}-${ar ? page.ar : page.en}`}
+                    onSelect={() => go(page.href)}
+                    data-testid={`command-page-${page.href.slice(1)}`}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Icon className="size-4 text-muted-foreground shrink-0" />
                     <span>{ar ? page.ar : page.en}</span>
                   </CommandItem>
                 );
               })}
             </CommandGroup>
-          ) : null}
+          )}
         </CommandList>
+        <div className="flex items-center justify-between border-t border-border/50 px-3 py-1.5 text-[10px] text-muted-foreground bg-muted/30">
+          <span>{ar ? 'استخدم الأسهم للتنقل و Enter للاختيار' : 'Use arrows to navigate, Enter to select'}</span>
+          <kbd className="rounded border bg-background px-1.5 py-0.5 text-[9px] font-mono">ESC {ar ? 'للإغلاق' : 'to close'}</kbd>
+        </div>
       </div>
     </CommandDialog>
   );
@@ -117,8 +252,9 @@ export function CommandPaletteTrigger({ onOpen, language }: { onOpen: () => void
   return (
     <button type="button" onClick={onOpen} className="toolbar-search" aria-label={ar ? 'بحث عام' : 'Global search'} data-testid="button-open-search">
       <Search size={16} />
-      <span className="toolbar-search-text">{ar ? 'ابحث في المرضى والمواعيد' : 'Search patients and appointments'}</span>
+      <span className="toolbar-search-text">{ar ? 'ابحث في المرضى والمواعيد والمحادثات...' : 'Search patients, appointments, chats...'}</span>
       <kbd className="toolbar-search-kbd" dir="ltr">⌘K</kbd>
     </button>
   );
 }
+

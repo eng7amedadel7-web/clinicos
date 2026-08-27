@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { requireClinicPermission, respondToPermissionError, type ClinicPermissionAction } from "../lib/permissions";
 import { supabaseRequest, type SupabaseResponse } from "../lib/supabase";
 import type { SessionPayload } from "../lib/session";
+import { computeQueueStats } from "../lib/queue-stats";
 
 const router = Router();
 
@@ -121,17 +122,7 @@ router.get("/operations/summary", async (req, res) => {
   };
   const attention = (conversations.data ?? []).filter((item) => item.is_handoff === true || !item.assigned_staff_id).length;
   const todayAppointments = appointments.data ?? [];
-  const toNumber = (value: unknown) => (typeof value === "number" ? value : Number.isFinite(Number(value)) && String(value).trim() !== "" ? Number(value) : null);
-  const servedNumbers = todayAppointments
-    .filter((item) => item.appointment_status === "checked_in" || item.appointment_status === "completed")
-    .map((item) => toNumber(item.queue_number))
-    .filter((value): value is number => value !== null);
-  const nowServing = servedNumbers.length ? Math.max(...servedNumbers) : null;
-  const waiting = todayAppointments.filter((item) => {
-    const status = typeof item.appointment_status === "string" ? item.appointment_status : "";
-    const queueNumber = toNumber(item.queue_number);
-    return ["scheduled", "confirmed", "pending"].includes(status) && queueNumber !== null && (nowServing === null || queueNumber > nowServing);
-  }).length;
+  const { nowServing, waiting } = computeQueueStats(todayAppointments);
   const sources = { appointments, patients, conversations, followUps, noShows, waitlist, channels };
   res.json({
     generatedAt: now.toISOString(),

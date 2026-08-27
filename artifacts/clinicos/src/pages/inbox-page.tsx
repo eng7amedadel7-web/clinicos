@@ -1,145 +1,18 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  Bot,
-  Calendar,
-  Check,
-  CheckCheck,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Clock3,
-  Copy,
-  ExternalLink,
-  FileText,
-  Filter,
-  Info,
-  Layers,
-  MessageCircle,
-  MessageSquare,
-  MessageSquareShare,
-  MessagesSquare,
-  MoreVertical,
-  PanelRightClose,
-  PanelRightOpen,
-  Phone,
-  PhoneCall,
-  Plus,
-  RefreshCw,
-  Search,
-  Send,
-  Sparkles,
-  Tag,
-  ToggleLeft,
-  ToggleRight,
-  Trash2,
-  User,
-  UserCheck,
-  UserRound,
-  Wifi,
-  WifiOff,
-  X,
-  Zap,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   getConversationOperations,
   getInboxPayload,
   getSavedReplies,
   inboxAction,
-  type ConversationOperation,
-  type InboxChannel,
-  type InboxConversation,
   type InboxMessage,
-  type SavedReply,
 } from "@/lib/inbox-api";
 import { usePreferences } from "@/lib/preferences";
+import { InboxSidebar } from "@/components/inbox/inbox-sidebar";
+import { ChatWindow } from "@/components/inbox/chat-window";
+import { PatientSheet } from "@/components/inbox/patient-sheet";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-// Official Brand SVG Icons
-function WhatsAppIcon({ className = "size-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm5.79 14.07c-.24.68-1.39 1.3-1.92 1.38-.5.08-1.14.11-3.69-.95-2.99-1.24-4.9-4.29-5.05-4.49-.15-.2-1.2-1.6-1.2-3.05 0-1.45.76-2.16 1.03-2.46.27-.3.59-.37.79-.37.2 0 .39.003.56.01.18.01.42-.07.66.5.25.6.84 2.06.91 2.21.08.15.13.33.02.53-.1.2-.15.32-.3.5-.15.18-.31.39-.45.52-.15.15-.31.31-.13.61.18.3 1.13 1.86 2.43 3.01 1.67 1.48 3.08 1.94 3.51 2.16.43.21.68.18.93-.11.25-.28 1.07-1.25 1.36-1.68.29-.43.58-.36.97-.21.39.15 2.47 1.16 2.89 1.37.42.21.7.32.81.49.09.21.09 1.2-.15 1.88z" />
-    </svg>
-  );
-}
-
-function InstagramIcon({ className = "size-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-    </svg>
-  );
-}
-
-function MessengerIcon({ className = "size-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.477 2 2 6.145 2 11.258c0 2.91 1.455 5.518 3.735 7.207v3.535l3.39-1.86c.928.257 1.91.396 2.925.396 5.523 0 10-4.145 10-9.258C22 6.145 17.523 2 12 2zm1.066 12.438l-2.684-2.863-5.238 2.863 5.762-6.115 2.754 2.863 5.168-2.863-5.762 6.115z" />
-    </svg>
-  );
-}
-
-function TelegramIcon({ className = "size-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .37z" />
-    </svg>
-  );
-}
-
-function StatusPill({ children, tone = "teal" }: { children: React.ReactNode; tone?: string }) {
-  const tones: Record<string, string> = {
-    teal: "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60",
-    amber: "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60",
-    blue: "bg-sky-50 text-sky-700 border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60",
-    purple: "bg-purple-50 text-purple-700 border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60",
-    gray: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
-  };
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tones[tone] ?? tones.blue}`}>
-      {children}
-    </span>
-  );
-}
-
-function formatRelativeTime(dateString: string | null | undefined, en: boolean) {
-  if (!dateString) return "—";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "—";
-
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return en ? "Just now" : "الآن";
-  if (diffInSeconds < 3600) {
-    const mins = Math.floor(diffInSeconds / 60);
-    return en ? `${mins}m` : `${mins} د`;
-  }
-  if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600);
-    return en ? `${hours}h` : `${hours} س`;
-  }
-  if (diffInSeconds < 172800) {
-    return en ? "Yesterday" : "أمس";
-  }
-  return date.toLocaleDateString(en ? "en-US" : "ar-EG", { month: "numeric", day: "numeric" });
-}
-
-function formatMessageTime(dateString: string | null | undefined, en: boolean) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString(en ? "en-US" : "ar-EG", { hour: "numeric", minute: "2-digit", hour12: true });
-}
 
 function useInboxLiveUpdates(selectedId: string | null) {
   const queryClient = useQueryClient();
@@ -176,12 +49,11 @@ function useInboxLiveUpdates(selectedId: string | null) {
   return connected;
 }
 
-// Built-in clinic quick replies fallback
 const DEFAULT_PRESET_REPLIES = [
   {
     id: "hours-location",
     title: "ساعات العمل والموقع",
-    content: "أهلاً بك! نسعد بخدمتك في عيادة MERUNA. مواعيد العمل من السبت إلى الخميس: 10:00 ص - 9:00 م. الموقع: الفرع الرئيسي، برج الأطباء، الدور الرابع.",
+    content: "أهلاً بك! نسعد بخدمتك في عيادة MERUNA. مواعيد العمل من السبت إلى الخميس: 10:00 ص - 9:00 م. الموقع: الفرع الرئيسي.",
   },
   {
     id: "booking-confirm",
@@ -211,15 +83,17 @@ export default function InboxPage() {
   const en = language === "en";
 
   // Navigation & Selection state
-  const [selectedId, setSelectedId] = useState<string | null>(() => new URLSearchParams(window.location.search).get("conversationId"));
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get("conversationId")
+  );
   const [search, setSearch] = useState("");
   const [channelType, setChannelType] = useState<string>("all");
   const [channelId, setChannelId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "needs-staff" | "ai" | "snoozed">("all");
-  const [replyText, setReplyText] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [patientSheetOpen, setPatientSheetOpen] = useState(false);
-  const [cannedRepliesOpen, setCannedRepliesOpen] = useState(false);
+
+  // Optimistic Messages State
+  const [optimisticMessages, setOptimisticMessages] = useState<InboxMessage[]>([]);
 
   // Dialog States
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
@@ -231,7 +105,6 @@ export default function InboxPage() {
   const [selectedOutcome, setSelectedOutcome] = useState("حجز موعد بنجاح");
   const [outcomeNote, setOutcomeNote] = useState("");
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamConnected = useInboxLiveUpdates(selectedId);
 
   // Queries
@@ -241,8 +114,6 @@ export default function InboxPage() {
     staleTime: 15_000,
     refetchInterval: streamConnected ? 5 * 60_000 : 25_000,
     refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
     placeholderData: keepPreviousData,
   });
 
@@ -259,7 +130,7 @@ export default function InboxPage() {
     staleTime: 30_000,
   });
 
-  // Mutations
+  // Mutations with Optimistic Updates
   const modeMutation = useMutation({
     mutationFn: ({ id, mode }: { id: string; mode: "AI" | "Human" }) =>
       inboxAction(`/api/inbox/${encodeURIComponent(id)}/mode`, { method: "PATCH", body: JSON.stringify({ mode }) }),
@@ -279,13 +150,26 @@ export default function InboxPage() {
   const sendMutation = useMutation({
     mutationFn: ({ id, content }: { id: string; content: string }) =>
       inboxAction(`/api/inbox/${encodeURIComponent(id)}/messages`, { method: "POST", body: JSON.stringify({ content }) }),
+    onMutate: async ({ content }) => {
+      // Optimistic append
+      const optMsg: InboxMessage = {
+        id: `optimistic-${Date.now()}`,
+        content,
+        direction: "outgoing",
+        sender_type: "staff",
+        created_at: new Date().toISOString(),
+        message_status: "sending",
+      };
+      setOptimisticMessages((prev) => [...prev, optMsg]);
+      return { optMsg };
+    },
     onSuccess: () => {
-      setReplyText("");
+      setOptimisticMessages([]);
       queryClient.invalidateQueries({ queryKey: ["inbox", selectedId] });
       queryClient.invalidateQueries({ queryKey: ["inbox-operations", selectedId] });
-      setTimeout(() => scrollToBottom(), 100);
     },
-    onError: (err) => {
+    onError: (err, variables, context) => {
+      setOptimisticMessages([]);
       toast.error(err instanceof Error ? err.message : en ? "Failed to send message" : "تعذر إرسال الرسالة");
     },
   });
@@ -307,52 +191,12 @@ export default function InboxPage() {
 
   const data = inboxQuery.data;
 
-  // Auto select first conversation if needed or synchronize with URL
+  // Auto select first conversation if available on desktop
   useEffect(() => {
     if (!selectedId && data?.selectedConversationId) {
       setSelectedId(data.selectedConversationId);
     }
   }, [data?.selectedConversationId, selectedId]);
-
-  // Scroll to bottom helper
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [data?.messages, selectedId]);
-
-  // Channels List Definition
-  const channels = useMemo(() => {
-    return [
-      {
-        key: "all",
-        label: en ? "All" : "الكل",
-        icon: <Layers className="size-3" />,
-      },
-      {
-        key: "whatsapp",
-        label: en ? "WhatsApp" : "واتساب",
-        icon: <WhatsAppIcon className="size-3 text-emerald-500" />,
-      },
-      {
-        key: "instagram",
-        label: en ? "Instagram" : "إنستغرام",
-        icon: <InstagramIcon className="size-3 text-pink-500" />,
-      },
-      {
-        key: "messenger",
-        label: en ? "Messenger" : "ماسنجر",
-        icon: <MessengerIcon className="size-3 text-sky-500" />,
-      },
-      {
-        key: "telegram",
-        label: en ? "Telegram" : "تليجرام",
-        icon: <TelegramIcon className="size-3 text-cyan-500" />,
-      },
-    ];
-  }, [en]);
 
   // Filtered Conversations
   const visibleConversations = useMemo(() => {
@@ -384,22 +228,12 @@ export default function InboxPage() {
 
   const selected = data?.conversations.find((item) => item.id === selectedId) ?? null;
 
-  // If active filter makes currently selected conversation hidden, switch selection gracefully
-  useEffect(() => {
-    if (visibleConversations.length > 0) {
-      if (!selectedId || !visibleConversations.some((c) => c.id === selectedId)) {
-        selectConversation(visibleConversations[0].id);
-      }
-    }
-  }, [visibleConversations, selectedId]);
-
-  function selectConversation(id: string) {
+  function handleSelectConversation(id: string) {
     setSelectedId(id);
     window.history.replaceState({}, "", `/inbox?conversationId=${encodeURIComponent(id)}`);
   }
 
-  function handleSendMessage() {
-    const content = replyText.trim();
+  function handleSendMessage(content: string) {
     if (!selected || !content || sendMutation.isPending) return;
     sendMutation.mutate({ id: selected.id, content });
   }
@@ -454,920 +288,192 @@ export default function InboxPage() {
     );
   }
 
-  const getChannelIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case "whatsapp":
-        return <WhatsAppIcon className="size-3 text-emerald-600" />;
-      case "instagram":
-        return <InstagramIcon className="size-3 text-pink-600" />;
-      case "messenger":
-        return <MessengerIcon className="size-3 text-sky-600" />;
-      case "telegram":
-        return <TelegramIcon className="size-3 text-cyan-600" />;
-      default:
-        return <MessageSquare className="size-3 text-slate-500" />;
-    }
-  };
-
-  const savedReplies = (savedRepliesQuery.data && savedRepliesQuery.data.length > 0)
-    ? savedRepliesQuery.data
-    : DEFAULT_PRESET_REPLIES;
+  const savedReplies =
+    savedRepliesQuery.data && savedRepliesQuery.data.length > 0
+      ? savedRepliesQuery.data
+      : DEFAULT_PRESET_REPLIES;
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <section className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden -m-1" dir="rtl">
-        {/* Main WhatsApp-Style Studio Canvas */}
-        {data && !inboxQuery.isError ? (
-          <div className="flex flex-1 min-h-0 overflow-hidden border border-border/80 bg-card rounded-xl shadow-sm">
-            
-            {/* RIGHT SIDEBAR: WhatsApp-style chats column (Slim 295px width) */}
-            {!sidebarCollapsed ? (
-              <div className="flex w-[295px] shrink-0 flex-col border-l border-border bg-card">
-                
-                {/* Sidebar Header: Title + Live SSE Status + Refresh */}
-                <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-2.5 bg-muted/20">
-                  <div className="flex items-center gap-2">
-                    <div className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary font-bold">
-                      <MessagesSquare className="size-3.5" />
-                    </div>
-                    <div>
-                      <h2 className="text-xs font-bold text-foreground">
-                        {en ? "Chats" : "المحادثات"}
-                      </h2>
-                      <span className="text-[9px] text-muted-foreground">
-                        {visibleConversations.length} {en ? "of" : "من"} {data.conversations.length}
-                      </span>
-                    </div>
-                  </div>
+    <div className="flex h-full w-full flex-1 overflow-hidden" dir={en ? "ltr" : "rtl"}>
+      <div className="flex flex-1 min-h-0 overflow-hidden border border-border/80 bg-card rounded-xl shadow-xs">
+        {/* SIDEBAR: Hidden on mobile when a chat is open */}
+        <div
+          className={`h-full shrink-0 border-l border-border transition-all md:flex md:w-72 lg:w-80 ${
+            selectedId ? "hidden md:flex" : "flex w-full"
+          }`}
+        >
+          <InboxSidebar
+            conversations={visibleConversations}
+            totalCount={data?.conversations.length ?? 0}
+            selectedId={selectedId}
+            onSelectConversation={handleSelectConversation}
+            search={search}
+            onSearchChange={setSearch}
+            channelType={channelType}
+            onChannelTypeChange={setChannelType}
+            channelId={channelId}
+            onChannelIdChange={setChannelId}
+            channelsList={data?.channels ?? []}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            streamConnected={streamConnected}
+            onRefresh={() => inboxQuery.refetch()}
+            isRefreshing={inboxQuery.isFetching}
+            en={en}
+          />
+        </div>
 
-                  <div className="flex items-center gap-1">
-                    {/* Live Status Chip */}
-                    <div
-                      className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${
-                        streamConnected
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
-                          : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
-                      }`}
-                    >
-                      <span className={`size-1.5 rounded-full ${streamConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-                      <span>{streamConnected ? (en ? "Live" : "مباشر") : (en ? "Sync" : "دوري")}</span>
-                    </div>
+        {/* CHAT WINDOW: Hidden on mobile when no chat is open */}
+        <div
+          className={`flex flex-1 min-w-0 h-full flex-col ${
+            !selectedId ? "hidden md:flex" : "flex"
+          }`}
+        >
+          <ChatWindow
+            conversation={selected}
+            messages={data?.messages ?? []}
+            optimisticMessages={optimisticMessages}
+            onBackMobile={() => setSelectedId(null)}
+            onSendMessage={handleSendMessage}
+            isSending={sendMutation.isPending}
+            onToggleMode={(mode) => selected && modeMutation.mutate({ id: selected.id, mode })}
+            isTogglingMode={modeMutation.isPending}
+            savedReplies={savedReplies}
+            patientSheetOpen={patientSheetOpen}
+            onTogglePatientSheet={() => setPatientSheetOpen((v) => !v)}
+            en={en}
+          />
+        </div>
 
-                    <button
-                      onClick={() => inboxQuery.refetch()}
-                      disabled={inboxQuery.isFetching}
-                      title={en ? "Refresh" : "تحديث"}
-                      className="grid size-6 place-items-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted active:scale-95 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`size-3 ${inboxQuery.isFetching ? "animate-spin" : ""}`} />
-                    </button>
-                  </div>
-                </div>
+        {/* PATIENT PROFILE DRAWER */}
+        <PatientSheet
+          isOpen={patientSheetOpen}
+          onClose={() => setPatientSheetOpen(false)}
+          conversation={selected}
+          operations={operationsQuery.data ?? []}
+          onOpenNoteDialog={() => setNoteDialogOpen(true)}
+          onOpenSnoozeDialog={() => setSnoozeDialogOpen(true)}
+          onOpenOutcomeDialog={() => setOutcomeDialogOpen(true)}
+          en={en}
+        />
+      </div>
 
-                {/* Integrated Channel Selector (Top Horizontal Pills) */}
-                <div className="border-b border-border/70 bg-muted/10 p-2 space-y-1.5">
-                  <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-                    {channels.map((channel) => {
-                      const isActive = channelType === channel.key;
-                      const count =
-                        channel.key === "all"
-                          ? data.conversations.length
-                          : data.conversations.filter((c) => c.channelType === channel.key).length;
-
-                      return (
-                        <button
-                          key={channel.key}
-                          onClick={() => {
-                            setChannelType(channel.key);
-                            setChannelId(null);
-                          }}
-                          className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold transition ${
-                            isActive
-                              ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          }`}
-                        >
-                          {channel.icon}
-                          <span>{channel.label}</span>
-                          <span className={`text-[8px] rounded-full px-1 ${isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Sub-accounts filter if channel selected */}
-                  {channelType !== "all" ? (
-                    <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-                      <button
-                        onClick={() => setChannelId(null)}
-                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[8px] font-bold transition ${
-                          channelId === null
-                            ? "bg-primary/20 text-primary border border-primary/30"
-                            : "border border-border bg-card text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {en ? "All" : "الكل"}
-                      </button>
-                      {data.channels
-                        .filter((ch) => ch.type === channelType)
-                        .map((ch) => {
-                          const isSelected = channelId === ch.id;
-                          return (
-                            <button
-                              key={ch.id}
-                              onClick={() => setChannelId(ch.id)}
-                              className={`flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[8px] font-bold transition ${
-                                isSelected
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border bg-card text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <span className={`size-1.5 rounded-full ${ch.status === "connected" || ch.isEnabled ? "bg-emerald-500" : "bg-amber-500"}`} />
-                              <span className="truncate max-w-[75px]">{ch.displayName || ch.type}</span>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  ) : null}
-
-                  {/* Search Box */}
-                  <div className="relative">
-                    <Search className="absolute right-2.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder={en ? "Search chats..." : "بحث في المحادثات..."}
-                      className="w-full rounded-lg border border-input bg-card py-1.5 pr-7 pl-6 text-[11px] placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                    />
-                    {search ? (
-                      <button
-                        onClick={() => setSearch("")}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {/* Status Filter Chips */}
-                  <div className="grid grid-cols-4 gap-0.5 rounded-lg bg-muted/60 p-0.5 text-[9px] font-bold text-muted-foreground">
-                    <button
-                      onClick={() => setStatusFilter("all")}
-                      className={`rounded-md py-1 transition ${statusFilter === "all" ? "bg-card text-foreground shadow-2xs" : "hover:text-foreground"}`}
-                    >
-                      {en ? "All" : "الكل"}
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter("needs-staff")}
-                      className={`rounded-md py-1 transition ${statusFilter === "needs-staff" ? "bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 shadow-2xs" : "hover:text-foreground"}`}
-                    >
-                      {en ? "Staff" : "موظف"}
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter("ai")}
-                      className={`rounded-md py-1 transition ${statusFilter === "ai" ? "bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 shadow-2xs" : "hover:text-foreground"}`}
-                    >
-                      {en ? "AI" : "ذكي"}
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter("snoozed")}
-                      className={`rounded-md py-1 transition ${statusFilter === "snoozed" ? "bg-card text-foreground shadow-2xs" : "hover:text-foreground"}`}
-                    >
-                      {en ? "Snooze" : "مؤجلة"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Conversations Scroll Area */}
-                <div className="flex-1 overflow-y-auto divide-y divide-border/30">
-                  {visibleConversations.map((item) => {
-                    const isSelected = selectedId === item.id;
-                    const initials = (item.name || "م").trim().slice(0, 2);
-
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => selectConversation(item.id)}
-                        className={`group relative flex w-full gap-2.5 p-3 text-right transition hover:bg-muted/40 ${
-                          isSelected ? "bg-primary/8 border-r-3 border-primary dark:bg-primary/15" : ""
-                        }`}
-                      >
-                        {/* Avatar */}
-                        <div className="relative shrink-0">
-                          <div className="grid size-9.5 place-items-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 font-bold text-slate-700 shadow-2xs dark:from-slate-800 dark:to-slate-900 dark:text-slate-200">
-                            <span className="text-[11px]">{initials}</span>
-                          </div>
-                          <span className="absolute -bottom-1 -left-1 grid size-4 place-items-center rounded-full border border-card bg-card shadow-2xs">
-                            {getChannelIcon(item.channelType)}
-                          </span>
-                        </div>
-
-                        {/* Text summary */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <strong className="truncate text-[11px] font-bold text-foreground">
-                              {item.name}
-                            </strong>
-                            <span className="shrink-0 text-[9px] text-muted-foreground font-medium">
-                              {formatRelativeTime(item.lastActivityAt, en)}
-                            </span>
-                          </div>
-
-                          <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground leading-tight">
-                            {item.lastMessage || (en ? "No messages" : "بدون نص")}
-                          </p>
-
-                          <div className="mt-1 flex items-center gap-1 flex-wrap">
-                            {item.needsStaff ? (
-                              <StatusPill tone="amber">
-                                <span className="size-1 rounded-full bg-amber-500 animate-pulse" />
-                                {en ? "Needs Staff" : "تحتاج موظفاً"}
-                              </StatusPill>
-                            ) : item.mode === "AI" ? (
-                              <StatusPill tone="purple">
-                                <Bot className="size-2" />
-                                {en ? "AI Bot" : "مساعد ذكي"}
-                              </StatusPill>
-                            ) : (
-                              <StatusPill tone="blue">
-                                <UserRound className="size-2" />
-                                {en ? "Staff" : "موظف"}
-                              </StatusPill>
-                            )}
-
-                            {item.status === "snoozed" ? (
-                              <StatusPill tone="gray">
-                                <Clock className="size-2" />
-                                {en ? "Snoozed" : "مؤجلة"}
-                              </StatusPill>
-                            ) : null}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-
-                  {visibleConversations.length === 0 ? (
-                    <div className="flex h-56 flex-col items-center justify-center p-4 text-center text-muted-foreground">
-                      <MessageSquare className="mb-1.5 size-7 stroke-1 text-muted-foreground/40" />
-                      <p className="text-[11px] font-bold text-foreground">{en ? "No chats found" : "لا توجد محادثات"}</p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground/80">{en ? "No matching chats" : "لا توجد رسائل مطابقة"}</p>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {/* LEFT FULL-WIDTH & SPACIOUS CHAT AREA (WhatsApp Style) */}
-            {selected ? (
-              <div className="flex flex-1 min-w-0 flex-col bg-background">
-                
-                {/* Slim Clean Top Bar (WhatsApp Style Header) */}
-                <div className="flex shrink-0 items-center justify-between border-b border-border/80 bg-card px-4 py-2 shadow-2xs z-10">
-                  
-                  {/* Clickable Patient Profile Header */}
-                  <div className="flex items-center gap-2">
-                    {/* Toggle Sidebar Collapse Button */}
-                    <button
-                      onClick={() => setSidebarCollapsed((prev) => !prev)}
-                      title={sidebarCollapsed ? (en ? "Show chats sidebar" : "إظهار قائمة المحادثات") : (en ? "Collapse sidebar (Full Screen)" : "تكبير الشات / إخفاء القائمة")}
-                      className="grid size-7 place-items-center rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground transition active:scale-95"
-                    >
-                      {sidebarCollapsed ? <PanelRightOpen className="size-3.5" /> : <PanelRightClose className="size-3.5" />}
-                    </button>
-
-                    <button
-                      onClick={() => setPatientSheetOpen(true)}
-                      className="flex items-center gap-2.5 text-right group rounded-lg p-1 transition hover:bg-muted/50"
-                    >
-                      <div className="relative">
-                        <div className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary font-black text-xs shadow-2xs transition group-hover:scale-105">
-                          {selected.name.slice(0, 2)}
-                        </div>
-                        <span className="absolute -bottom-0.5 -left-0.5 grid size-4 place-items-center rounded-full border border-card bg-card shadow-2xs">
-                          {getChannelIcon(selected.channelType)}
-                        </span>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <strong className="text-xs font-bold text-foreground group-hover:text-primary transition">
-                            {selected.name}
-                          </strong>
-                          {selected.needsStaff ? (
-                            <span className="flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.2 text-[9px] font-bold text-amber-700 dark:text-amber-300">
-                              <span className="size-1 rounded-full bg-amber-500 animate-pulse" />
-                              {en ? "Needs Staff" : "مطلوب موظف"}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <span className="capitalize font-medium">{selected.channelType}</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                            <span className="size-1.5 rounded-full bg-emerald-500" />
-                            {en ? "Online" : "متصل"}
-                          </span>
-                          {selected.phone ? (
-                            <>
-                              <span>•</span>
-                              <span dir="ltr" className="text-muted-foreground/80">{selected.phone}</span>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* Actions Bar: AI Toggle + Patient Card + Dropdown Menu */}
-                  <div className="flex items-center gap-1.5">
-                    
-                    {/* Compact Interactive AI / Staff Switch Toggle */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() =>
-                            modeMutation.mutate({
-                              id: selected.id,
-                              mode: selected.mode === "AI" ? "Human" : "AI",
-                            })
-                          }
-                          disabled={modeMutation.isPending}
-                          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition shadow-2xs ${
-                            selected.mode === "AI"
-                              ? "border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 dark:border-purple-900 dark:bg-purple-950/50 dark:text-purple-300"
-                              : "border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
-                          }`}
-                        >
-                          {selected.mode === "AI" ? (
-                            <>
-                              <Bot className="size-3.5 text-purple-600 dark:text-purple-400 animate-pulse" />
-                              <span>{en ? "AI Bot" : "المساعد الذكي"}</span>
-                              <ToggleRight className="size-3.5 text-purple-600 dark:text-purple-400" />
-                            </>
-                          ) : (
-                            <>
-                              <UserRound className="size-3.5 text-sky-600 dark:text-sky-400" />
-                              <span>{en ? "Staff" : "الموظف"}</span>
-                              <ToggleLeft className="size-3.5 text-sky-600 dark:text-sky-400" />
-                            </>
-                          )}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {selected.mode === "AI" ? (en ? "Switch to human staff" : "التحويل للموظف البشري") : (en ? "Activate AI bot" : "تفعيل المساعد الذكي")}
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Patient Profile Info Button */}
-                    <button
-                      onClick={() => setPatientSheetOpen(true)}
-                      className="flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-2xs hover:bg-muted transition"
-                    >
-                      <UserRound className="size-3 text-primary" />
-                      <span>{en ? "Patient Card" : "بطاقة المريض"}</span>
-                    </button>
-
-                    {/* 3-Dots Compact Actions Dropdown Menu */}
-                    <DropdownMenu dir="rtl">
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="grid size-7.5 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition"
-                          title={en ? "More conversation actions" : "إجراءات المحادثة"}
-                        >
-                          <MoreVertical className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 text-right">
-                        <DropdownMenuItem onClick={() => setNoteDialogOpen(true)} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                          <FileText className="size-3.5 text-primary" />
-                          <span>{en ? "Add Internal Note" : "إضافة ملاحظة داخلية"}</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                          <Clock3 className="size-3.5 text-amber-600" />
-                          <span>{en ? "Snooze 24h" : "تأجيل متابعة المحادثة"}</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem onClick={() => setOutcomeDialogOpen(true)} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                          <CheckCircle2 className="size-3.5 text-emerald-600" />
-                          <span>{en ? "Record Outcome" : "تسجيل نتيجة المحادثة"}</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuItem asChild>
-                          <Link href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-primary">
-                            <ExternalLink className="size-3.5" />
-                            <span>{en ? "Open Patient 360" : "فتح ملف المريض الشامل"}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                  </div>
-                </div>
-
-                {/* Messages Feed Area: Spacious & WhatsApp Vibe */}
-                <div className="flex flex-1 flex-col justify-between overflow-hidden bg-slate-50/70 dark:bg-slate-950/40">
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3.5 md:p-6">
-                    
-                    {/* Security Notice Pill */}
-                    <div className="mx-auto max-w-xs rounded-lg border border-border/50 bg-card/60 px-2.5 py-1 text-center text-[9px] text-muted-foreground backdrop-blur-2xs">
-                      🔒 {en ? "HIPAA-ready encrypted clinical chat" : "محادثة طبية مشفرة ومقيدة بضوابط الخصوصية للعيادة"}
-                    </div>
-
-                    {/* Message Bubbles */}
-                    {data.messages && data.messages.length > 0 ? (
-                      data.messages.map((message) => {
-                        const isOutgoing = message.direction === "outgoing" || message.sender_type === "staff" || message.sender_type === "ai";
-                        const isAI = message.sender_type === "ai" || (!message.sender_type && isOutgoing && selected.mode === "AI");
-
-                        return (
-                          <div
-                            key={message.id}
-                            className={`flex items-end gap-2 ${isOutgoing ? "flex-row-reverse justify-start" : "flex-row justify-start"}`}
-                          >
-                            {/* Avatar */}
-                            {!isOutgoing ? (
-                              <div className="grid size-6.5 shrink-0 place-items-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                {selected.name.slice(0, 1)}
-                              </div>
-                            ) : (
-                              <div
-                                className={`grid size-6.5 shrink-0 place-items-center rounded-full text-white text-[9px] ${
-                                  isAI ? "bg-purple-600 shadow-2xs" : "bg-primary shadow-2xs"
-                                }`}
-                              >
-                                {isAI ? <Bot className="size-3" /> : <UserRound className="size-3" />}
-                              </div>
-                            )}
-
-                            {/* Speech Bubble */}
-                            <div
-                              className={`group relative max-w-[80%] md:max-w-[62%] rounded-2xl px-3.5 py-2.5 shadow-2xs ${
-                                isOutgoing
-                                  ? isAI
-                                    ? "rounded-bl-2xs bg-gradient-to-br from-purple-700 to-indigo-800 text-white"
-                                    : "rounded-bl-2xs bg-[#153448] text-white dark:bg-[#1a4a68]"
-                                  : "rounded-br-2xs border border-border/80 bg-card text-foreground dark:bg-card"
-                              }`}
-                            >
-                              {/* Header tag for Outgoing AI / Staff */}
-                              {isOutgoing ? (
-                                <div className="mb-0.5 flex items-center gap-1 text-[9px] font-bold opacity-85">
-                                  {isAI ? (
-                                    <>
-                                      <Sparkles className="size-2.5" />
-                                      <span>{en ? "AI Assistant" : "المساعد الذكي"}</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <UserCheck className="size-2.5" />
-                                      <span>{en ? "Staff" : "موظف الاستقبال"}</span>
-                                    </>
-                                  )}
-                                </div>
-                              ) : null}
-
-                              {/* Content */}
-                              <p className="text-xs leading-relaxed whitespace-pre-wrap select-text font-normal">{message.content}</p>
-
-                              {/* Footer Timestamp & Status */}
-                              <div
-                                className={`mt-1 flex items-center justify-end gap-1 text-[8.5px] ${
-                                  isOutgoing ? "text-white/70" : "text-muted-foreground"
-                                }`}
-                              >
-                                <span>{formatMessageTime(message.created_at, en)}</span>
-                                {isOutgoing ? (
-                                  <span>
-                                    {message.message_status === "delivered" ? (
-                                      <CheckCheck className="size-2.5" />
-                                    ) : (
-                                      <Check className="size-2.5" />
-                                    )}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="flex h-56 flex-col items-center justify-center text-center text-muted-foreground">
-                        <MessageSquare className="mb-2 size-8 text-muted-foreground/30" />
-                        <p className="text-xs font-bold text-foreground">{en ? "No messages in this chat" : "لا توجد رسائل سابقة في هذا السجل"}</p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {en ? "Start the conversation by sending a reply below." : "يمكنك بدء التواصل عبر كتابة رد بالأسفل."}
-                        </p>
-                      </div>
-                    )}
-
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  {/* Sleek Compact Inline Composer (WhatsApp Style) */}
-                  <div className="border-t border-border/80 bg-card p-2.5 md:p-3">
-                    <div className="flex items-end gap-2">
-                      
-                      {/* Popover Quick Canned Replies Button (⚡) */}
-                      <Popover open={cannedRepliesOpen} onOpenChange={setCannedRepliesOpen}>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            title={en ? "Quick canned replies" : "قوالب الردود السريعة"}
-                            className="grid size-9 shrink-0 place-items-center rounded-xl border border-border/80 bg-muted/40 text-primary hover:bg-primary/10 transition active:scale-95"
-                          >
-                            <Zap className="size-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent side="top" align="start" className="w-80 p-2 text-right">
-                          <div className="mb-2 border-b border-border/60 pb-1.5 flex items-center justify-between">
-                            <strong className="text-xs font-bold text-foreground flex items-center gap-1">
-                              <Zap className="size-3.5 text-primary" />
-                              <span>{en ? "Quick Canned Replies" : "الردود السريعة الجاهزة"}</span>
-                            </strong>
-                            <span className="text-[10px] text-muted-foreground">{savedReplies.length} {en ? "templates" : "قوالب"}</span>
-                          </div>
-                          <div className="max-h-60 overflow-y-auto space-y-1.5">
-                            {savedReplies.map((reply) => {
-                              const replyTextValue = "body_template" in reply ? reply.body_template : reply.content;
-                              const replyTitle = "template_key" in reply ? reply.template_key : reply.title;
-                              return (
-                                <button
-                                  key={reply.id}
-                                  onClick={() => {
-                                    setReplyText(replyTextValue);
-                                    setCannedRepliesOpen(false);
-                                  }}
-                                  className="w-full rounded-lg border border-border/60 bg-card p-2 text-right transition hover:border-primary hover:bg-primary/5"
-                                >
-                                  <strong className="block text-[11px] font-bold text-foreground">{replyTitle}</strong>
-                                  <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">{replyTextValue}</p>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-
-                      {/* Text Input Box */}
-                      <div className="relative flex-1">
-                        <textarea
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                          rows={1}
-                          placeholder={
-                            en
-                              ? "Type a message (Enter to send)..."
-                              : "اكتب رسالتك للمريض هنا (اضغط Enter للإرسال)..."
-                          }
-                          className="w-full resize-none rounded-xl border border-input bg-muted/25 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 max-h-28"
-                        />
-                      </div>
-
-                      {/* Send Button */}
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!replyText.trim() || sendMutation.isPending}
-                        className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-xs transition hover:bg-primary/90 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-                      >
-                        {sendMutation.isPending ? (
-                          <RefreshCw className="size-3.5 animate-spin" />
-                        ) : (
-                          <Send className="size-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <MessagesSquare className="mb-2.5 size-10 stroke-1 text-muted-foreground/30" />
-                <h3 className="text-xs font-bold text-foreground">{en ? "No Chat Selected" : "لم يتم اختيار محادثة"}</h3>
-                <p className="mt-0.5 max-w-xs text-[11px] text-muted-foreground">
-                  {en ? "Choose a chat from the list to start messaging." : "اختر محادثة من القائمة للبدء في المراسلة."}
-                </p>
-              </div>
-            )}
+      {/* Internal Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent dir={en ? "ltr" : "rtl"}>
+          <DialogHeader>
+            <DialogTitle>{en ? "Add Internal Staff Note" : "إضافة ملاحظة داخلية للموظفين"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <textarea
+              value={noteContent}
+              onChange={(e) => setNoteContent(e.target.value)}
+              placeholder={en ? "Write a private note visible only to clinic staff..." : "اكتب ملاحظة خاصة يراها فريق العيادة فقط..."}
+              rows={3}
+              className="w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
+            />
           </div>
-        ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className="quiet-button">{en ? "Cancel" : "إلغاء"}</button>
+            </DialogClose>
+            <button
+              onClick={handleSaveNote}
+              disabled={!noteContent.trim() || operationMutation.isPending}
+              className="primary-button"
+            >
+              {en ? "Save Note" : "حفظ الملاحظة"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* SLIDING PATIENT INFO SHEET (WhatsApp Drawer Style) */}
-        {selected ? (
-          <Sheet open={patientSheetOpen} onOpenChange={setPatientSheetOpen}>
-            <SheetContent side="left" className="w-full sm:max-w-sm p-0 overflow-y-auto" dir="rtl">
-              <div className="p-5 space-y-4">
-                <SheetHeader className="text-right border-b border-border pb-3">
-                  <SheetTitle className="text-sm font-bold text-foreground">
-                    {en ? "Patient Profile" : "بطاقة المريض والملف الطبي"}
-                  </SheetTitle>
-                </SheetHeader>
-
-                {/* Patient Header Card */}
-                <div className="rounded-xl border border-border bg-card p-4 text-center shadow-2xs">
-                  <div className="mx-auto grid size-14 place-items-center rounded-xl bg-primary/10 text-lg font-black text-primary">
-                    {selected.name.slice(0, 2)}
-                  </div>
-                  <h3 className="mt-2.5 text-xs font-bold text-foreground">{selected.name}</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {selected.phone || (en ? "No phone recorded" : "رقم الهاتف غير مسجل")}
-                  </p>
-
-                  <div className="mt-3.5 flex items-center justify-center gap-2">
-                    {selected.phone ? (
-                      <a
-                        href={`tel:${selected.phone}`}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1.5 text-xs font-bold text-foreground transition hover:bg-muted"
-                      >
-                        <Phone className="size-3" />
-                        <span>{en ? "Call" : "اتصال هاتف"}</span>
-                      </a>
-                    ) : null}
-
-                    <Link
-                      href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-1.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
-                    >
-                      <UserRound className="size-3" />
-                      <span>{en ? "Patient 360" : "الملف الشامل"}</span>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Quick Info details */}
-                <div className="space-y-2 rounded-xl border border-border bg-card p-3.5 text-xs shadow-2xs">
-                  <strong className="text-[11px] font-bold text-foreground block">
-                    {en ? "Channel & Connectivity" : "بيانات القناة والاتصال"}
-                  </strong>
-                  
-                  <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                    <span>{en ? "Platform" : "المنصة"}</span>
-                    <span className="font-bold text-foreground capitalize flex items-center gap-1">
-                      {getChannelIcon(selected.channelType)}
-                      {selected.channelType}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                    <span>{en ? "Account Name" : "اسم الحساب"}</span>
-                    <span className="font-semibold text-foreground">{selected.channel || "—"}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                    <span>{en ? "AI Auto-reply" : "المساعد الذكي"}</span>
-                    <span className="font-bold text-foreground">
-                      {selected.mode === "AI" ? (en ? "Active" : "مفعّل") : (en ? "Staff Handled" : "موظف بشري")}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                    <span>{en ? "Staff Attention" : "حالة التدخل"}</span>
-                    <span className="font-semibold text-foreground">
-                      {selected.needsStaff ? (en ? "Required" : "مطلوب") : (en ? "None" : "مستقر")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Internal Notes & Operations Timeline */}
-                <div className="space-y-2.5 rounded-xl border border-border bg-card p-3.5 text-xs shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <strong className="text-[11px] font-bold text-foreground">
-                      {en ? "Notes & Activity Log" : "سجل الملاحظات والأحداث"}
-                    </strong>
-                    <button
-                      onClick={() => {
-                        setPatientSheetOpen(false);
-                        setNoteDialogOpen(true);
-                      }}
-                      className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5"
-                    >
-                      <Plus className="size-3" />
-                      <span>{en ? "Add Note" : "إضافة ملاحظة"}</span>
-                    </button>
-                  </div>
-
-                  {operationsQuery.data && operationsQuery.data.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {operationsQuery.data.map((op) => (
-                        <div key={op.id} className="rounded-lg bg-muted/40 p-2 text-xs">
-                          <div className="flex items-center justify-between font-bold text-foreground text-[11px]">
-                            <span>
-                              {op.event_type.includes("note")
-                                ? "📝 ملاحظة داخلية"
-                                : op.event_type.includes("snooze")
-                                ? "⏰ تأجيل متابعة"
-                                : "🎯 تسجيل نتيجة"}
-                            </span>
-                            <span className="text-[9px] font-normal text-muted-foreground">
-                              {formatRelativeTime(op.occurred_at || op.created_at, en)}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-muted-foreground text-[10px]">
-                            {op.metadata?.content || op.metadata?.outcome || op.metadata?.reason || "—"}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : operationsQuery.isError ? (
-                    <p className="text-[10px] text-destructive text-center py-2">
-                      {operationsQuery.error instanceof Error ? operationsQuery.error.message : (en ? "Could not load activity log." : "تعذر تحميل سجل النشاط.")}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground text-center py-3">
-                      {en ? "No internal notes recorded yet." : "لا توجد ملاحظات مسجلة لهذا المريض بعد."}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        ) : null}
-
-        {/* DIALOG 1: Add Internal Note */}
-        <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-          <DialogContent className="sm:max-w-md" dir="rtl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                <FileText className="size-4 text-primary" />
-                <span>{en ? "Add Internal Note" : "إضافة ملاحظة داخلية"}</span>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                {en
-                  ? "Internal notes are visible only to clinic staff and doctors, not to the patient."
-                  : "الملاحظات الداخلية تظهر فقط لموظفي العيادة والأطباء ولا يراها المريض."}
-              </p>
-              <textarea
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-                rows={4}
-                placeholder={en ? "Write medical / administrative note here..." : "اكتب ملاحظتك الطبية أو الإدارية هنا..."}
-                className="w-full rounded-xl border border-input bg-background p-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-
-            <DialogFooter className="flex gap-2 sm:justify-start">
-              <button
-                onClick={handleSaveNote}
-                disabled={!noteContent.trim() || operationMutation.isPending}
-                className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Check className="size-3.5" />
-                <span>{en ? "Save Note" : "حفظ الملاحظة"}</span>
-              </button>
-              <DialogClose asChild>
-                <button className="rounded-xl border border-border px-4 py-2 text-xs font-semibold hover:bg-muted">
-                  {en ? "Cancel" : "إلغاء"}
-                </button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* DIALOG 2: Snooze Conversation */}
-        <Dialog open={snoozeDialogOpen} onOpenChange={setSnoozeDialogOpen}>
-          <DialogContent className="sm:max-w-md" dir="rtl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                <Clock3 className="size-4 text-amber-600" />
-                <span>{en ? "Snooze Conversation" : "تأجيل متابعة المحادثة"}</span>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                {en ? "Temporarily snooze this conversation until:" : "تأجيل تنبيه هذه المحادثة حتى موعد محدد:"}
-              </p>
-
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { key: "1h", label: en ? "1 Hour" : "ساعة واحدة" },
-                  { key: "4h", label: en ? "4 Hours" : "4 ساعات" },
-                  { key: "24h", label: en ? "24 Hours" : "24 ساعة" },
-                  { key: "48h", label: en ? "48 Hours" : "يومان" },
-                ].map((item) => (
+      {/* Snooze Dialog */}
+      <Dialog open={snoozeDialogOpen} onOpenChange={setSnoozeDialogOpen}>
+        <DialogContent dir={en ? "ltr" : "rtl"}>
+          <DialogHeader>
+            <DialogTitle>{en ? "Snooze Conversation" : "تأجيل المحادثة مؤقتاً"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs">
+            <div>
+              <label className="font-bold text-foreground mb-1 block">{en ? "Duration" : "مدة التأجيل"}</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(["1h", "4h", "24h", "48h"] as const).map((dur) => (
                   <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setSnoozeDuration(item.key as typeof snoozeDuration)}
-                    className={`rounded-xl border py-2 text-center text-xs font-bold transition ${
-                      snoozeDuration === item.key
-                        ? "border-primary bg-primary/10 text-primary shadow-xs"
-                        : "border-border bg-card text-muted-foreground hover:bg-muted"
+                    key={dur}
+                    onClick={() => setSnoozeDuration(dur)}
+                    className={`rounded-lg border py-1.5 font-bold transition ${
+                      snoozeDuration === dur ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    {item.label}
+                    {dur}
                   </button>
                 ))}
               </div>
-
+            </div>
+            <div>
+              <label className="font-bold text-foreground mb-1 block">{en ? "Reason (optional)" : "سبب التأجيل (اختياري)"}</label>
               <input
+                type="text"
                 value={snoozeReason}
                 onChange={(e) => setSnoozeReason(e.target.value)}
-                placeholder={en ? "Reason (optional)..." : "سبب التأجيل (اختياري)..."}
-                className="w-full rounded-xl border border-input bg-background p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder={en ? "e.g. Waiting for lab results" : "مثال: بانتظار صدور نتيجة التحليل"}
+                className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none"
               />
             </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className="quiet-button">{en ? "Cancel" : "إلغاء"}</button>
+            </DialogClose>
+            <button onClick={handleSnooze} disabled={operationMutation.isPending} className="primary-button">
+              {en ? "Snooze" : "تأجيل الآن"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <DialogFooter className="flex gap-2 sm:justify-start">
-              <button
-                onClick={handleSnooze}
-                disabled={operationMutation.isPending}
-                className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs transition hover:bg-primary/90"
+      {/* Outcome Dialog */}
+      <Dialog open={outcomeDialogOpen} onOpenChange={setOutcomeDialogOpen}>
+        <DialogContent dir={en ? "ltr" : "rtl"}>
+          <DialogHeader>
+            <DialogTitle>{en ? "Record Conversation Outcome" : "تسجيل نتيجة المحادثة"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs">
+            <div>
+              <label className="font-bold text-foreground mb-1 block">{en ? "Outcome" : "النتيجة"}</label>
+              <select
+                value={selectedOutcome}
+                onChange={(e) => setSelectedOutcome(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background p-2 text-xs text-foreground focus:border-primary focus:outline-none"
               >
-                <Clock className="size-3.5" />
-                <span>{en ? "Confirm Snooze" : "تأكيد التأجيل"}</span>
-              </button>
-              <DialogClose asChild>
-                <button className="rounded-xl border border-border px-4 py-2 text-xs font-semibold hover:bg-muted">
-                  {en ? "Cancel" : "إلغاء"}
-                </button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* DIALOG 3: Record Conversation Outcome */}
-        <Dialog open={outcomeDialogOpen} onOpenChange={setOutcomeDialogOpen}>
-          <DialogContent className="sm:max-w-md" dir="rtl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                <CheckCircle2 className="size-4 text-emerald-600" />
-                <span>{en ? "Record Conversation Outcome" : "تسجيل نتيجة المحادثة"}</span>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                {en ? "Select the final resolution / outcome for this case:" : "حدد النتيجة النهائية لحالة التواصل مع المريض:"}
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  "حجز موعد بنجاح",
-                  "استفسار طبي مكتمل",
-                  "متابعة دورية",
-                  "تحويل لزيارة العيادة",
-                  "لم يتم التوصل لاتفاق",
-                  "شكوى مسجلة",
-                ].map((outcome) => (
-                  <button
-                    key={outcome}
-                    type="button"
-                    onClick={() => setSelectedOutcome(outcome)}
-                    className={`rounded-xl border p-2 text-right text-xs font-bold transition ${
-                      selectedOutcome === outcome
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-xs"
-                        : "border-border bg-card text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {outcome}
-                  </button>
-                ))}
-              </div>
-
-              <textarea
+                <option value="حجز موعد بنجاح">{en ? "Appointment Booked Successfully" : "حجز موعد بنجاح"}</option>
+                <option value="استفسار عام مكتمل">{en ? "General Inquiry Resolved" : "استفسار عام مكتمل"}</option>
+                <option value="متابعة مطلوبة لاحقاً">{en ? "Follow-up Needed Later" : "متابعة مطلوبة لاحقاً"}</option>
+                <option value="غير مهتم">{en ? "Not Interested" : "غير مهتم"}</option>
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-foreground mb-1 block">{en ? "Note (optional)" : "ملاحظة إضافية"}</label>
+              <input
+                type="text"
                 value={outcomeNote}
                 onChange={(e) => setOutcomeNote(e.target.value)}
-                rows={3}
-                placeholder={en ? "Additional details / summary (optional)..." : "ملاحظات وتفاصيل إضافية (اختياري)..."}
-                className="w-full rounded-xl border border-input bg-background p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder={en ? "Additional details..." : "تفاصيل إضافية..."}
+                className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none"
               />
             </div>
-
-            <DialogFooter className="flex gap-2 sm:justify-start">
-              <button
-                onClick={handleRecordOutcome}
-                disabled={operationMutation.isPending}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700"
-              >
-                <Check className="size-3.5" />
-                <span>{en ? "Record Outcome" : "حفظ النتيجة"}</span>
-              </button>
-              <DialogClose asChild>
-                <button className="rounded-xl border border-border px-4 py-2 text-xs font-semibold hover:bg-muted">
-                  {en ? "Cancel" : "إلغاء"}
-                </button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </section>
-    </TooltipProvider>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className="quiet-button">{en ? "Cancel" : "إلغاء"}</button>
+            </DialogClose>
+            <button onClick={handleRecordOutcome} disabled={operationMutation.isPending} className="primary-button">
+              {en ? "Save Outcome" : "تسجيل النتيجة"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
