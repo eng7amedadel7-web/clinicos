@@ -3,6 +3,7 @@ import { requireClinicPermission, respondToPermissionError, type ClinicPermissio
 import { supabaseRequest, type SupabaseResponse } from "../lib/supabase";
 import type { SessionPayload } from "../lib/session";
 import { computeQueueStats } from "../lib/queue-stats";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 
@@ -279,6 +280,15 @@ async function callOperation(req: Request, res: Response, rpc: string, table: st
     const operationBody = { ...body, p_clinic_id: session.clinicId, p_worker: `clinicos:${session.userId}` };
     const result = await supabaseRequest<unknown>(`/rest/v1/rpc/${rpc}`, { method: "POST", headers: headers(session), body: JSON.stringify(operationBody) });
     if (!result.ok) { jsonError(res, result, "تعذر حفظ العملية التشغيلية."); return; }
+    
+    // Emit real-time event
+    const eventType = table === "appointment_waitlists"
+      ? "operations.waitlist_updated"
+      : table === "follow_up_cases"
+        ? "operations.followup_updated"
+        : "operations.noshow_updated";
+
+    clinicEvents.emitClinicEvent(session.clinicId, eventType, { id, rpc });
     res.json(result.data ?? null);
   } catch (error) {
     respondToPermissionError(res, error);

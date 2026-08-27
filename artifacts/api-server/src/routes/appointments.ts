@@ -209,7 +209,13 @@ router.patch("/appointments/:id", async (req, res) => {
   const result = await supabaseRequest<AppointmentRow[]>(path, { method: "PATCH", headers: appointmentHeaders(session.accessToken, { Prefer: "return=representation" }), body: JSON.stringify({ ...changes, updated_by: session.userId }) });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر تحديث الموعد." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "الموعد غير موجود." }); return; }
-  res.json(result.data[0]);
+  const updated = result.data[0];
+  clinicEvents.emitClinicEvent(session.clinicId, "appointment.updated", {
+    appointmentId: req.params.id,
+    status: updated.appointment_status,
+    scheduledAt: updated.scheduled_at,
+  });
+  res.json(updated);
 });
 
 router.post("/appointments/:id/cancel", async (req, res) => {
@@ -220,7 +226,12 @@ router.post("/appointments/:id/cancel", async (req, res) => {
   const result = await supabaseRequest<AppointmentRow[]>(path, { method: "PATCH", headers: appointmentHeaders(session.accessToken, { Prefer: "return=representation" }), body: JSON.stringify({ appointment_status: "cancelled", cancellation_reason: reason || null, cancelled_at: new Date().toISOString(), updated_by: session.userId }) });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر إلغاء الموعد." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "الموعد غير موجود." }); return; }
-  res.json(result.data[0]);
+  const cancelled = result.data[0];
+  clinicEvents.emitClinicEvent(session.clinicId, "appointment.cancelled", {
+    appointmentId: req.params.id,
+    reason,
+  });
+  res.json(cancelled);
 });
 
 export default router;

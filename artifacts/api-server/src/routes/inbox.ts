@@ -196,13 +196,13 @@ router.get("/inbox/stream", async (req: Request, res: Response) => {
 
   const pushIfChanged = async (reason: "initial" | "changed" | "heartbeat" | string) => {
     if (closed) return;
+    if (reason === "heartbeat") {
+      sseEvent(res, "heartbeat", { at: new Date().toISOString() });
+      return;
+    }
     const snapshot = await readInboxFingerprint(session, selectedConversationId);
     if (!snapshot.ok) {
       sseEvent(res, "error", { reason: "sync_failed" });
-      return;
-    }
-    if (reason === "heartbeat") {
-      sseEvent(res, "heartbeat", { at: new Date().toISOString() });
       return;
     }
     if (!lastFingerprint || snapshot.fingerprint !== lastFingerprint) {
@@ -213,15 +213,14 @@ router.get("/inbox/stream", async (req: Request, res: Response) => {
 
   const unsubscribeEvents = clinicEvents.subscribeClinic(session.clinicId, (event) => {
     if (closed) return;
-    // Push typed event directly to client
+    // Push typed event directly to client with 0 latency
     sseEvent(res, event.type, event.data);
-    // Also trigger query invalidation immediately
-    void pushIfChanged(event.type);
+    sseEvent(res, "invalidate", { reason: event.type, at: event.at });
   });
 
   await pushIfChanged("initial");
-  const changeInterval = setInterval(() => { void pushIfChanged("changed"); }, 15_000);
-  const heartbeatInterval = setInterval(() => { void pushIfChanged("heartbeat"); }, 25_000);
+  const changeInterval = setInterval(() => { void pushIfChanged("changed"); }, 45_000);
+  const heartbeatInterval = setInterval(() => { sseEvent(res, "heartbeat", { at: new Date().toISOString() }); }, 20_000);
 
   req.on("close", () => {
     closed = true;
@@ -251,23 +250,56 @@ router.get("/inbox/saved-replies", async (req, res) => {
 
 router.post("/inbox/:id/note", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "update"); const content = typeof req.body?.content === "string" ? req.body.content.trim().slice(0, 4000) : ""; if (!content) { res.status(400).json({ error: "نص الملاحظة مطلوب." }); return; } res.status(201).json(await insertConversationEvent(session, req.params.id, "conversation.internal_note.created", { content })); } catch (error) { if (!res.headersSent) respondToPermissionError(res, error); }
+  try {
+    session = await requireClinicPermission(req, "inbox", "conversations", "update");
+    const content = typeof req.body?.content === "string" ? req.body.content.trim().slice(0, 4000) : "";
+    if (!content) { res.status(400).json({ error: "نص الملاحظة مطلوب." }); return; }
+    const saved = await insertConversationEvent(session, req.params.id, "conversation.internal_note.created", { content });
+    clinicEvents.emitClinicEvent(session.clinicId, "inbox.note_added", { conversationId: req.params.id, content });
+    res.status(201).json(saved);
+  } catch (error) {
+    if (!res.headersSent) respondToPermissionError(res, error);
+  }
 });
 
 router.post("/inbox/:id/snooze", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "update"); const until = typeof req.body?.until === "string" ? req.body.until : ""; if (!until || Date.parse(until) <= Date.now()) { res.status(400).json({ error: "وقت التأجيل يجب أن يكون في المستقبل." }); return; } res.status(201).json(await insertConversationEvent(session, req.params.id, "conversation.snoozed", { snoozed_until: until, reason: typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 240) : null })); } catch (error) { if (!res.headersSent) respondToPermissionError(res, error); }
+  try {
+    session = await requireClinicPermission(req, "inbox", "conversations", "update");
+    const until = typeof req.body?.until === "string" ? req.body.until : "";
+    if (!until || Date.parse(until) <= Date.now()) { res.status(400).json({ error: "وقت التأجيل يجب أن يكون في المستقبل." }); return; }
+    const saved = await insertConversationEvent(session, req.params.id, "conversation.snoozed", { snoozed_until: until, reason: typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 240) : null });
+    clinicEvents.emitClinicEvent(session.clinicId, "inbox.snoozed", { conversationId: req.params.id, snoozedUntil: until });
+    res.status(201).json(saved);
+  } catch (error) {
+    if (!res.headersSent) respondToPermissionError(res, error);
+  }
 });
 
 router.post("/inbox/:id/unsnooze", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "update"); res.status(201).json(await insertConversationEvent(session, req.params.id, "conversation.unsnoozed", {})); } catch (error) { if (!res.headersSent) respondToPermissionError(res, error); }
+  try {
+    session = await requireClinicPermission(req, "inbox", "conversations", "update");
+    const saved = await insertConversationEvent(session, req.params.id, "conversation.unsnoozed", {});
+    clinicEvents.emitClinicEvent(session.clinicId, "inbox.unsnoozed", { conversationId: req.params.id });
+    res.status(201).json(saved);
+  } catch (error) {
+    if (!res.headersSent) respondToPermissionError(res, error);
+  }
 });
-
 
 router.post("/inbox/:id/outcome", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "update"); const outcome = typeof req.body?.outcome === "string" ? req.body.outcome.trim().slice(0, 80) : ""; if (!outcome) { res.status(400).json({ error: "نتيجة المحادثة مطلوبة." }); return; } res.status(201).json(await insertConversationEvent(session, req.params.id, "conversation.outcome.recorded", { outcome, note: typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 4000) : null })); } catch (error) { if (!res.headersSent) respondToPermissionError(res, error); }
+  try {
+    session = await requireClinicPermission(req, "inbox", "conversations", "update");
+    const outcome = typeof req.body?.outcome === "string" ? req.body.outcome.trim().slice(0, 80) : "";
+    if (!outcome) { res.status(400).json({ error: "نتيجة المحادثة مطلوبة." }); return; }
+    const saved = await insertConversationEvent(session, req.params.id, "conversation.outcome.recorded", { outcome, note: typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 4000) : null });
+    clinicEvents.emitClinicEvent(session.clinicId, "inbox.outcome_set", { conversationId: req.params.id, outcome });
+    res.status(201).json(saved);
+  } catch (error) {
+    if (!res.headersSent) respondToPermissionError(res, error);
+  }
 });
 
 router.patch("/inbox/:id/mode", async (req, res) => {

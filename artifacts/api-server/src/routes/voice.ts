@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { requireClinicPermission, respondToPermissionError, type ClinicPermissionAction } from "../lib/permissions";
 import { supabaseRequest, type SupabaseResponse } from "../lib/supabase";
 import type { SessionPayload } from "../lib/session";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 type Row = Record<string, unknown>;
@@ -173,6 +174,7 @@ router.post("/operations/voice-agent/knowledge/faq", async (req, res) => {
   if (!question || !answer) { res.status(400).json({ error: "السؤال والإجابة مطلوبان." }); return; }
   const result = await edge<Row>(session, "meruna-voice-knowledge", { action: "save_faq", source_id: typeof payload.sourceId === "string" ? payload.sourceId : null, question, answer, category: typeof payload.category === "string" ? payload.category.trim().slice(0, 120) : "General", enabled: payload.enabled !== false });
   if (!result.ok) { jsonError(res, result, "تعذر حفظ سؤال المعرفة."); return; }
+  clinicEvents.emitClinicEvent(session.clinicId, "voice.knowledge_updated", { action: "save_faq" });
   res.json(result.data ?? null);
 });
 
@@ -183,6 +185,7 @@ router.post("/operations/voice-agent/knowledge/:id/review", async (req, res) => 
   if (!decision) { res.status(400).json({ error: "قرار المراجعة غير صالح." }); return; }
   const result = await edge<Row>(session, "meruna-voice-knowledge", { action: "review", source_id: req.params.id, decision });
   if (!result.ok) { jsonError(res, result, "تعذر تحديث مراجعة مصدر المعرفة."); return; }
+  clinicEvents.emitClinicEvent(session.clinicId, "voice.knowledge_updated", { action: "review", sourceId: req.params.id, decision });
   res.json(result.data ?? null);
 });
 
@@ -191,6 +194,7 @@ router.post("/operations/voice-agent/knowledge/:id/archive", async (req, res) =>
   if (!session) return;
   const result = await edge<Row>(session, "meruna-voice-knowledge", { action: "archive", source_id: req.params.id });
   if (!result.ok) { jsonError(res, result, "تعذر أرشفة مصدر المعرفة."); return; }
+  clinicEvents.emitClinicEvent(session.clinicId, "voice.knowledge_updated", { action: "archive", sourceId: req.params.id });
   res.json(result.data ?? null);
 });
 

@@ -9,13 +9,27 @@ import {
   type InboxMessage,
 } from "@/lib/inbox-api";
 import { usePreferences } from "@/lib/preferences";
-import { useRealtimeStatus } from "@/lib/realtime";
+import { useRealtimeStatus, useRealtimeSubscription } from "@/lib/realtime";
 import { InboxSidebar } from "@/components/inbox/inbox-sidebar";
 import { ChatWindow } from "@/components/inbox/chat-window";
 import { PatientSheet } from "@/components/inbox/patient-sheet";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WorkflowBuilderModal } from "@/components/workflow-builder-modal";
 
+function useInboxLiveUpdates(selectedId: string | null) {
+  const queryClient = useQueryClient();
+
+  useRealtimeSubscription((event) => {
+    if (event.type.startsWith("inbox.") || event.type === "invalidate") {
+      void queryClient.invalidateQueries({ queryKey: ["inbox"] });
+      if (selectedId) {
+        void queryClient.invalidateQueries({ queryKey: ["inbox-operations", selectedId] });
+      }
+    }
+  });
+
+  return true;
+}
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const { language } = usePreferences();

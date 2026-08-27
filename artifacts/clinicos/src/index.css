@@ -231,43 +231,185 @@
 /* Auth layout motion: the content enters with purpose while the rail stays calm and alive. */
 @keyframes auth-panel-in { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes auth-form-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes auth-orbit { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(18px, -12px) rotate(4deg); } }
-@keyframes auth-glow { 0%, 100% { opacity: .32; transform: scale(1); } 50% { opacity: .62; transform: scale(1.08); } }
-@keyframes auth-form-glow { 0%, 100% { opacity: .2; transform: translate3d(0, 0, 0) scale(1); } 50% { opacity: .48; transform: translate3d(-12px, 10px, 0) scale(1.06); } }
-@keyframes auth-logo-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes auth-shimmer { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
-.auth-layout { position: relative; overflow: hidden; }
-.auth-panel-enter { animation: auth-panel-in .48s cubic-bezier(.23,1,.32,1) both; }
-.auth-form-pane { position: relative; z-index: 1; animation: auth-form-in .42s .04s cubic-bezier(.23,1,.32,1) both; }
-.auth-layout::before { content: ""; position: absolute; z-index: 0; width: min(46vw, 680px); height: min(46vw, 680px); top: -18%; left: 34%; border-radius: 50%; background: radial-gradient(circle, hsl(194 67% 66% / .2), transparent 66%); filter: blur(18px); pointer-events: none; animation: auth-form-glow 7s ease-in-out infinite; }
-.auth-layout::after { content: ""; position: absolute; z-index: 0; inset: 0; background: linear-gradient(115deg, transparent 0 43%, hsl(194 55% 72% / .08) 50%, transparent 57%); background-size: 220% 100%; pointer-events: none; animation: auth-shimmer 13s linear infinite; }
+/* ============================================================
+   AUTH PAGES — PREMIUM REDESIGN
+   Glassmorphism dark UI with layered depth & micro-animations
+   ============================================================ */
 
-/* Modern dark glass auth input */
-.auth-input {
-  display: block; width: 100%; border-radius: 14px;
+/* New keyframes */
+@keyframes auth-bg-drift  { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(40px,-30px) scale(1.06); } 66% { transform: translate(-25px,20px) scale(.97); } }
+@keyframes auth-card-in   { from { opacity:0; transform: translateY(20px) scale(.97); } to { opacity:1; transform: translateY(0) scale(1); } }
+@keyframes auth-rail-in   { from { opacity:0; transform: translateX(-28px); } to { opacity:1; transform: translateX(0); } }
+@keyframes auth-btn-shine { 0%   { left:-70%; } 100% { left:130%; } }
+@keyframes animate-rise   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse-dot      { 0%,100% { box-shadow:0 0 0 0 rgba(34,211,238,.35); } 50% { box-shadow:0 0 0 6px rgba(34,211,238,0); } }
+@keyframes auth-card-breathe { 0%,100% { transform:rotate(0deg) translateY(0); } 50% { transform:rotate(.4deg) translateY(-2px); } }
+
+/* Animate-rise utility (fixes JSX using animate-rise vs CSS rise-in) */
+.animate-rise { animation: animate-rise .4s cubic-bezier(.23,1,.32,1) both; }
+
+/* Ambient background orbs */
+.auth-bg-orb {
+  position: absolute; pointer-events: none; border-radius: 50%;
+  filter: blur(80px); will-change: transform;
+}
+.auth-bg-orb-1 { width: 700px; height: 700px; top: -15%; left: -10%; background: radial-gradient(circle, hsl(197 85% 55% / .18), transparent 65%); animation: auth-bg-drift 12s ease-in-out infinite; }
+.auth-bg-orb-2 { width: 500px; height: 500px; bottom: -10%; right: -5%; background: radial-gradient(circle, hsl(268 70% 60% / .14), transparent 65%); animation: auth-bg-drift 16s ease-in-out infinite reverse; }
+.auth-bg-orb-3 { width: 350px; height: 350px; top: 40%; left: 40%; background: radial-gradient(circle, hsl(197 70% 60% / .08), transparent 65%); animation: auth-bg-drift 20s ease-in-out 4s infinite; }
+
+/* Mesh grid overlay */
+.auth-grid-overlay {
+  position: absolute; inset: 0; pointer-events: none; opacity: .025;
+  background-image:
+    linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+/* Left rail panel */
+.auth-rail-panel {
+  position: relative; z-index: 10;
+  display: none; flex-direction: column;
+  min-height: 100dvh;
+  padding: 3rem;
+  border-right: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.025);
+  backdrop-filter: blur(2px);
+  animation: auth-rail-in .55s cubic-bezier(.23,1,.32,1) both;
+}
+@media (min-width: 1024px) { .auth-rail-panel { display: flex; } }
+@media (min-width: 1280px) { .auth-rail-panel { padding: 4rem; } }
+
+/* Right form panel */
+.auth-form-panel {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  min-height: 100dvh;
+  padding: 1.75rem 1.25rem;
+  animation: auth-card-in .5s .08s cubic-bezier(.23,1,.32,1) both;
+}
+@media (min-width: 640px)  { .auth-form-panel { padding: 2rem 2.5rem; } }
+@media (min-width: 1024px) { .auth-form-panel { padding: 2.5rem 3.5rem; } }
+@media (min-width: 1280px) { .auth-form-panel { padding: 2.5rem 5rem; } }
+
+/* Glass card wrapping the form */
+.auth-card {
+  border-radius: 28px;
   border: 1px solid rgba(255,255,255,.1);
-  background: rgba(255,255,255,.05);
+  background: rgba(255,255,255,.04);
+  padding: 1.75rem;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 25px 70px rgba(2,10,25,.5), inset 0 1px 0 rgba(255,255,255,.07);
+  animation: auth-card-breathe 10s ease-in-out infinite;
+}
+@media (min-width: 640px) { .auth-card { padding: 2.25rem; } }
+
+/* Premium dark glass input */
+.auth-input-v2 {
+  display: block; width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
   padding: 12px 14px;
   font-size: 0.875rem;
   color: #fff;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  transition: border-color .18s, box-shadow .18s, background .18s, transform .18s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
-.auth-input::placeholder { color: rgba(255,255,255,.25); }
-.auth-input:focus {
-  border-color: rgba(34,211,238,.5);
+.auth-input-v2::placeholder { color: rgba(255,255,255,.22); }
+.auth-input-v2:hover { border-color: rgba(255,255,255,.18); }
+.auth-input-v2:focus {
+  border-color: rgba(34,211,238,.55);
   background: rgba(255,255,255,.07);
-  box-shadow: 0 0 0 3px rgba(34,211,238,.12);
+  box-shadow: 0 0 0 3.5px rgba(34,211,238,.14), 0 2px 12px rgba(34,211,238,.08);
+  transform: translateY(-1px);
 }
-.auth-input:-webkit-autofill,
-.auth-input:-webkit-autofill:hover,
-.auth-input:-webkit-autofill:focus {
+.auth-input-v2:-webkit-autofill,
+.auth-input-v2:-webkit-autofill:hover,
+.auth-input-v2:-webkit-autofill:focus {
   -webkit-text-fill-color: #fff;
-  -webkit-box-shadow: 0 0 0px 1000px #0b1a2a inset;
+  -webkit-box-shadow: 0 0 0px 1000px #081628 inset;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+
+/* Primary CTA button with shimmer sweep */
+.auth-cta {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  width: 100%; border-radius: 16px;
+  background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 50%, #38bdf8 100%);
+  padding: 14px;
+  font-size: .875rem; font-weight: 800;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(6,182,212,.3), 0 2px 6px rgba(6,182,212,.2);
+  transition: opacity .18s, box-shadow .18s, transform .18s;
+  cursor: pointer; border: none;
+}
+.auth-cta::before {
+  content: "";
+  position: absolute; top: 0; left: -70%; width: 45%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+}
+.auth-cta:not(:disabled):hover { opacity: .92; box-shadow: 0 12px 32px rgba(6,182,212,.4); }
+.auth-cta:not(:disabled):hover::before { animation: auth-btn-shine .6s ease-out forwards; }
+.auth-cta:not(:disabled):active { transform: scale(.98); }
+.auth-cta:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Demo ghost button */
+.auth-demo-btn {
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  width: 100%; border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
+  padding: 13px;
+  font-size: .875rem; font-weight: 700;
+  color: rgba(255,255,255,.65);
+  transition: background .18s, border-color .18s, color .18s, transform .18s;
+  cursor: pointer;
+}
+.auth-demo-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: #fff; transform: translateY(-1px); }
+.auth-demo-btn:active { transform: scale(.98); }
+
+/* Live indicator dot */
+.auth-live-dot {
+  display: inline-block; width: .45rem; height: .45rem;
+  border-radius: 50%; background: #22d3ee;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Divider with gradient fade */
+.auth-divider {
+  display: flex; align-items: center; gap: .75rem;
+  font-size: .72rem; color: rgba(255,255,255,.25);
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: ""; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+}
+
+/* Field label */
+.auth-label { display: block; margin-bottom: .5rem; font-size: .75rem; font-weight: 700; color: rgba(255,255,255,.6); text-align: right; }
+.auth-field-error { margin-top: .35rem; display: block; font-size: .7rem; font-weight: 600; color: #f87171; }
+.auth-field-hint  { margin-top: .35rem; display: block; font-size: .7rem; color: rgba(255,255,255,.35); }
+
+/* Rail showcase cards */
+.auth-showcase-card {
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+  backdrop-filter: blur(12px);
+  padding: 1rem;
+  transition: border-color .25s, background .25s;
+}
+.auth-showcase-card:hover { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.07); }
 
 /* Waveform bar animation for Live Call Card */
 @keyframes wave-bar {
@@ -275,125 +417,12 @@
   100% { transform: scaleY(1); opacity: .9; }
 }
 
-.auth-rail::before { animation: auth-orbit 8s ease-in-out infinite; }
-.auth-rail::after { animation: auth-glow 5.5s ease-in-out infinite; }
-.auth-rail .brand-mark { animation: auth-logo-float 4s ease-in-out infinite; }
-.auth-form-pane > div:first-child { animation: rise-in .36s .1s cubic-bezier(.23,1,.32,1) both; }
-.auth-form-pane::before { content: ""; position: absolute; z-index: -1; inset: 18% -14% 12% 8%; border-radius: 50%; background: radial-gradient(circle, hsl(195 55% 71% / .18), transparent 67%); filter: blur(24px); pointer-events: none; animation: auth-form-glow 6s ease-in-out infinite reverse; }
-.auth-form-pane .primary-button { position: relative; overflow: hidden; }
-.auth-form-pane .primary-button::after { content: ""; position: absolute; inset: 0; width: 38%; transform: translateX(-140%) skewX(-18deg); background: linear-gradient(90deg, transparent, hsl(190 90% 92% / .24), transparent); pointer-events: none; }
-.auth-form-pane .primary-button:not(:disabled):hover::after { animation: auth-shimmer .7s ease-out both; }
-.auth-form-pane .input-field { transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .2s ease; }
-.auth-form-pane .input-field:focus { transform: translateY(-1px); }
-.auth-form-pane .primary-button { transition: transform .2s ease, background-color .2s ease, box-shadow .2s ease; }
-.auth-form-pane .primary-button:not(:disabled):active { transform: translateY(1px) scale(.985); }
 @media (prefers-reduced-motion: reduce) {
-  .auth-layout::before,
-  .auth-layout::after,
-  .auth-panel-enter,
-  .auth-form-pane,
-  .auth-form-pane > div:first-child,
-  .auth-rail .brand-mark,
-  .auth-rail::before,
-  .auth-rail::after { animation: none; }
-  .auth-form-pane::before,
-  .auth-form-pane .primary-button::after { display: none; }
-  .auth-form-pane .input-field,
-  .auth-form-pane .primary-button { transition: none; }
-}
-
-/* Continuous auth atmosphere: subtle motion remains visible after the entrance animation ends. */
-@keyframes auth-float-one { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .38; } 50% { transform: translate3d(78px, -68px, 0) scale(1.22); opacity: .88; } }
-@keyframes auth-float-two { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .3; } 50% { transform: translate3d(-72px, 56px, 0) rotate(28deg); opacity: .76; } }
-@keyframes auth-scan { 0% { transform: translateX(-115%) skewX(-16deg); opacity: 0; } 12%, 76% { opacity: .55; } 100% { transform: translateX(115%) skewX(-16deg); opacity: 0; } }
-@keyframes auth-copy-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-@keyframes auth-badge-pulse { 0%, 100% { box-shadow: 0 0 0 0 hsl(161 48% 58% / .2); } 50% { box-shadow: 0 0 0 7px hsl(161 48% 58% / 0); } }
-.auth-decor { position: absolute; z-index: 0; pointer-events: none; border: 1px solid hsl(194 55% 72% / .22); border-radius: 999px; }
-.auth-decor-one { width: 12px; height: 12px; top: 19%; left: 47%; background: hsl(194 80% 78% / .45); box-shadow: 0 0 24px hsl(194 80% 78% / .55); animation: auth-float-one 6.5s ease-in-out infinite; }
-.auth-decor-two { width: 8px; height: 8px; bottom: 23%; left: 54%; background: hsl(161 55% 67% / .55); box-shadow: 0 0 20px hsl(161 55% 67% / .4); animation: auth-float-two 5.4s ease-in-out infinite; }
-.auth-scanline { position: absolute; z-index: 0; top: -15%; left: 43%; width: 20%; height: 130%; background: linear-gradient(90deg, transparent, hsl(194 55% 82% / .1), transparent); pointer-events: none; animation: auth-scan 11s ease-in-out infinite; }
-.auth-rail-copy { animation: auth-copy-breathe 6s ease-in-out infinite; }
-.auth-trust-badge { animation: auth-badge-pulse 3.2s ease-in-out infinite; }
-.auth-badge-dot { width: .4rem; height: .4rem; flex: 0 0 auto; border-radius: 50%; background: #70d0b1; box-shadow: 0 0 0 3px rgba(112, 208, 177, .12); }
-.auth-rail-footer span:last-child { transition: color .25s ease, transform .25s ease; }
-.auth-rail-footer span:last-child:hover { color: #b9dce5; transform: translateX(-3px); }
-@media (max-width: 1023px) {
-  .auth-decor-one { left: 68%; top: 12%; }
-  .auth-decor-two { left: 24%; bottom: 12%; }
-  .auth-scanline { left: 20%; width: 55%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .auth-decor-one,
-  .auth-decor-two,
-  .auth-scanline,
-  .auth-rail-copy,
-  .auth-trust-badge { animation: none; }
-}
-
-/* Focused motion for the dark brand rail: layered, slow, and directional. */
-@keyframes auth-title-drift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0) scale(1.012); } }
-@keyframes auth-copy-drift { 0%, 100% { transform: translate3d(0, 0, 0); opacity: .86; } 50% { transform: translate3d(-8px, 3px, 0); opacity: 1; } }
-@keyframes auth-ring-drift { 0% { transform: rotate(0deg) translate3d(0, 0, 0); } 50% { transform: rotate(16deg) translate3d(34px, -24px, 0); } 100% { transform: rotate(32deg) translate3d(0, 0, 0); } }
-@keyframes auth-footer-drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
-.auth-rail-title { animation: auth-title-drift 5.5s ease-in-out infinite; transform-origin: 90% 50%; }
-.auth-rail-description { animation: auth-copy-drift 6.8s ease-in-out .3s infinite; }
-.auth-rail .auth-brand-lockup { animation: auth-logo-float 4s ease-in-out infinite; }
-.auth-rail .auth-trust-badge { transform-origin: 88% 50%; }
-.auth-rail::before { width: 620px; height: 620px; inset-inline-start: -300px; inset-block-end: -250px; animation: auth-ring-drift 7s ease-in-out infinite; }
-.auth-rail::after { width: 420px; height: 420px; inset-inline-end: -190px; inset-block-start: 7%; animation: auth-glow 4.5s ease-in-out infinite, auth-ring-drift 9s ease-in-out infinite reverse; }
-.auth-rail-footer { animation: auth-footer-drift 7s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .auth-rail-title,
-  .auth-rail-description,
-  .auth-rail .auth-brand-lockup,
-  .auth-rail::before,
-  .auth-rail::after,
-  .auth-rail-footer { animation: none; }
-}
-
-/* The brand copy stays still; all motion lives in the dark rail background. */
-.auth-rail { background: radial-gradient(circle at 68% 20%, hsl(199 63% 28% / .3), transparent 30%), radial-gradient(circle at 20% 78%, hsl(190 56% 22% / .32), transparent 36%), #071b2c; }
-.auth-rail-copy,
-.auth-rail-title,
-.auth-rail-description,
-.auth-rail .auth-brand-lockup,
-.auth-trust-badge,
-.auth-rail-footer { animation: none !important; transform: none !important; }
-.auth-layout::before { left: -2%; top: 4%; width: min(62vw, 900px); height: min(62vw, 900px); background: radial-gradient(circle, hsl(194 78% 66% / .28), transparent 66%); animation: auth-form-glow 7.5s ease-in-out infinite; }
-.auth-layout::after { background: linear-gradient(112deg, transparent 0 13%, hsl(194 72% 82% / .13) 25%, transparent 37% 63%, hsl(161 58% 72% / .09) 75%, transparent 87%); background-size: 260% 100%; animation: auth-shimmer 13s linear infinite; }
-.auth-layout > .auth-decor-one { top: 28%; left: 13%; width: 18px; height: 18px; animation: auth-float-one 7.5s ease-in-out infinite; }
-.auth-layout > .auth-decor-two { right: auto; bottom: 24%; left: 31%; width: 12px; height: 12px; animation: auth-float-two 6.5s ease-in-out infinite reverse; }
-.auth-layout > .auth-scanline { top: -10%; left: 24%; width: 16%; height: 120%; opacity: .9; animation: auth-scan 7.5s ease-in-out infinite; }
-@media (max-width: 1023px) {
-  .auth-layout > .auth-decor-one { top: 10%; left: 78%; }
-  .auth-layout > .auth-decor-two { bottom: 10%; left: 20%; }
-  .auth-layout > .auth-scanline { left: 42%; width: 18%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .auth-layout::before,
-  .auth-layout::after,
-  .auth-layout > .auth-decor-one,
-  .auth-layout > .auth-decor-two,
-  .auth-layout > .auth-scanline { animation: none; }
-}
-
-/* Full background loop: circles cross the rail, disappear outside it, then re-enter invisibly. */
-@keyframes auth-ring-cross { 0% { opacity: 0; transform: translate3d(-70%, 18%, 0) rotate(-22deg) scale(.72); } 10% { opacity: .52; } 48% { opacity: .78; transform: translate3d(62%, -12%, 0) rotate(13deg) scale(1.08); } 78% { opacity: .42; } 100% { opacity: 0; transform: translate3d(220%, 20%, 0) rotate(42deg) scale(.76); } }
-@keyframes auth-glow-cross { 0% { opacity: 0; transform: translate3d(125%, -20%, 0) scale(.72); } 14% { opacity: .5; } 52% { opacity: .8; transform: translate3d(-12%, 24%, 0) scale(1.18); } 82% { opacity: .34; } 100% { opacity: 0; transform: translate3d(-165%, 52%, 0) scale(.84); } }
-@keyframes auth-dot-cross { 0% { opacity: 0; transform: translate3d(-120px, 80px, 0) scale(.65); } 12% { opacity: .8; } 50% { opacity: .95; transform: translate3d(260px, -120px, 0) scale(1.4); } 82% { opacity: .42; } 100% { opacity: 0; transform: translate3d(650px, 170px, 0) scale(.55); } }
-.auth-rail::before { top: 12%; left: -360px; right: auto; bottom: auto; width: 620px; height: 620px; animation: auth-ring-cross 17s cubic-bezier(.45, .05, .55, .95) infinite; }
-.auth-rail::after { top: 8%; right: -250px; left: auto; bottom: auto; width: 430px; height: 430px; animation: auth-glow-cross 14s cubic-bezier(.45, .05, .55, .95) infinite; }
-.auth-layout > .auth-decor-one { animation: auth-dot-cross 7.5s cubic-bezier(.45, .05, .55, .95) infinite; }
-.auth-layout > .auth-decor-two { animation: auth-dot-cross 6.3s 1.2s cubic-bezier(.45, .05, .55, .95) infinite reverse; }
-@media (max-width: 1023px) {
-  .auth-layout > .auth-decor-one { animation-duration: 9s; }
-  .auth-layout > .auth-decor-two { animation-duration: 8s; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .auth-rail::before,
-  .auth-rail::after,
-  .auth-layout > .auth-decor-one,
-  .auth-layout > .auth-decor-two { animation: none; }
+  .auth-bg-orb, .auth-rail-panel, .auth-form-panel, .auth-card,
+  .auth-live-dot, .auth-cta::before { animation: none !important; }
+  .auth-input-v2, .auth-cta, .auth-demo-btn { transition: none; }
+  .auth-input-v2:focus { transform: none; }
+  .auth-demo-btn:hover { transform: none; }
 }
 
 .channel-shortcut {

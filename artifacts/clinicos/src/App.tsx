@@ -74,7 +74,18 @@ import { NotificationsProvider, useClinicNotifications } from '@/lib/notificatio
 import { RealtimeStatusContext, useRealtimeSync } from '@/lib/realtime';
 import { getOperationsSummary } from '@/lib/operations-api';
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 } } });
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10_000,
+      gcTime: 10 * 60_000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 1,
+      structuralSharing: true,
+    },
+  },
+});
 const LiveDashboard = lazy(() => import('@/pages/live-dashboard'));
 const LiveVoiceAgentPage = lazy(() => import('@/pages/live-voice-agent'));
 const BillingPage = lazy(() => import('@/pages/billing'));
@@ -232,53 +243,77 @@ function LiveShowcaseRail({ mode }: { mode: 'login' | 'register' }) {
   }, []);
 
   const calls = [
-    { name: 'حجز كشف جديد', time: '0:42', color: 'from-cyan-500/20 to-sky-600/10' },
-    { name: 'استفسار أسعار الأسنان', time: '1:18', color: 'from-violet-500/20 to-purple-600/10' },
-    { name: 'تعديل موعد السبت', time: '0:57', color: 'from-emerald-500/20 to-teal-600/10' },
+    { name: 'حجز كشف جديد', time: '0:42', color: 'from-cyan-500/20 to-sky-600/10', label: 'استفسار عيادة' },
+    { name: 'استفسار أسعار الأسنان', time: '1:18', color: 'from-violet-500/20 to-purple-600/10', label: 'طلب موعد' },
+    { name: 'تعديل موعد السبت', time: '0:57', color: 'from-emerald-500/20 to-teal-600/10', label: 'تعديل موعد' },
   ];
   const activeCall = calls[tick % calls.length];
 
   return (
     <div className="relative flex h-full flex-col justify-between" dir="rtl">
       {/* Brand */}
-      <div className="flex items-center gap-2.5">
-        <BrandMark size={34} />
-        <strong className="text-lg font-extrabold tracking-[.18em] text-white">MERUNA</strong>
+      <div className="flex items-center gap-3">
+        <BrandMark size={36} />
+        <div>
+          <strong className="block text-base font-extrabold tracking-[.18em] text-white">MERUNA</strong>
+          <span className="text-[.6rem] text-white/35 tracking-wider uppercase">Clinic Intelligence</span>
+        </div>
       </div>
 
       {/* Middle content */}
-      <div className="space-y-5">
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3.5 py-1.5 text-xs font-semibold text-cyan-300">
-          <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <ShieldCheck size={13} />
+      <div className="space-y-5 my-auto py-8">
+        {/* Trust badge */}
+        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/8 px-3.5 py-1.5 text-xs font-semibold text-cyan-300">
+          <span className="auth-live-dot" />
+          <ShieldCheck size={12} />
           {mode === 'login' ? 'منصة موثوقة لإدارة عيادتك' : 'ابدأ تنظيم عيادتك الذكية'}
         </div>
-        <h1 className="ar text-4xl font-extrabold leading-[1.4] tracking-tight text-white xl:text-5xl">
-          {mode === 'login' ? <>كل ما يحتاج<br />انتباهك، في<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">مكان واحد.</span></> : <>ابدأ تنظيم<br />عيادتك<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">بثقة وسهولة.</span></>}
+
+        {/* Headline */}
+        <h1 className="ar text-4xl font-extrabold leading-[1.45] tracking-tight text-white xl:text-5xl">
+          {mode === 'login' ? (
+            <>كل ما يحتاج<br />انتباهك، في<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">مكان واحد.</span></>
+          ) : (
+            <>ابدأ تنظيم<br />عيادتك<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">بثقة وسهولة.</span></>
+          )}
         </h1>
-        <p className="ar text-sm leading-7 text-white/55 max-w-[340px]">
+        <p className="ar text-sm leading-7 text-white/45 max-w-[320px]">
           MERUNA يمنح فريق الاستقبال رؤية أوضح، وقرارات أسرع، ويوماً أكثر هدوءاً — مدعوماً بالذكاء الاصطناعي.
         </p>
 
+        {/* Stats row */}
+        <div className="flex items-center gap-4 pt-1">
+          {[
+            { value: '4.9k+', label: 'مريض شهرياً' },
+            { value: '99.9%', label: 'وقت التشغيل' },
+            { value: '< 2s', label: 'استجابة فورية' },
+          ].map((stat) => (
+            <div key={stat.label} className="flex-1 text-center rounded-xl border border-white/[.06] bg-white/[.03] py-2.5 px-2">
+              <p className="text-sm font-extrabold text-cyan-300">{stat.value}</p>
+              <p className="text-[.6rem] text-white/35 mt-0.5">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Live Voice Call Card */}
-        <div className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${activeCall.color} p-4 backdrop-blur-xs transition-all duration-700`}>
+        <div className={`auth-showcase-card bg-gradient-to-br ${activeCall.color}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex size-9 items-center justify-center rounded-xl bg-white/10">
                 <PhoneCall className="size-4 text-white" />
               </div>
               <div>
+                <p className="text-[.7rem] font-bold text-cyan-300/80 mb-0.5">{activeCall.label}</p>
                 <p className="text-xs font-bold text-white">{activeCall.name}</p>
-                <p className="text-[10px] text-white/50">مكالمة جارية عبر الوكيل الصوتي</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="auth-live-dot" style={{ width: '6px', height: '6px', background: '#34d399' }} />
               <span className="font-mono text-[10px] text-white/70">{activeCall.time}</span>
             </div>
           </div>
           {/* Audio waveform */}
-          <div className="mt-3 flex items-end gap-0.5 h-6" aria-hidden="true">
+          <div className="mt-3 flex items-end gap-0.5 h-5" aria-hidden="true">
             {[4,8,12,6,16,10,14,8,18,12,6,14,10,16,8,12,6,18,10,14].map((h, i) => (
               <span key={i} className="flex-1 rounded-full bg-white/30" style={{ height: h, animationDelay: `${i * 80}ms`, animation: 'wave-bar 1s ease-in-out infinite alternate' }} />
             ))}
@@ -286,66 +321,66 @@ function LiveShowcaseRail({ mode }: { mode: 'login' | 'register' }) {
         </div>
 
         {/* WhatsApp Confirmation Toast */}
-        <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
+        <div className="auth-showcase-card flex items-start gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/20">
             <span className="text-sm">💬</span>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-white">تأكيد حجز واتساب</p>
-            <p className="mt-0.5 text-[11px] leading-5 text-white/50">تم تأكيد موعد الكشف — غداً 5:30 م مع الطبيب المعالج ✓✓</p>
+            <p className="mt-0.5 text-[.68rem] leading-5 text-white/45 truncate">تم تأكيد موعد الكشف — غداً 5:30 م مع الطبيب ✓✓</p>
           </div>
-          <span className="text-[10px] text-white/30 shrink-0">الآن</span>
-        </div>
-
-        {/* Uptime Badge */}
-        <div className="flex items-center gap-2 text-xs text-white/40">
-          <span className="size-1.5 rounded-full bg-emerald-400" />
-          <span>الاستقبال الذكي يعمل 24/7 · 99.9% uptime</span>
+          <span className="text-[10px] text-white/25 shrink-0">الآن</span>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-[10px] text-white/30">
+      <div className="flex items-center justify-between text-[.65rem] text-white/25">
         <span>© 2026 MERUNA SYSTEM</span>
-        <span>خصوصيتك أولاً</span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 rounded-full bg-emerald-400" />
+          الاستقبال يعمل 24/7
+        </span>
       </div>
     </div>
   );
 }
 
+
 function AuthLayout({ children, mode, languageToggle = false }: { children: ReactNode; mode: 'login' | 'register'; languageToggle?: boolean }) {
   const { lang, text, toggleLanguage } = useAuthLocale();
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#040d1a] lg:grid lg:grid-cols-[minmax(420px,48%)_1fr]" dir="ltr">
+    <main className="auth-page" dir="ltr" data-testid="auth-layout">
       {/* Ambient background orbs */}
       <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
-        <div className="absolute -top-32 -left-32 size-[600px] rounded-full bg-cyan-500/10 blur-[120px] animate-pulse" style={{ animationDuration: '6s' }} />
-        <div className="absolute bottom-0 right-0 size-[500px] rounded-full bg-violet-600/10 blur-[100px] animate-pulse" style={{ animationDuration: '9s', animationDelay: '2s' }} />
-        <div className="absolute top-1/2 left-1/3 size-[300px] rounded-full bg-sky-400/8 blur-[80px] animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
-        {/* Subtle grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+        <div className="auth-bg-orb auth-bg-orb-1" />
+        <div className="auth-bg-orb auth-bg-orb-2" />
+        <div className="auth-bg-orb auth-bg-orb-3" />
+        <div className="auth-grid-overlay" />
       </div>
 
       {/* Left — Live Showcase Rail */}
-      <section className="relative z-10 hidden min-h-[100dvh] flex-col border-r border-white/5 bg-white/[.03] p-12 backdrop-blur-xs lg:flex xl:p-16">
+      <section className="auth-rail-panel">
         <LiveShowcaseRail mode={mode} />
       </section>
 
       {/* Right — Form pane */}
-      <section className="relative z-10 flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-14 lg:py-10 xl:px-20" dir="rtl">
+      <section className="auth-form-panel" dir="rtl">
         {/* Top nav bar */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-auto pb-6">
           {/* Mobile logo */}
-          <div className="flex items-center gap-5 lg:hidden">
+          <div className="flex items-center gap-4 lg:hidden">
             <Logo />
-            <Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-white/50 hover:text-white transition" data-testid="link-auth-switch">
+            <Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-white/45 hover:text-white transition-colors" data-testid="link-auth-switch">
               {mode === 'login' ? text.mobileRegister : text.mobileLogin}
             </Link>
           </div>
 
           <div className="flex items-center gap-2 ms-auto">
             {/* Back to home */}
-            <Link href="/" className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/10 hover:text-white">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[.04] px-3.5 py-1.5 text-[.72rem] font-semibold text-white/55 backdrop-blur-sm transition-all hover:bg-white/[.08] hover:text-white hover:border-white/20"
+            >
               <ArrowRight className="size-3.5" />
               <span>{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
             </Link>
@@ -353,7 +388,7 @@ function AuthLayout({ children, mode, languageToggle = false }: { children: Reac
             {languageToggle && (
               <button
                 type="button"
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
+                className="rounded-full border border-white/10 bg-white/[.04] px-3.5 py-1.5 text-[.72rem] font-bold text-white/55 backdrop-blur-sm transition-all hover:bg-white/[.08] hover:text-white hover:border-white/20"
                 onClick={toggleLanguage}
                 data-testid="button-auth-language"
                 aria-label={lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
@@ -365,19 +400,23 @@ function AuthLayout({ children, mode, languageToggle = false }: { children: Reac
         </div>
 
         {/* Form area */}
-        <div className="m-auto w-full max-w-[460px] py-8">
-          <div className="rounded-[28px] border border-white/10 bg-white/[.04] p-7 shadow-[0_20px_60px_rgba(2,10,25,.45)] backdrop-blur-md sm:p-9">{children}</div>
+        <div className="m-auto w-full max-w-[460px]">
+          <div className="auth-card">{children}</div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between text-[10px] text-white/25">
-          <span className="flex items-center gap-1.5"><span className="inline-block size-1.5 rounded-full bg-cyan-400/70" /> MERUNA</span>
-          <span className="flex items-center gap-1.5"><ShieldCheck size={11} /> {text.secure}</span>
+        <div className="mt-auto pt-6 flex items-center justify-between text-[.65rem] text-white/20">
+          <span className="flex items-center gap-1.5">
+            <span className="auth-live-dot" />
+            MERUNA
+          </span>
+          <span className="flex items-center gap-1.5"><ShieldCheck size={10} /> {text.secure}</span>
         </div>
       </section>
     </main>
   );
 }
+
 
 type RecoveryValues = { email: string };
 type ResetValues = { password: string; confirmPassword: string };
@@ -526,23 +565,23 @@ function LoginPage() {
     <AuthLayout mode="login" languageToggle>
       <div className="animate-rise" dir="rtl">
         {/* Header */}
-        <div className="mb-8">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.greeting}</p>
-          <h2 className="ar text-3xl font-extrabold tracking-tight text-white" data-testid="heading-login">{copy.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+        <div className="mb-7">
+          <p className="mb-1.5 text-[.68rem] font-bold uppercase tracking-widest text-cyan-400/75">{copy.greeting}</p>
+          <h2 className="ar text-[1.75rem] font-extrabold tracking-tight text-white leading-tight" data-testid="heading-login">{copy.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/40">{copy.subtitle}</p>
         </div>
 
         {/* API Error */}
         {displayApiError ? (
-          <div className="mb-5 flex items-start gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-6 text-red-300 backdrop-blur-xs" data-testid="alert-login-error">
-            <X size={17} className="mt-0.5 shrink-0" /> {displayApiError}
+          <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-red-500/25 bg-red-500/8 p-3.5 text-sm leading-6 text-red-300/90 backdrop-blur-sm" data-testid="alert-login-error">
+            <X size={16} className="mt-0.5 shrink-0 text-red-400" /> {displayApiError}
           </div>
         ) : null}
 
         {/* Demo Login Button */}
         <button
           type="button"
-          className="mb-6 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-[.98]"
+          className="auth-demo-btn mb-5"
           onClick={() => {
             form.setValue('email', 'demo@meruna.app');
             form.setValue('password', 'demo1234');
@@ -554,20 +593,20 @@ function LoginPage() {
         </button>
 
         {/* Divider */}
-        <div className="mb-6 flex items-center gap-3 text-xs text-white/25">
-          <div className="h-px flex-1 bg-white/10" />
+        <div className="auth-divider mb-5">
           <span>{copy.or}</span>
-          <div className="h-px flex-1 bg-white/10" />
         </div>
 
         {/* Form */}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate dir="rtl">
-          <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir="rtl">
+          {/* Email field */}
+          <label className="block text-right">
+            <span className="auth-label">{copy.email}</span>
             <div className="relative">
-              <Mail size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <Mail size={15} className="absolute right-3.5 top-[13px] text-white/25 pointer-events-none" />
               <input
                 {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
-                className="auth-input pr-10 text-left"
+                className="auth-input-v2 pr-10 text-left"
                 dir="ltr"
                 type="email"
                 placeholder={copy.emailPlaceholder}
@@ -575,14 +614,19 @@ function LoginPage() {
                 data-testid="input-login-email"
               />
             </div>
-          </Field>
+            {form.formState.errors.email?.message
+              ? <span className="auth-field-error" data-testid="text-field-error">{form.formState.errors.email.message}</span>
+              : <span className="auth-field-hint">{copy.emailHint}</span>}
+          </label>
 
-          <Field label={copy.password} error={form.formState.errors.password?.message}>
+          {/* Password field */}
+          <label className="block text-right">
+            <span className="auth-label">{copy.password}</span>
             <div className="relative">
-              <ShieldCheck size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <ShieldCheck size={15} className="absolute right-3.5 top-[13px] text-white/25 pointer-events-none" />
               <input
                 {...form.register('password', { required: copy.requiredPassword, minLength: { value: 6, message: copy.minPassword } })}
-                className="auth-input pl-10 pr-10 text-left"
+                className="auth-input-v2 pl-10 pr-10 text-left"
                 dir="ltr"
                 type={showPassword ? 'text' : 'password'}
                 placeholder={copy.passwordPlaceholder}
@@ -591,25 +635,28 @@ function LoginPage() {
               />
               <button
                 type="button"
-                className="absolute left-3.5 top-3.5 text-white/30 transition hover:text-white/70"
+                className="absolute left-3.5 top-[13px] text-white/25 transition-colors hover:text-white/60"
                 onClick={() => setShowPassword(v => !v)}
                 aria-label={showPassword ? copy.hidePassword : copy.showPassword}
                 data-testid="button-toggle-password"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-          </Field>
+            {form.formState.errors.password?.message && (
+              <span className="auth-field-error" data-testid="text-field-error">{form.formState.errors.password.message}</span>
+            )}
+          </label>
 
           {/* Remember + Forgot */}
-          <div className="flex items-center justify-between text-xs">
-            <label className="flex items-center gap-2 cursor-pointer text-white/40 hover:text-white/60 transition">
+          <div className="flex items-center justify-between text-xs pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer text-white/35 hover:text-white/55 transition-colors select-none">
               <input type="checkbox" className="h-3.5 w-3.5 rounded accent-cyan-500" data-testid="input-remember" />
               {copy.remember}
             </label>
             <button
               type="button"
-              className="font-bold text-cyan-400 hover:text-cyan-300 transition"
+              className="font-bold text-cyan-400/90 hover:text-cyan-300 transition-colors text-[.75rem]"
               onClick={() => { login.reset(); setShowRecovery(true); }}
               data-testid="button-forgot-password"
             >
@@ -619,36 +666,37 @@ function LoginPage() {
 
           {/* Submit Button */}
           <button
-            className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 hover:shadow-cyan-500/40 active:scale-[.98] disabled:opacity-60"
+            className="auth-cta mt-1"
             type="submit"
             disabled={login.isPending}
             data-testid="button-login"
           >
             {login.isPending ? (
-              <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.loading}</>
+              <><RefreshCw size={16} className="animate-spin" />{copy.loading}</>
             ) : (
-              <><span>{copy.submit}</span> <ArrowLeft size={16} className="inline ms-1" /></>
+              <><span>{copy.submit}</span><ArrowLeft size={15} /></>
             )}
           </button>
         </form>
 
         {/* Register link */}
-        <p className="mt-8 text-center text-sm text-white/40">
+        <p className="mt-7 text-center text-[.8rem] text-white/35">
           {copy.noAccount}{' '}
-          <Link href="/register" className="font-bold text-cyan-400 hover:text-cyan-300 transition" data-testid="link-register">
+          <Link href="/register" className="font-bold text-cyan-400/90 hover:text-cyan-300 transition-colors" data-testid="link-register">
             {copy.register}
           </Link>
         </p>
 
         {/* System status */}
-        <p className="mt-4 flex items-center justify-center gap-1.5 text-[.7rem] text-white/25" data-testid="status-api">
-          <span className={`inline-block size-1.5 rounded-full ${health.isError ? 'bg-red-400' : 'bg-emerald-400'}`} />
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[.65rem] text-white/20" data-testid="status-api">
+          <span className={`inline-block size-1.5 rounded-full ${health.isError ? 'bg-red-400' : 'bg-emerald-400/80'}`} />
           {health.isError ? copy.degraded : copy.healthy}
         </p>
       </div>
     </AuthLayout>
   );
 }
+
 
 function RegisterPage() {
   const [, setLocation] = useLocation();

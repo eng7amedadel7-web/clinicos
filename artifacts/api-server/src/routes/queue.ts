@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from "express";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { type SessionPayload } from "../lib/session";
 import { supabaseRequest } from "../lib/supabase";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 const publicTokenPattern = /^[A-Za-z0-9_-]{40,80}$/;
@@ -71,6 +72,12 @@ router.post("/appointments/:id/queue-link", async (req, res) => {
   if (!issueResult.ok) { res.status(issueResult.status || 503).json({ error: "تعذر إصدار رابط الكيو. تأكد من تطبيق migration الخاصة بروابط الكيو." }); return; }
   if (!issueResult.data?.[0]?.booking_id) { res.status(404).json({ error: "الحجز غير موجود في العيادة الحالية." }); return; }
 
+  clinicEvents.emitClinicEvent(session.clinicId, "queue.link_issued", {
+    appointmentId: req.params.id,
+    bookingId: issueResult.data[0].booking_id,
+    queueNumber: issueResult.data[0].queue_number ?? null,
+  });
+
   res.status(201).json({ bookingId: issueResult.data[0].booking_id, queueNumber: issueResult.data[0].queue_number ?? null, queuePath: `/queue/${token}`, expiresAt });
 });
 
@@ -83,6 +90,7 @@ router.delete("/appointments/:id/queue-link", async (req, res) => {
     body: JSON.stringify({ p_appointment_id: req.params.id }),
   });
   if (!result.ok) { res.status(result.status || 503).json({ error: "تعذر إلغاء رابط الكيو." }); return; }
+  clinicEvents.emitClinicEvent(session.clinicId, "queue.ticket_updated", { appointmentId: req.params.id, revoked: true });
   res.status(204).send();
 });
 

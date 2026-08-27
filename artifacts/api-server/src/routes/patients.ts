@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string; phone?: string; created_at?: string };
@@ -47,7 +48,11 @@ router.post("/patients", async (req, res) => {
     body: JSON.stringify({ clinic_id: session.clinicId, name: data.name, phone: data.phone || null, email: data.email || null, notes: data.notes || null, status: "active" }),
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حفظ المريض." }); return; }
-  res.status(201).json(result.data?.[0] ?? null);
+  const created = result.data?.[0] ?? null;
+  if (created?.id) {
+    clinicEvents.emitClinicEvent(session.clinicId, "patient.created", { patientId: created.id, name: data.name });
+  }
+  res.status(201).json(created);
 });
 
 router.patch("/patients/:id", async (req, res) => {
@@ -63,7 +68,9 @@ router.patch("/patients/:id", async (req, res) => {
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر تحديث المريض." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "المريض غير موجود." }); return; }
-  res.json(result.data[0]);
+  const updated = result.data[0];
+  clinicEvents.emitClinicEvent(session.clinicId, "patient.updated", { patientId: req.params.id, name: data.name });
+  res.json(updated);
 });
 
 router.get("/patients/:id/360", async (req, res) => {
@@ -98,6 +105,7 @@ router.delete("/patients/:id", async (req, res) => {
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر أرشفة المريض." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "المريض غير موجود." }); return; }
+  clinicEvents.emitClinicEvent(session.clinicId, "patient.deleted", { patientId: req.params.id });
   res.status(204).end();
 });
 
