@@ -76,6 +76,14 @@ function shouldTriggerHandoff(text: string): boolean {
   return HANDOFF_KEYWORDS.some((kw) => normalized.includes(kw));
 }
 
+function normalizePhone(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  if (digits.length < 7 || digits.length > 15) return "";
+  return `${trimmed.startsWith("+") ? "+" : ""}${digits}`;
+}
+
 async function handleInbound(req: Request, res: Response) {
   if (!verifyInboundSecret(req)) {
     res.status(401).json({ error: "Invalid or missing inbound webhook secret." });
@@ -88,12 +96,23 @@ async function handleInbound(req: Request, res: Response) {
   let channelId = (body.channelId || body.channel_id || "").trim();
   let clinicId = "";
   const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
-  const rawPhone = (body.senderPhone || body.phone || body.sender_phone || body.sender_id || "").trim();
+  const explicitPhone = (body.senderPhone || body.phone || body.sender_phone || "").trim();
+  const rawPhone = (explicitPhone || body.sender_id || "").trim();
+  const normalizedPhone = explicitPhone ? normalizePhone(rawPhone) : rawPhone;
   const senderName = (body.senderName || body.name || body.sender_name || body.patient_name || "").trim();
   const content = (body.content || body.message || body.text || "").trim();
+  const externalMessageId = (body.externalMessageId || body.external_message_id || "").trim();
 
   if (!content) {
     res.status(400).json({ error: "Message content is required." });
+    return;
+  }
+  if (content.length > 4000 || senderName.length > 200 || externalMessageId.length > 256) {
+    res.status(413).json({ error: "Inbound payload exceeds the allowed size." });
+    return;
+  }
+  if (explicitPhone && !normalizedPhone) {
+    res.status(400).json({ error: "A valid sender phone is required." });
     return;
   }
 
@@ -102,7 +121,7 @@ async function handleInbound(req: Request, res: Response) {
   // becomes the tenant boundary by itself.
   if (channelId) {
     const channelLookup = await supabaseAdminRequest<Row[]>(
-      `/rest/v1/channels?select=id,clinic_id,type&id=eq.${encodeURIComponent(channelId)}&deleted_at=is.null&limit=1`,
+      `/rest/v1/channels?select=id,clinic_id,type,status,is_enabled&id=eq.${encodeURIComponent(channelId)}&deleted_at=is.null&status=eq.connected&is_enabled=eq.true&limit=1`,
     );
     if (!channelLookup.ok) {
       res.status(502).json({ error: "Unable to resolve the inbound channel." });
@@ -135,6 +154,26 @@ async function handleInbound(req: Request, res: Response) {
     return;
   }
 
+  // Reserve/detect retries using the provider's tenant-scoped message id.
+  // This is a replay guard for completed deliveries; a durable atomic inbox
+  // reservation should replace it before any provider is connected directly.
+  const idempotencyKey = externalMessageId && channelId
+    ? `inbound:${channelId}:${externalMessageId}`
+    : "";
+  if (idempotencyKey) {
+    const previousEvent = await supabaseAdminRequest<Row[]>(
+      `/rest/v1/domain_events?select=id&clinic_id=eq.${encodeURIComponent(clinicId)}&idempotency_key=eq.${encodeURIComponent(idempotencyKey)}&limit=1`,
+    );
+    if (!previousEvent.ok) {
+      res.status(502).json({ error: "Unable to verify inbound message idempotency." });
+      return;
+    }
+    if (previousEvent.data?.length) {
+      res.status(200).json({ ok: true, duplicate: true });
+      return;
+    }
+  }
+
   // 1. Resolve or create channel record
   if (!channelId) {
     const channelFind = await supabaseAdminRequest<Row[]>(
@@ -164,7 +203,7 @@ async function handleInbound(req: Request, res: Response) {
   // 2. Resolve or create Patient
   let patientId = "";
   let resolvedPatientName = senderName || "مريض بدون اسم";
-  const phone = rawPhone || "—";
+  const phone = normalizedPhone || "—";
 
   if (phone && phone !== "—") {
     const patientFind = await supabaseAdminRequest<Row[]>(
@@ -282,15 +321,13 @@ async function handleInbound(req: Request, res: Response) {
       actor_type: "system",
       actor_id: "inbound-webhook",
       correlation_id: crypto.randomUUID(),
-      idempotency_key: `inbound:${savedMessage.id}`,
-      metadata: {
-        message_id: savedMessage.id,
-        patient_name: resolvedPatientName,
-        phone,
-        content,
-        channel_type: channelType,
-        is_handoff: finalHandoff,
-      },
+        idempotency_key: idempotencyKey || `inbound:${savedMessage.id}`,
+        metadata: {
+          message_id: savedMessage.id,
+          channel_type: channelType,
+          is_handoff: finalHandoff,
+          ...(externalMessageId ? { external_message_id: externalMessageId } : {}),
+        },
     }),
   });
 
