@@ -4,7 +4,7 @@ import { supabaseRequest } from "../lib/supabase";
 
 const router = Router();
 
-type AppointmentRow = { id?: string; patient_id?: string; branch_id?: string; doctor_id?: string; service_id?: string; slot_id?: string; appointment_status?: string; scheduled_at?: string; notes?: string | null };
+type AppointmentRow = { id?: string; public_id?: string; patient_id?: string; branch_id?: string; doctor_id?: string; service_id?: string; slot_id?: string; appointment_status?: string; scheduled_at?: string; booking_number?: string | null; queue_number?: number | null; notes?: string | null };
 type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string };
 type DoctorRow = { id?: string; name?: string; specialization?: string | null };
 type ServiceRow = { id?: string; name?: string; duration_minutes?: number };
@@ -64,7 +64,7 @@ router.get("/appointments", async (req, res) => {
     if (!branch.ok || !branch.data?.length) { res.status(400).json({ error: "Invalid branch." }); return; }
   }
   const [appointmentsResult, patientsResult] = await Promise.all([
-    supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?select=id,patient_id,branch_id,appointment_status,scheduled_at&${filter}&order=scheduled_at.asc&limit=100`, { headers }),
+    supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?select=id,public_id,patient_id,branch_id,appointment_status,scheduled_at,booking_number,queue_number&${filter}&order=scheduled_at.asc&limit=100`, { headers }),
     supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${filter}&limit=1000`, { headers }),
   ]);
   if (!appointmentsResult.ok) { res.status(appointmentsResult.status || 502).json({ error: "Appointments could not be loaded." }); return; }
@@ -73,6 +73,9 @@ router.get("/appointments", async (req, res) => {
     const patient = patients.get(String(row.patient_id));
     return {
       id: row.id,
+      bookingId: row.public_id || null,
+      bookingNumber: row.booking_number || null,
+      queueNumber: row.queue_number ?? null,
       name: patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || "مريض بدون اسم",
       scheduledAt: row.scheduled_at,
       status: row.appointment_status || "scheduled",

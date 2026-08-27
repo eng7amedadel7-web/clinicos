@@ -10,6 +10,7 @@ import operationsRouter from "./operations";
 import voiceRouter from "./voice";
 import organizationRouter from "./organization";
 import billingRouter from "./billing";
+import queueRouter from "./queue";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(operationsRouter);
 router.use(voiceRouter);
 router.use(organizationRouter);
 router.use(billingRouter);
+router.use(queueRouter);
 
 export default router;
