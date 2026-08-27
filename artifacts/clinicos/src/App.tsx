@@ -138,9 +138,9 @@ function RouteLoadingFallback({ fullHeight = false }: { fullHeight?: boolean }) 
 function Field({ label, error, children, hint }: { label: string; error?: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block text-right">
-      <span className="mb-2 block text-[.78rem] font-bold text-[#36596d]">{label}</span>
+      <span className="mb-2 block text-[.78rem] font-bold text-white/70">{label}</span>
       {children}
-      {error ? <span className="mt-1.5 block text-xs font-semibold text-[#b24e49]" data-testid="text-field-error">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-[#8496a0]">{hint}</span> : null}
+      {error ? <span className="mt-1.5 block text-xs font-semibold text-red-400" data-testid="text-field-error">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-white/40">{hint}</span> : null}
     </label>
   );
 }
@@ -224,26 +224,154 @@ function AuthLocaleProvider({ children }: { children: ReactNode }) {
   return <AuthLocaleContext.Provider value={value}>{children}</AuthLocaleContext.Provider>;
 }
 
+function LiveShowcaseRail({ mode }: { mode: 'login' | 'register' }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 3500);
+    return () => clearInterval(id);
+  }, []);
+
+  const calls = [
+    { name: 'حجز كشف جديد', time: '0:42', color: 'from-cyan-500/20 to-sky-600/10' },
+    { name: 'استفسار أسعار الأسنان', time: '1:18', color: 'from-violet-500/20 to-purple-600/10' },
+    { name: 'تعديل موعد السبت', time: '0:57', color: 'from-emerald-500/20 to-teal-600/10' },
+  ];
+  const activeCall = calls[tick % calls.length];
+
+  return (
+    <div className="relative flex h-full flex-col justify-between" dir="rtl">
+      {/* Brand */}
+      <div className="flex items-center gap-2.5">
+        <BrandMark size={34} />
+        <strong className="text-lg font-extrabold tracking-[.18em] text-white">MERUNA</strong>
+      </div>
+
+      {/* Middle content */}
+      <div className="space-y-5">
+        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3.5 py-1.5 text-xs font-semibold text-cyan-300">
+          <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <ShieldCheck size={13} />
+          {mode === 'login' ? 'منصة موثوقة لإدارة عيادتك' : 'انضم لأكثر من 120+ عيادة'}
+        </div>
+        <h1 className="ar text-4xl font-extrabold leading-[1.4] tracking-tight text-white xl:text-5xl">
+          {mode === 'login' ? <>كل ما يحتاج<br />انتباهك، في<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">مكان واحد.</span></> : <>ابدأ تنظيم<br />عيادتك<br /><span className="bg-gradient-to-r from-cyan-300 to-sky-400 bg-clip-text text-transparent">بثقة وسهولة.</span></>}
+        </h1>
+        <p className="ar text-sm leading-7 text-white/55 max-w-[340px]">
+          MERUNA يمنح فريق الاستقبال رؤية أوضح، وقرارات أسرع، ويوماً أكثر هدوءاً — مدعوماً بالذكاء الاصطناعي.
+        </p>
+
+        {/* Live Voice Call Card */}
+        <div className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${activeCall.color} p-4 backdrop-blur-xs transition-all duration-700`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-white/10">
+                <PhoneCall className="size-4 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">{activeCall.name}</p>
+                <p className="text-[10px] text-white/50">مكالمة جارية عبر الوكيل الصوتي</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-mono text-[10px] text-white/70">{activeCall.time}</span>
+            </div>
+          </div>
+          {/* Audio waveform */}
+          <div className="mt-3 flex items-end gap-0.5 h-6" aria-hidden="true">
+            {[4,8,12,6,16,10,14,8,18,12,6,14,10,16,8,12,6,18,10,14].map((h, i) => (
+              <span key={i} className="flex-1 rounded-full bg-white/30" style={{ height: h, animationDelay: `${i * 80}ms`, animation: 'wave-bar 1s ease-in-out infinite alternate' }} />
+            ))}
+          </div>
+        </div>
+
+        {/* WhatsApp Confirmation Toast */}
+        <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
+            <span className="text-sm">💬</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-white">تأكيد حجز واتساب</p>
+            <p className="mt-0.5 text-[11px] leading-5 text-white/50">تم تأكيد موعد يوسف أحمد — غداً 5:30 م مع د. سارة ✓✓</p>
+          </div>
+          <span className="text-[10px] text-white/30 shrink-0">الآن</span>
+        </div>
+
+        {/* Uptime Badge */}
+        <div className="flex items-center gap-2 text-xs text-white/40">
+          <span className="size-1.5 rounded-full bg-emerald-400" />
+          <span>الاستقبال الذكي يعمل 24/7 · 99.9% uptime</span>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between text-[10px] text-white/30">
+        <span>© 2026 MERUNA SYSTEM</span>
+        <span>خصوصيتك أولاً</span>
+      </div>
+    </div>
+  );
+}
+
 function AuthLayout({ children, mode, languageToggle = false }: { children: ReactNode; mode: 'login' | 'register'; languageToggle?: boolean }) {
   const { lang, text, toggleLanguage } = useAuthLocale();
   return (
-    <main className="auth-layout noise min-h-[100dvh] bg-[#eef3f7] lg:grid lg:grid-cols-[minmax(380px,44%)_1fr]" dir="ltr">
-      <div className="auth-decor auth-decor-one" aria-hidden="true" />
-      <div className="auth-decor auth-decor-two" aria-hidden="true" />
-      <div className="auth-scanline" aria-hidden="true" />
-      <section className={`auth-rail auth-panel-enter hidden min-h-[100dvh] flex-col justify-between p-12 text-[#e8f3f6] lg:flex xl:p-16 text-right`} dir="rtl">
-        <div className="auth-brand-lockup relative z-10"><Logo /></div>
-        <div className={`auth-rail-copy relative z-10 max-w-[410px] text-right`}>
-          <div className="auth-trust-badge mb-7 inline-flex items-center gap-2 rounded-full border border-[#6b9aae]/30 bg-[#9bc4d2]/10 px-3 py-1.5 text-xs font-semibold text-[#a9cad4]"><span className="auth-badge-dot" aria-hidden="true" /><ShieldCheck size={14} /> {text.railTrusted}</div>
-          <h1 className="auth-rail-title ar text-4xl font-bold leading-[1.35] tracking-tight xl:text-[3.15rem]">{text.railTitle[mode]}</h1>
-          <p className="auth-rail-description ar mt-5 max-w-[360px] text-[1.05rem] leading-8 text-[#a8bdc8]">{text.railBody}</p>
-        </div>
-        <div className="auth-rail-footer relative z-10 flex items-center justify-between text-xs text-[#7896a5]"><span>© 2026 MERUNA SYSTEM</span><span>{text.privacy}</span></div>
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[#040d1a] lg:grid lg:grid-cols-[minmax(420px,48%)_1fr]" dir="ltr">
+      {/* Ambient background orbs */}
+      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+        <div className="absolute -top-32 -left-32 size-[600px] rounded-full bg-cyan-500/10 blur-[120px] animate-pulse" style={{ animationDuration: '6s' }} />
+        <div className="absolute bottom-0 right-0 size-[500px] rounded-full bg-violet-600/10 blur-[100px] animate-pulse" style={{ animationDuration: '9s', animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/3 size-[300px] rounded-full bg-sky-400/8 blur-[80px] animate-pulse" style={{ animationDuration: '12s', animationDelay: '4s' }} />
+        {/* Subtle grid overlay */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+      </div>
+
+      {/* Left — Live Showcase Rail */}
+      <section className="relative z-10 hidden min-h-[100dvh] flex-col border-r border-white/5 bg-white/[.03] p-12 backdrop-blur-xs lg:flex xl:p-16">
+        <LiveShowcaseRail mode={mode} />
       </section>
-      <section className="auth-form-pane flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-16 lg:py-12 xl:px-24" dir="rtl">
-        <div className="flex items-center justify-between"><div className="flex items-center justify-between gap-5 lg:hidden"><Logo /><Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-[#507080]" data-testid="link-auth-switch">{mode === 'login' ? text.mobileRegister : text.mobileLogin}</Link></div>{languageToggle && <button type="button" className="auth-language-toggle ms-auto rounded-full border border-[#cbdbe2] bg-white/70 px-3 py-2 text-xs font-bold text-[#31556b] transition hover:border-[#5d9caf] hover:text-[#174963]" onClick={toggleLanguage} data-testid="button-auth-language" aria-label={lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}>{text.language}</button>}</div>
-        <div className="m-auto w-full max-w-[445px] py-12">{children}</div>
-        <div className="flex items-center justify-between text-xs text-[#8a9aa3]"><span>MERUNA SYSTEM</span><span className="flex items-center gap-1.5"><ShieldCheck size={13} /> {text.secure}</span></div>
+
+      {/* Right — Form pane */}
+      <section className="relative z-10 flex min-h-[100dvh] flex-col px-5 py-7 sm:px-10 lg:px-14 lg:py-10 xl:px-20" dir="rtl">
+        {/* Top nav bar */}
+        <div className="flex items-center justify-between">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-5 lg:hidden">
+            <Logo />
+            <Link href={mode === 'login' ? '/register' : '/login'} className="text-sm font-bold text-white/50 hover:text-white transition" data-testid="link-auth-switch">
+              {mode === 'login' ? text.mobileRegister : text.mobileLogin}
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-2 ms-auto">
+            {/* Back to home */}
+            <Link href="/" className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/10 hover:text-white">
+              <ArrowRight className="size-3.5" />
+              <span>{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
+            </Link>
+            {/* Language toggle */}
+            {languageToggle && (
+              <button
+                type="button"
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-white/10 hover:text-white"
+                onClick={toggleLanguage}
+                data-testid="button-auth-language"
+                aria-label={lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
+              >
+                {text.language}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Form area */}
+        <div className="m-auto w-full max-w-[440px] py-8">{children}</div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between text-[10px] text-white/25">
+          <span>MERUNA SYSTEM</span>
+          <span className="flex items-center gap-1.5"><ShieldCheck size={11} /> {text.secure}</span>
+        </div>
       </section>
     </main>
   );
@@ -284,20 +412,37 @@ function RecoveryPage({ onBack }: { onBack: () => void }) {
 
   return (
     <AuthLayout mode="login" languageToggle>
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
-        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-recovery-error">{apiError}</div> : null}
+      <div className="animate-rise" dir="rtl">
+        <div className="mb-8">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.eyebrow}</p>
+          <h2 className="ar text-3xl font-extrabold tracking-tight text-white">{copy.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+        </div>
+        {apiError ? (
+          <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-6 text-red-300" data-testid="alert-recovery-error">{apiError}</div>
+        ) : null}
         {recovery.isSuccess ? (
-          <div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-recovery-success">{copy.success}</div>
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm leading-7 text-emerald-300" data-testid="alert-recovery-success">{copy.success}</div>
         ) : (
           <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir="rtl">
             <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
-              <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-recovery-email" /></div>
+              <div className="relative">
+                <Mail size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+                <input
+                  {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
+                  className="auth-input pr-10 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-recovery-email"
+                />
+              </div>
             </Field>
-            <button className="primary-button w-full" type="submit" disabled={recovery.isPending} data-testid="button-recovery">{recovery.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.sending}</> : <>{copy.send} <ArrowLeft size={17} /></>}</button>
+            <button
+              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 active:scale-[.98] disabled:opacity-60"
+              type="submit" disabled={recovery.isPending} data-testid="button-recovery"
+            >
+              {recovery.isPending ? <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.sending}</> : <>{copy.send} <ArrowLeft size={16} className="inline ms-1" /></>}
+            </button>
           </form>
         )}
-        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-[#3c7e93]" onClick={onBack} data-testid="button-back-to-login">{copy.back}</button>
+        <button type="button" className="mt-7 w-full text-center text-sm font-bold text-cyan-400 hover:text-cyan-300 transition" onClick={onBack} data-testid="button-back-to-login">{copy.back}</button>
       </div>
     </AuthLayout>
   );
@@ -316,16 +461,34 @@ function ResetPasswordPage({ accessToken, onDone }: { accessToken: string; onDon
 
   return (
     <AuthLayout mode="login" languageToggle>
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
-        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-reset-error">{apiError}</div> : null}
+      <div className="animate-rise" dir="rtl">
+        <div className="mb-8">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.eyebrow}</p>
+          <h2 className="ar text-3xl font-extrabold tracking-tight text-white">{copy.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+        </div>
+        {apiError ? (
+          <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-300" data-testid="alert-reset-error">{apiError}</div>
+        ) : null}
         {reset.isSuccess ? (
-          <div className="space-y-5"><div className="rounded-xl border border-[#c7e2d8] bg-[#f2faf6] p-5 text-sm leading-7 text-[#39755f]" data-testid="alert-reset-success">{copy.success}</div><button type="button" className="primary-button w-full" onClick={onDone} data-testid="button-reset-done">{copy.back} <ArrowLeft size={17} /></button></div>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm leading-7 text-emerald-300" data-testid="alert-reset-success">{copy.success}</div>
+            <button type="button" className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90" onClick={onDone} data-testid="button-reset-done">{copy.back} <ArrowLeft size={16} className="inline ms-1" /></button>
+          </div>
         ) : (
           <form onSubmit={form.handleSubmit(submit)} className="space-y-5" noValidate dir="rtl">
-            <Field label={copy.password} error={form.formState.errors.password?.message}><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" /></Field>
-            <Field label={copy.confirm} error={form.formState.errors.confirmPassword?.message}><input {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: value => value === form.getValues('password') || copy.mismatch })} className="input-field text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" /></Field>
-            <button className="primary-button w-full" type="submit" disabled={reset.isPending} data-testid="button-reset-password">{reset.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.updating}</> : <>{copy.update} <ArrowLeft size={17} /></>}</button>
+            <Field label={copy.password} error={form.formState.errors.password?.message}>
+              <input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="auth-input text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-password" />
+            </Field>
+            <Field label={copy.confirm} error={form.formState.errors.confirmPassword?.message}>
+              <input {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: value => value === form.getValues('password') || copy.mismatch })} className="auth-input text-left" dir="ltr" type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" />
+            </Field>
+            <button
+              className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 active:scale-[.98] disabled:opacity-60"
+              type="submit" disabled={reset.isPending} data-testid="button-reset-password"
+            >
+              {reset.isPending ? <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.updating}</> : <>{copy.update} <ArrowLeft size={16} className="inline ms-1" /></>}
+            </button>
           </form>
         )}
       </div>
@@ -359,22 +522,127 @@ function LoginPage() {
   const displayApiError = apiError?.toLowerCase().includes('email') || apiError?.toLowerCase().includes('password') ? copy.errorInvalid : apiError;
   return (
     <AuthLayout mode="login" languageToggle>
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.greeting}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-login">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
-        {displayApiError ? <div className="mb-5 flex items-start gap-2 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-login-error"><X size={17} className="mt-1 shrink-0" /> {displayApiError}</div> : null}
+      <div className="animate-rise" dir="rtl">
+        {/* Header */}
+        <div className="mb-8">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.greeting}</p>
+          <h2 className="ar text-3xl font-extrabold tracking-tight text-white" data-testid="heading-login">{copy.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+        </div>
+
+        {/* API Error */}
+        {displayApiError ? (
+          <div className="mb-5 flex items-start gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-6 text-red-300 backdrop-blur-xs" data-testid="alert-login-error">
+            <X size={17} className="mt-0.5 shrink-0" /> {displayApiError}
+          </div>
+        ) : null}
+
+        {/* Demo Login Button */}
+        <button
+          type="button"
+          className="mb-6 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-[.98]"
+          onClick={() => {
+            form.setValue('email', 'demo@meruna.app');
+            form.setValue('password', 'demo1234');
+          }}
+          data-testid="button-demo-login"
+        >
+          <Sparkles className="size-4 text-cyan-400" />
+          <span>{lang === 'ar' ? '🚀 تجربة فورية كمدير عيادة (Demo)' : '🚀 Quick Demo Login as Clinic Admin'}</span>
+        </button>
+
+        {/* Divider */}
+        <div className="mb-6 flex items-center gap-3 text-xs text-white/25">
+          <div className="h-px flex-1 bg-white/10" />
+          <span>{copy.or}</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
+        {/* Form */}
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate dir="rtl">
           <Field label={copy.email} error={form.formState.errors.email?.message} hint={copy.emailHint}>
-            <div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder={copy.emailPlaceholder} autoComplete="email" data-testid="input-login-email" /></div>
+            <div className="relative">
+              <Mail size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <input
+                {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
+                className="auth-input pr-10 text-left"
+                dir="ltr"
+                type="email"
+                placeholder={copy.emailPlaceholder}
+                autoComplete="email"
+                data-testid="input-login-email"
+              />
+            </div>
           </Field>
+
           <Field label={copy.password} error={form.formState.errors.password?.message}>
-            <div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 6, message: copy.minPassword } })} className="input-field pl-11 pr-11 text-left" dir="ltr" type={showPassword ? 'text' : 'password'} placeholder={copy.passwordPlaceholder} autoComplete="current-password" data-testid="input-login-password" /><button type="button" className="absolute left-3.5 top-3.5 text-[#8196a1]" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? copy.hidePassword : copy.showPassword} data-testid="button-toggle-password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+            <div className="relative">
+              <ShieldCheck size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <input
+                {...form.register('password', { required: copy.requiredPassword, minLength: { value: 6, message: copy.minPassword } })}
+                className="auth-input pl-10 pr-10 text-left"
+                dir="ltr"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={copy.passwordPlaceholder}
+                autoComplete="current-password"
+                data-testid="input-login-password"
+              />
+              <button
+                type="button"
+                className="absolute left-3.5 top-3.5 text-white/30 transition hover:text-white/70"
+                onClick={() => setShowPassword(v => !v)}
+                aria-label={showPassword ? copy.hidePassword : copy.showPassword}
+                data-testid="button-toggle-password"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </Field>
-          <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-[#66808e]"><input type="checkbox" className="h-4 w-4 accent-[#174963]" data-testid="input-remember" /> {copy.remember}</label><button type="button" className="font-bold text-[#3c7e93]" onClick={() => { login.reset(); setShowRecovery(true); }} data-testid="button-forgot-password">{copy.forgot}</button></div>
-          <button className="primary-button w-full" type="submit" disabled={login.isPending} data-testid="button-login">{login.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.loading}</> : <>{copy.submit} <ArrowLeft size={17} /></>}</button>
+
+          {/* Remember + Forgot */}
+          <div className="flex items-center justify-between text-xs">
+            <label className="flex items-center gap-2 cursor-pointer text-white/40 hover:text-white/60 transition">
+              <input type="checkbox" className="h-3.5 w-3.5 rounded accent-cyan-500" data-testid="input-remember" />
+              {copy.remember}
+            </label>
+            <button
+              type="button"
+              className="font-bold text-cyan-400 hover:text-cyan-300 transition"
+              onClick={() => { login.reset(); setShowRecovery(true); }}
+              data-testid="button-forgot-password"
+            >
+              {copy.forgot}
+            </button>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 hover:shadow-cyan-500/40 active:scale-[.98] disabled:opacity-60"
+            type="submit"
+            disabled={login.isPending}
+            data-testid="button-login"
+          >
+            {login.isPending ? (
+              <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.loading}</>
+            ) : (
+              <><span>{copy.submit}</span> <ArrowLeft size={16} className="inline ms-1" /></>
+            )}
+          </button>
         </form>
-        <div className="mt-8 flex items-center gap-3 text-xs text-[#8a9ba4]"><div className="h-px flex-1 bg-[#d9e3e8]" /> {copy.or} <div className="h-px flex-1 bg-[#d9e3e8]" /></div>
-        <p className="mt-7 text-center text-sm text-[#718591]">{copy.noAccount} <Link href="/register" className="font-bold text-[#3c7e93]" data-testid="link-register">{copy.register}</Link></p>
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-[.7rem] text-[#a0adb3]" data-testid="status-api"><span className={`status-dot ${health.isError ? '!bg-[#c67870]' : ''}`} /> {health.isError ? copy.degraded : copy.healthy}</p>
+
+        {/* Register link */}
+        <p className="mt-8 text-center text-sm text-white/40">
+          {copy.noAccount}{' '}
+          <Link href="/register" className="font-bold text-cyan-400 hover:text-cyan-300 transition" data-testid="link-register">
+            {copy.register}
+          </Link>
+        </p>
+
+        {/* System status */}
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[.7rem] text-white/25" data-testid="status-api">
+          <span className={`inline-block size-1.5 rounded-full ${health.isError ? 'bg-red-400' : 'bg-emerald-400'}`} />
+          {health.isError ? copy.degraded : copy.healthy}
+        </p>
       </div>
     </AuthLayout>
   );
@@ -391,18 +659,100 @@ function RegisterPage() {
   const apiError = getApiErrorMessage(register.error, lang);
   return (
     <AuthLayout mode="register" languageToggle>
-      <div className="animate-rise">
-        <div className="mb-8"><p className="mb-3 text-sm font-bold text-[#6c94a3]">{copy.eyebrow}</p><h2 className="ar text-3xl font-bold tracking-tight text-[#12334a]" data-testid="heading-register">{copy.title}</h2><p className="mt-2 text-sm leading-6 text-[#718591]">{copy.subtitle}</p></div>
-        {apiError ? <div className="mb-5 rounded-xl border border-[#edc4c0] bg-[#fff7f6] p-3 text-sm leading-6 text-[#a54c46]" data-testid="alert-register-error">{apiError}</div> : null}
+      <div className="animate-rise" dir="rtl">
+        {/* Header */}
+        <div className="mb-8">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-400/80">{copy.eyebrow}</p>
+          <h2 className="ar text-3xl font-extrabold tracking-tight text-white" data-testid="heading-register">{copy.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/45">{copy.subtitle}</p>
+        </div>
+
+        {/* API Error */}
+        {apiError ? (
+          <div className="mb-5 flex items-start gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm leading-6 text-red-300" data-testid="alert-register-error">
+            <X size={16} className="mt-0.5 shrink-0" /> {apiError}
+          </div>
+        ) : null}
+
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate dir="rtl">
-          <Field label={copy.fullName} error={form.formState.errors.fullName?.message}><div className="relative"><UserRound size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('fullName', { required: copy.requiredName, minLength: { value: 2, message: copy.validName } })} className="input-field pr-11" placeholder={copy.fullNamePlaceholder} autoComplete="name" data-testid="input-register-full-name" /></div></Field>
-          <Field label={copy.clinicName} error={form.formState.errors.clinicName?.message}><div className="relative"><Building2 size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('clinicName', { required: copy.requiredClinic, minLength: { value: 2, message: copy.validName } })} className="input-field pr-11" placeholder={copy.clinicNamePlaceholder} data-testid="input-register-clinic-name" /></div></Field>
-          <Field label={copy.email} error={form.formState.errors.email?.message}><div className="relative"><Mail size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })} className="input-field pr-11 text-left" dir="ltr" type="email" placeholder="name@clinic.com" autoComplete="email" data-testid="input-register-email" /></div></Field>
-          <Field label={copy.password} error={form.formState.errors.password?.message} hint={copy.passwordHint}><div className="relative"><ShieldCheck size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })} className="input-field pr-11 text-left" dir="ltr" type="password" placeholder="••••••••" autoComplete="new-password" data-testid="input-register-password" /></div></Field>
-          <label className="flex items-start gap-2 pt-1 text-xs leading-5 text-[#718591]"><input type="checkbox" required className="mt-1 h-4 w-4 accent-[#174963]" data-testid="input-terms" /> {copy.terms}</label>
-          <button className="primary-button mt-2 w-full" type="submit" disabled={register.isPending} data-testid="button-register">{register.isPending ? <><RefreshCw size={17} className="animate-spin" /> {copy.loading}</> : <>{copy.submit} <ArrowLeft size={17} /></>}</button>
+          <Field label={copy.fullName} error={form.formState.errors.fullName?.message}>
+            <div className="relative">
+              <UserRound size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <input
+                {...form.register('fullName', { required: copy.requiredName, minLength: { value: 2, message: copy.validName } })}
+                className="auth-input pr-10"
+                placeholder={copy.fullNamePlaceholder}
+                autoComplete="name"
+                data-testid="input-register-full-name"
+              />
+            </div>
+          </Field>
+
+          <Field label={copy.clinicName} error={form.formState.errors.clinicName?.message}>
+            <div className="relative">
+              <Building2 size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <input
+                {...form.register('clinicName', { required: copy.requiredClinic, minLength: { value: 2, message: copy.validName } })}
+                className="auth-input pr-10"
+                placeholder={copy.clinicNamePlaceholder}
+                data-testid="input-register-clinic-name"
+              />
+            </div>
+          </Field>
+
+          <Field label={copy.email} error={form.formState.errors.email?.message}>
+            <div className="relative">
+              <Mail size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <input
+                {...form.register('email', { required: copy.requiredEmail, pattern: { value: /^\S+@\S+\.\S+$/, message: copy.invalidEmail } })}
+                className="auth-input pr-10 text-left"
+                dir="ltr"
+                type="email"
+                placeholder="name@clinic.com"
+                autoComplete="email"
+                data-testid="input-register-email"
+              />
+            </div>
+          </Field>
+
+          <Field label={copy.password} error={form.formState.errors.password?.message} hint={copy.passwordHint}>
+            <div className="relative">
+              <ShieldCheck size={16} className="absolute right-3.5 top-3.5 text-white/30" />
+              <input
+                {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })}
+                className="auth-input pr-10 text-left"
+                dir="ltr"
+                type="password"
+                placeholder="••••••••"
+                autoComplete="new-password"
+                data-testid="input-register-password"
+              />
+            </div>
+          </Field>
+
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-white/50 transition hover:bg-white/10">
+            <input type="checkbox" required className="mt-0.5 h-3.5 w-3.5 rounded accent-cyan-500" data-testid="input-terms" />
+            {copy.terms}
+          </label>
+
+          <button
+            className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/25 transition hover:opacity-90 hover:shadow-cyan-500/40 active:scale-[.98] disabled:opacity-60"
+            type="submit"
+            disabled={register.isPending}
+            data-testid="button-register"
+          >
+            {register.isPending ? (
+              <><RefreshCw size={17} className="inline animate-spin me-2" />{copy.loading}</>
+            ) : (
+              <><span>{copy.submit}</span> <ArrowLeft size={16} className="inline ms-1" /></>
+            )}
+          </button>
         </form>
-        <p className="mt-7 text-center text-sm text-[#718591]">{copy.haveAccount} <Link href="/login" className="font-bold text-[#3c7e93]" data-testid="link-login">{copy.login}</Link></p>
+
+        <p className="mt-7 text-center text-sm text-white/40">
+          {copy.haveAccount}{' '}
+          <Link href="/login" className="font-bold text-cyan-400 hover:text-cyan-300 transition" data-testid="link-login">{copy.login}</Link>
+        </p>
       </div>
     </AuthLayout>
   );

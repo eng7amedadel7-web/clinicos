@@ -241,6 +241,40 @@
 .auth-form-pane { position: relative; z-index: 1; animation: auth-form-in .42s .04s cubic-bezier(.23,1,.32,1) both; }
 .auth-layout::before { content: ""; position: absolute; z-index: 0; width: min(46vw, 680px); height: min(46vw, 680px); top: -18%; left: 34%; border-radius: 50%; background: radial-gradient(circle, hsl(194 67% 66% / .2), transparent 66%); filter: blur(18px); pointer-events: none; animation: auth-form-glow 7s ease-in-out infinite; }
 .auth-layout::after { content: ""; position: absolute; z-index: 0; inset: 0; background: linear-gradient(115deg, transparent 0 43%, hsl(194 55% 72% / .08) 50%, transparent 57%); background-size: 220% 100%; pointer-events: none; animation: auth-shimmer 13s linear infinite; }
+
+/* Modern dark glass auth input */
+.auth-input {
+  display: block; width: 100%; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.05);
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.auth-input::placeholder { color: rgba(255,255,255,.25); }
+.auth-input:focus {
+  border-color: rgba(34,211,238,.5);
+  background: rgba(255,255,255,.07);
+  box-shadow: 0 0 0 3px rgba(34,211,238,.12);
+}
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0px 1000px #0b1a2a inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Waveform bar animation for Live Call Card */
+@keyframes wave-bar {
+  0% { transform: scaleY(0.4); opacity: .5; }
+  100% { transform: scaleY(1); opacity: .9; }
+}
+
 .auth-rail::before { animation: auth-orbit 8s ease-in-out infinite; }
 .auth-rail::after { animation: auth-glow 5.5s ease-in-out infinite; }
 .auth-rail .brand-mark { animation: auth-logo-float 4s ease-in-out infinite; }
