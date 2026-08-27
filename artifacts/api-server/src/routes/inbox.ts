@@ -64,6 +64,30 @@ async function assertConversation(session: { clinicId: string; accessToken: stri
   if (!result.data?.length) throw Object.assign(new Error("المحادثة غير موجودة في هذه العيادة."), { statusCode: 404 });
 }
 
+async function assertOutboundReady(session: { clinicId: string; accessToken: string }, conversationId: string) {
+  const conversationResult = await supabaseRequest<Conversation[]>(
+    `/rest/v1/conversations?select=id,channel_id&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(conversationId)}&limit=1`,
+    { headers: headers(session.accessToken) },
+  );
+  if (!conversationResult.ok) throw Object.assign(new Error("تعذر التحقق من قناة المحادثة."), { statusCode: conversationResult.status || 502 });
+  const channelId = conversationResult.data?.[0]?.channel_id;
+  if (!channelId) throw Object.assign(new Error("المحادثة غير مرتبطة بقناة إرسال."), { statusCode: 409 });
+
+  const channelResult = await supabaseRequest<Channel[]>(
+    `/rest/v1/channels?select=id,type,provider,status,is_enabled&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(channelId)}&limit=1`,
+    { headers: headers(session.accessToken) },
+  );
+  if (!channelResult.ok) throw Object.assign(new Error("تعذر التحقق من حالة قناة الإرسال."), { statusCode: channelResult.status || 502 });
+  const channel = channelResult.data?.[0];
+  if (!channel) throw Object.assign(new Error("قناة المحادثة غير موجودة في هذه العيادة."), { statusCode: 409 });
+  if (channel.is_enabled === false || String(channel.status || "").toLowerCase() !== "connected") {
+    throw Object.assign(new Error("قناة المحادثة غير متصلة؛ تم إيقاف الإرسال قبل حفظ الرسالة."), { statusCode: 409 });
+  }
+  if (!["whatsapp", "instagram", "messenger", "telegram"].includes(String(channel.type || "").toLowerCase())) {
+    throw Object.assign(new Error("نوع قناة الإرسال غير مدعوم."), { statusCode: 409 });
+  }
+}
+
 async function insertConversationEvent(session: { clinicId: string; accessToken: string; userId: string }, conversationId: string, eventType: string, metadata: Record<string, unknown>) {
   await assertConversation(session, conversationId);
   const result = await supabaseRequest<Record<string, unknown>[]>("/rest/v1/domain_events", {
@@ -252,7 +276,14 @@ router.patch("/inbox/:id/mode", async (req, res) => {
 
 router.post("/inbox/:id/messages", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "handoff"); await assertConversation(session, req.params.id); } catch (error) { respondToPermissionError(res, error); return; }
+  try {
+    session = await requireClinicPermission(req, "inbox", "conversations", "handoff");
+    await assertConversation(session, req.params.id);
+    await assertOutboundReady(session, req.params.id);
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return;
+  }
   const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
   if (!content) { res.status(400).json({ error: "نص الرسالة مطلوب." }); return; }
   const queued = await supabaseRequest<{ conversation_id?: string; message_id?: string }>("/rest/v1/rpc/fn_send_inbox_reply", {
