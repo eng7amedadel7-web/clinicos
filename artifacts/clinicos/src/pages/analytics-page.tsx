@@ -8,7 +8,9 @@ import {
   Bot,
   CalendarCheck,
   CalendarX,
+  Download,
   MessageCircle,
+  Printer,
   RefreshCw,
   TrendingDown,
   TrendingUp,
@@ -187,10 +189,41 @@ export default function AnalyticsPage() {
 
   const data = query.data;
 
+  const exportCsv = () => {
+    if (!data) return;
+    const rows = [
+      ["Metric", "Value", "Unit"],
+      ["Appointments This Week", data.appointments.thisWeek, "bookings"],
+      ["Appointments Last Week", data.appointments.lastWeek, "bookings"],
+      ["Completion Rate", `${data.appointments.completionRate}%`, "percentage"],
+      ["Cancellation Rate", `${data.appointments.cancellationRate}%`, "percentage"],
+      ["No-Show Rate", `${data.appointments.noShowRate}%`, "percentage"],
+      ["New Patients This Month", data.patients.newThisMonth, "patients"],
+      ["Total Conversations", data.inbox.totalConversations, "conversations"],
+      ["AI Handled Conversations", data.inbox.aiConversations, "conversations"],
+      ["Human Handled Conversations", data.inbox.humanConversations, "conversations"],
+      ["Total Messages", data.inbox.totalMessages, "messages"],
+      ["AI Messages", data.inbox.aiMessages, "messages"],
+      ["Staff Messages", data.inbox.staffMessages, "messages"],
+    ];
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(e => e.map(x => `"${x}"`).join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `meruna-analytics-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const printReport = () => {
+    window.print();
+  };
+
   return (
     <section className="space-y-6 pb-10" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-black text-foreground">
             {en ? "Analytics & Reports" : "التقارير والإحصائيات"}
@@ -201,14 +234,39 @@ export default function AnalyticsPage() {
               : "نظرة عامة على أداء العيادة — آخر أسبوعين"}
           </p>
         </div>
-        <button
-          onClick={() => query.refetch()}
-          disabled={query.isFetching}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs transition hover:bg-muted disabled:opacity-50"
-        >
-          <RefreshCw className={`size-3.5 ${query.isFetching ? "animate-spin" : ""}`} />
-          <span>{en ? "Refresh" : "تحديث"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {data && (
+            <>
+              <button
+                onClick={exportCsv}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs transition hover:bg-muted"
+                data-testid="button-export-csv"
+                title={en ? "Export CSV" : "تصدير CSV"}
+              >
+                <Download className="size-3.5 text-[#22617d] dark:text-[#8cc3dd]" />
+                <span>{en ? "Export CSV" : "تصدير CSV"}</span>
+              </button>
+              <button
+                onClick={printReport}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs transition hover:bg-muted"
+                data-testid="button-print-report"
+                title={en ? "Print report" : "طباعة التقرير"}
+              >
+                <Printer className="size-3.5" />
+                <span>{en ? "Print" : "طباعة"}</span>
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => query.refetch()}
+            disabled={query.isFetching}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs transition hover:bg-muted disabled:opacity-50"
+            data-testid="button-refresh-analytics"
+          >
+            <RefreshCw className={`size-3.5 ${query.isFetching ? "animate-spin" : ""}`} />
+            <span>{en ? "Refresh" : "تحديث"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Loading State */}

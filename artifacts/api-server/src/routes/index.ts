@@ -13,6 +13,7 @@ import billingRouter from "./billing";
 import queueRouter from "./queue";
 import inboundRouter from "./inbound";
 import analyticsRouter from "./analytics";
+import templatesRouter from "./templates";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(organizationRouter);
 router.use(billingRouter);
 router.use(queueRouter);
 router.use("/analytics", analyticsRouter);
+router.use(templatesRouter);
 
 export default router;

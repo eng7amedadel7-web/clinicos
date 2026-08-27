@@ -35,8 +35,12 @@ import {
   Sparkles,
   UserRound,
   UsersRound,
-  PhoneCall,
+  Bot,
+  CalendarDays,
+  CheckSquare,
+  ListTodo,
   Menu,
+  PhoneCall,
   Volume2,
   VolumeX,
   X,
@@ -71,6 +75,10 @@ const LiveVoiceAgentPage = lazy(() => import('@/pages/live-voice-agent'));
 const BillingPage = lazy(() => import('@/pages/billing'));
 const Patient360Page = lazy(() => import('@/pages/patient-360-page'));
 const AppointmentJourneyPage = lazy(() => import('@/pages/appointment-journey-page'));
+const CalendarPage = lazy(() => import('@/pages/calendar-page'));
+const AiReceptionPage = lazy(() => import('@/pages/ai-reception-page'));
+const TasksPage = lazy(() => import('@/pages/tasks-page'));
+const TemplatesPage = lazy(() => import('@/pages/templates-page'));
 const MerunaHome = lazy(() => import('@/pages/meruna-home'));
 const CurrentMerunaHome = lazy(() => import('@/pages/meruna-home-current'));
 const MergedMerunaHome = lazy(() => import('@/pages/meruna-home-merged'));
@@ -413,6 +421,8 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   const navGroups: Array<{ id: string; title: string; links: Array<{ href: string; label: string; icon: typeof Home }> }> = [
     { id: 'operations', title: language === 'ar' ? 'التشغيل' : 'Operations', links: [
       { href: '/dashboard', label: t('overview'), icon: Home },
+      { href: '/calendar', label: language === 'ar' ? 'التقويم' : 'Calendar', icon: CalendarDays },
+      { href: '/tasks', label: language === 'ar' ? 'المهام' : 'Tasks', icon: ListTodo },
       { href: '/waitlist', label: t('waitlist'), icon: Clock3 },
       { href: '/follow-ups', label: t('followUps'), icon: Sparkles },
       { href: '/no-shows', label: t('noShowsOpen'), icon: ShieldCheck },
@@ -421,6 +431,8 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
       { href: '/patients', label: t('patients'), icon: UsersRound },
       { href: '/appointments', label: t('appointments'), icon: Clock3 },
       { href: '/inbox', label: t('inbox'), icon: Inbox },
+      { href: '/ai-reception', label: language === 'ar' ? 'الاستقبال الذكي' : 'AI Reception', icon: Bot },
+      { href: '/templates', label: language === 'ar' ? 'القوالب' : 'Templates', icon: FileText },
       { href: '/voice-agent', label: t('voiceAgent'), icon: PhoneCall },
     ] },
     { id: 'settings', title: language === 'ar' ? 'الإعدادات' : 'Settings', links: [
@@ -632,7 +644,7 @@ function ProtectedShell() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === '/') { event.preventDefault(); setSearchOpen(true); return; }
-      const map: Record<string, string> = { d: '/dashboard', i: '/inbox', a: '/appointments', p: '/patients', w: '/waitlist', f: '/follow-ups', n: '/no-shows', b: '/billing', r: '/analytics' };
+      const map: Record<string, string> = { d: '/dashboard', c: '/calendar', t: '/tasks', i: '/inbox', a: '/appointments', p: '/patients', w: '/waitlist', f: '/follow-ups', n: '/no-shows', b: '/billing', r: '/analytics' };
       const to = map[event.key.toLowerCase()];
       if (to) setLocation(to);
     };
@@ -659,7 +671,11 @@ function ProtectedShell() {
                 <Route path="/patients/:id" component={Patient360Page} />
                 <Route path="/appointments" component={LiveAppointmentsPage} />
                 <Route path="/appointments/:id" component={AppointmentJourneyPage} />
+                <Route path="/calendar" component={CalendarPage} />
+                <Route path="/tasks" component={TasksPage} />
                 <Route path="/inbox" component={InboxPage} />
+                <Route path="/ai-reception" component={AiReceptionPage} />
+                <Route path="/templates" component={TemplatesPage} />
                 <Route path="/analytics" component={AnalyticsPage} />
                 <Route path="/waitlist" component={WaitlistPage} />
                 <Route path="/follow-ups" component={FollowUpsPage} />
@@ -689,7 +705,7 @@ function Router() {
   const [location] = useLocation();
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || location.startsWith('/queue/') || legalRoutes.includes(location);
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<RouteLoadingFallback fullHeight />}>{location.startsWith('/queue/') ? <PublicQueuePage /> : <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch>}</Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} />      <Route path="/voice-agent/:view" component={ProtectedShell} />
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<RouteLoadingFallback fullHeight />}>{location.startsWith('/queue/') ? <PublicQueuePage /> : <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch>}</Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/calendar" component={ProtectedShell} /><Route path="/tasks" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/ai-reception" component={ProtectedShell} /><Route path="/templates" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent/:view" component={ProtectedShell} />
       <Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route path="/analytics" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 

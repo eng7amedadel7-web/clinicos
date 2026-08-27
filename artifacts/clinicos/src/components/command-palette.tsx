@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
+  BarChart3,
+  Bot,
+  CalendarDays,
   Clock3,
   CreditCard,
-  BarChart3,
+  FileText,
   Home,
   Inbox,
+  ListTodo,
   MessageSquare,
   PhoneCall,
   Search,
@@ -34,9 +38,13 @@ import {
 
 const pages: Array<{ href: string; ar: string; en: string; icon: typeof Home }> = [
   { href: '/dashboard', ar: 'الرئيسية', en: 'Overview', icon: Home },
+  { href: '/calendar', ar: 'التقويم', en: 'Calendar', icon: CalendarDays },
+  { href: '/tasks', ar: 'المهام', en: 'Tasks', icon: ListTodo },
   { href: '/patients', ar: 'المرضى', en: 'Patients', icon: UsersRound },
   { href: '/appointments', ar: 'المواعيد', en: 'Appointments', icon: Clock3 },
   { href: '/inbox', ar: 'صندوق الوارد', en: 'Inbox', icon: Inbox },
+  { href: '/ai-reception', ar: 'الاستقبال الذكي', en: 'AI Reception', icon: Bot },
+  { href: '/templates', ar: 'القوالب', en: 'Templates', icon: FileText },
   { href: '/analytics', ar: 'التقارير والإحصائيات', en: 'Analytics & Reports', icon: BarChart3 },
   { href: '/waitlist', ar: 'قائمة الانتظار', en: 'Waitlist', icon: Clock3 },
   { href: '/follow-ups', ar: 'المتابعات', en: 'Follow-ups', icon: Sparkles },
