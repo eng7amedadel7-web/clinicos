@@ -36,7 +36,15 @@ const corsOrigins = (process.env.ALLOWED_ORIGINS ?? process.env.PUBLIC_APP_URL ?
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
-app.use(cors(corsOrigins.length ? { origin: corsOrigins, credentials: true } : {}));
+const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+if (corsOrigins.length) {
+  app.use(cors({ origin: corsOrigins, credentials: true }));
+} else if (isProduction) {
+  // Fail closed in hosted environments when the allowlist is missing.
+  app.use(cors({ origin: false, credentials: true }));
+} else {
+  app.use(cors());
+}
 
 // Vercel's Node adapter may pre-populate req.cookies before Express middleware runs.
 // cookie-parser returns early when that field exists, which skips req.secret and
