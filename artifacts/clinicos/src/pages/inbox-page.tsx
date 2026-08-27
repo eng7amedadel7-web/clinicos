@@ -569,7 +569,7 @@ export default function InboxPage() {
                   const count =
                     channel.key === "all"
                       ? data.conversations.length
-                      : data.conversations.filter((c) => c.channelType === channel.key).length;
+                      : data.channelCounts?.[channel.key] ?? data.conversations.filter((c) => c.channelType === channel.key).length;
 
                   return (
                     <Tooltip key={channel.key}>
