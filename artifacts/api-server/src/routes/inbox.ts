@@ -9,6 +9,19 @@ type Conversation = { id?: string; patient_id?: string; clinic_id?: string; chan
 type Patient = { id?: string; name?: string; first_name?: string; last_name?: string; };
 type Channel = { id?: string; type?: string; provider?: string; status?: string; is_enabled?: boolean; updated_at?: string; config?: Record<string, unknown> };
 type Message = { id?: string; conversation_id?: string; clinic_id?: string; content?: string | null; direction?: string; sender_type?: string; message_status?: string; created_at?: string };
+type SupabaseErrorPayload = { message?: unknown; error?: unknown; error_description?: unknown; code?: unknown };
+type InboxReplyResult = { conversation_id?: string; message_id?: string };
+
+function inboxReplyErrorMessage(payload: unknown) {
+  const values = payload && typeof payload === "object" ? payload as SupabaseErrorPayload : {};
+  const raw = [values.message, values.error_description, values.error].find((value) => typeof value === "string" && value.trim());
+  const message = typeof raw === "string" ? raw : "";
+  if (/no staff membership/i.test(message)) return "حسابك ليس عضوًا في عيادة هذه المحادثة.";
+  if (/no permission for this clinic/i.test(message)) return "لا تملك صلاحية الوصول إلى هذه المحادثة.";
+  if (/not authenticated/i.test(message)) return "انتهت جلسة الدخول؛ سجّل الدخول مرة أخرى.";
+  if (/conversation not found/i.test(message)) return "المحادثة غير موجودة أو لم تعد متاحة.";
+  return "تعذر تجهيز الرسالة للإرسال. تحقق من صلاحيات الحساب واتصال القناة وحاول مرة أخرى.";
+}
 
 const headers = (token: string, extra: Record<string, string> = {}) => ({
   Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra,
@@ -286,11 +299,17 @@ router.post("/inbox/:id/messages", async (req, res) => {
   }
   const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
   if (!content) { res.status(400).json({ error: "نص الرسالة مطلوب." }); return; }
-  const queued = await supabaseRequest<{ conversation_id?: string; message_id?: string }>("/rest/v1/rpc/fn_send_inbox_reply", {
+  const queued = await supabaseRequest<InboxReplyResult | SupabaseErrorPayload>("/rest/v1/rpc/fn_send_inbox_reply", {
     method: "POST", headers: headers(session.accessToken), body: JSON.stringify({ p_conversation_id: req.params.id, p_content: content }),
   });
-  if (!queued.ok) { res.status(queued.status || 502).json({ error: "تعذر تجهيز الرسالة للإرسال." }); return; }
-  const conversationId = queued.data?.conversation_id || req.params.id;
+  if (!queued.ok) {
+    const errorCode = queued.data && typeof queued.data === "object" && "code" in queued.data && typeof queued.data.code === "string" ? queued.data.code : "unknown";
+    console.warn("[Inbox] reply RPC rejected", { status: queued.status, errorCode });
+    res.status(queued.status || 502).json({ error: inboxReplyErrorMessage(queued.data) });
+    return;
+  }
+  const reply = queued.data as InboxReplyResult;
+  const conversationId = reply.conversation_id || req.params.id;
   try {
     await dispatchOutbound(conversationId);
   } catch (error) {
@@ -298,8 +317,8 @@ router.post("/inbox/:id/messages", async (req, res) => {
     res.status(statusCode).json({ error: error instanceof Error ? error.message : "تعذر الوصول إلى مسار إرسال الرسائل." });
     return;
   }
-  clinicEvents.emitClinicEvent(session.clinicId, "inbox.message_sent", { conversationId, messageId: queued.data?.message_id, content });
-  res.status(201).json({ id: queued.data?.message_id ?? null, conversation_id: conversationId, content, direction: "outgoing", sender_type: "staff", message_status: "queued" });
+  clinicEvents.emitClinicEvent(session.clinicId, "inbox.message_sent", { conversationId, messageId: reply.message_id, content });
+  res.status(201).json({ id: reply.message_id ?? null, conversation_id: conversationId, content, direction: "outgoing", sender_type: "staff", message_status: "queued" });
 });
 
 export default router;

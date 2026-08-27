@@ -49,34 +49,6 @@ function useInboxLiveUpdates(selectedId: string | null) {
   return connected;
 }
 
-const DEFAULT_PRESET_REPLIES = [
-  {
-    id: "hours-location",
-    title: "ساعات العمل والموقع",
-    content: "أهلاً بك! نسعد بخدمتك في عيادة MERUNA. مواعيد العمل من السبت إلى الخميس: 10:00 ص - 9:00 م. الموقع: الفرع الرئيسي.",
-  },
-  {
-    id: "booking-confirm",
-    title: "تأكيد موعد كشف",
-    content: "تم تسجيل رغبتك في حجز موعد. يرجى تزويدنا بالاسم الثلاثي ورقم الهاتف والموعد المفضل للتأكيد فوراً.",
-  },
-  {
-    id: "price-list",
-    title: "الاستفسار عن الأسعار",
-    content: "سعر الكشف الأولي هو 250 ر.س شامل الفحص السريري والاستشارة الطبية، وتوجد باقات متابعة دورية مخفضة.",
-  },
-  {
-    id: "fasting-instructions",
-    title: "تعليمات ما قبل التحاليل",
-    content: "نرجو الصيام لمدة 8 إلى 12 ساعة قبل موعد الفحص المخبري مع شرب الماء فقط عند الحاجة.",
-  },
-  {
-    id: "doctor-busy",
-    title: "تحويل للطبيب المختص",
-    content: "تم تحويل استفسارك إلى الطبيب المختص وسيتم الرد عليك في أقرب وقت ممكن خلال ساعات العمل.",
-  },
-];
-
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const { language } = usePreferences();
@@ -227,15 +199,21 @@ export default function InboxPage() {
   }, [data?.conversations, channelId, channelType, statusFilter, search]);
 
   const selected = data?.conversations.find((item) => item.id === selectedId) ?? null;
+  const selectedChannelOnline = selected?.channelStatus === "connected";
 
   function handleSelectConversation(id: string) {
     setSelectedId(id);
     window.history.replaceState({}, "", `/inbox?conversationId=${encodeURIComponent(id)}`);
   }
 
-  function handleSendMessage(content: string) {
-    if (!selected || !content || sendMutation.isPending) return;
-    sendMutation.mutate({ id: selected.id, content });
+  async function handleSendMessage(content: string): Promise<boolean> {
+    if (!selected || !content || sendMutation.isPending || !selectedChannelOnline) return false;
+    try {
+      await sendMutation.mutateAsync({ id: selected.id, content });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function handleSaveNote() {
@@ -288,10 +266,7 @@ export default function InboxPage() {
     );
   }
 
-  const savedReplies =
-    savedRepliesQuery.data && savedRepliesQuery.data.length > 0
-      ? savedRepliesQuery.data
-      : DEFAULT_PRESET_REPLIES;
+  const savedReplies = savedRepliesQuery.data ?? [];
 
   return (
     <div className="flex h-full w-full flex-1 overflow-hidden" dir={en ? "ltr" : "rtl"}>
@@ -314,6 +289,7 @@ export default function InboxPage() {
             channelId={channelId}
             onChannelIdChange={setChannelId}
             channelsList={data?.channels ?? []}
+            channelCounts={data?.channelCounts}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
             streamConnected={streamConnected}
@@ -336,6 +312,7 @@ export default function InboxPage() {
             onBackMobile={() => setSelectedId(null)}
             onSendMessage={handleSendMessage}
             isSending={sendMutation.isPending}
+            channelOnline={selectedChannelOnline}
             onToggleMode={(mode) => selected && modeMutation.mutate({ id: selected.id, mode })}
             isTogglingMode={modeMutation.isPending}
             savedReplies={savedReplies}

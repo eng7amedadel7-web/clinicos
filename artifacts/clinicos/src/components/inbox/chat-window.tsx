@@ -27,6 +27,7 @@ export function ChatWindow({
   onBackMobile,
   onSendMessage,
   isSending,
+  channelOnline,
   onToggleMode,
   isTogglingMode,
   savedReplies,
@@ -38,8 +39,9 @@ export function ChatWindow({
   messages: InboxMessage[];
   optimisticMessages?: InboxMessage[];
   onBackMobile?: () => void;
-  onSendMessage: (text: string) => void;
+  onSendMessage: (text: string) => boolean | void | Promise<boolean | void>;
   isSending: boolean;
+  channelOnline: boolean;
   onToggleMode: (mode: "AI" | "Human") => void;
   isTogglingMode: boolean;
   savedReplies: SavedReply[] | Array<{ id: string; title: string; content: string }>;
@@ -57,11 +59,11 @@ export function ChatWindow({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [allMessages.length]);
 
-  function handleSend() {
+  async function handleSend() {
     const text = replyText.trim();
     if (!text || isSending) return;
-    onSendMessage(text);
-    setReplyText("");
+    const accepted = await onSendMessage(text);
+    if (accepted !== false) setReplyText("");
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -118,6 +120,12 @@ export function ChatWindow({
               <span className="flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
                 <ChannelIcon type={conversation.channelType} className="size-2.5" />
                 <span className="capitalize">{conversation.channel || conversation.channelType}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[9px]">
+              <span className={`size-1.5 rounded-full ${channelOnline ? "bg-emerald-500" : "bg-slate-400"}`} />
+              <span className={channelOnline ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}>
+                {channelOnline ? (en ? "Online" : "متصل") : (en ? "Channel unavailable" : "القناة غير متاحة")}
               </span>
             </div>
             {conversation.phone && (
@@ -203,7 +211,7 @@ export function ChatWindow({
           <span>{en ? "Quick Replies" : "الردود السريعة"}</span>
         </button>
 
-        {savedReplies.slice(0, 4).map((reply, i) => {
+        {savedReplies.length > 0 ? savedReplies.slice(0, 4).map((reply, i) => {
           const body = "body_template" in reply ? reply.body_template : reply.content;
           const title = "template_key" in reply ? reply.template_key : reply.title;
           return (
@@ -216,7 +224,11 @@ export function ChatWindow({
               {title}
             </button>
           );
-        })}
+        }) : (
+          <span className="text-[10px] text-muted-foreground px-1">
+            {en ? "No saved replies configured" : "لا توجد ردود محفوظة"}
+          </span>
+        )}
       </div>
 
       {/* Bottom Textarea & Send Input */}
@@ -237,7 +249,8 @@ export function ChatWindow({
 
           <button
             onClick={handleSend}
-            disabled={!replyText.trim() || isSending}
+            disabled={!replyText.trim() || isSending || !channelOnline}
+            title={channelOnline ? (en ? "Send message" : "إرسال الرسالة") : (en ? "Connect this channel before sending" : "وصّل القناة قبل الإرسال")}
             aria-label={en ? "Send message" : "إرسال الرسالة"}
             className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
           >

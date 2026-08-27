@@ -22,6 +22,7 @@ export function InboxSidebar({
   channelId,
   onChannelIdChange,
   channelsList,
+  channelCounts,
   statusFilter,
   onStatusFilterChange,
   streamConnected,
@@ -40,6 +41,7 @@ export function InboxSidebar({
   channelId: string | null;
   onChannelIdChange: (value: string | null) => void;
   channelsList: InboxChannel[];
+  channelCounts?: Record<string, number>;
   statusFilter: "all" | "needs-staff" | "ai" | "snoozed";
   onStatusFilterChange: (status: "all" | "needs-staff" | "ai" | "snoozed") => void;
   streamConnected: boolean;
@@ -115,6 +117,7 @@ export function InboxSidebar({
       <div className="flex items-center gap-1 overflow-x-auto px-2 py-1.5 border-b border-border/40 scrollbar-none">
         {channelPills.map((pill) => {
           const isActive = channelType === pill.key && !channelId;
+          const count = pill.key === "all" ? totalCount : channelCounts?.[pill.key] ?? 0;
           return (
             <button
               key={pill.key}
@@ -130,6 +133,7 @@ export function InboxSidebar({
             >
               {pill.type ? <ChannelIcon type={pill.type} className="size-2.5" /> : <Layers className="size-2.5" />}
               <span>{pill.label}</span>
+              <span className={`rounded-full px-1 text-[9px] ${isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-background/70 text-muted-foreground"}`}>{count}</span>
             </button>
           );
         })}
