@@ -192,40 +192,26 @@ router.get("/inbox/stream", async (req: Request, res: Response) => {
 
   sseHeaders(res);
   let closed = false;
-  let lastFingerprint = "";
 
-  const pushIfChanged = async (reason: "initial" | "changed" | "heartbeat" | string) => {
-    if (closed) return;
-    if (reason === "heartbeat") {
-      sseEvent(res, "heartbeat", { at: new Date().toISOString() });
-      return;
-    }
-    const snapshot = await readInboxFingerprint(session, selectedConversationId);
-    if (!snapshot.ok) {
-      sseEvent(res, "error", { reason: "sync_failed" });
-      return;
-    }
-    if (!lastFingerprint || snapshot.fingerprint !== lastFingerprint) {
-      lastFingerprint = snapshot.fingerprint;
-      sseEvent(res, "invalidate", { reason, at: new Date().toISOString() });
-    }
-  };
-
+  // 100% Pure Event-Driven Push: Broadcast domain events instantly with 0 latency
   const unsubscribeEvents = clinicEvents.subscribeClinic(session.clinicId, (event) => {
     if (closed) return;
-    // Push typed event directly to client with 0 latency
     sseEvent(res, event.type, event.data);
     sseEvent(res, "invalidate", { reason: event.type, at: event.at });
   });
 
-  await pushIfChanged("initial");
-  const changeInterval = setInterval(() => { void pushIfChanged("changed"); }, 45_000);
-  const heartbeatInterval = setInterval(() => { sseEvent(res, "heartbeat", { at: new Date().toISOString() }); }, 20_000);
+  // Initial connection handshake
+  sseEvent(res, "connected", { clinicId: session.clinicId, at: new Date().toISOString() });
+  sseEvent(res, "invalidate", { reason: "initial", at: new Date().toISOString() });
+
+  // Heartbeat watchdog (keeps socket alive across proxies/firewalls)
+  const heartbeatInterval = setInterval(() => {
+    if (!closed) sseEvent(res, "heartbeat", { at: new Date().toISOString() });
+  }, 15_000);
 
   req.on("close", () => {
     closed = true;
     unsubscribeEvents();
-    clearInterval(changeInterval);
     clearInterval(heartbeatInterval);
     res.end();
   });

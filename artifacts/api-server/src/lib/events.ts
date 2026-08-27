@@ -33,6 +33,11 @@ export type ClinicEventType =
   | "voice.call_started"
   | "voice.call_completed"
   | "voice.knowledge_updated"
+  // Settings & Templates
+  | "settings.updated"
+  | "template.created"
+  | "template.updated"
+  | "template.deleted"
   // System / Generic Invalidation
   | "system.invalidate";
 

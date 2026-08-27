@@ -3,6 +3,7 @@ import { z } from "zod";
 import { readSession } from "../lib/session";
 import { supabaseRequest } from "../lib/supabase";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 
@@ -113,6 +114,7 @@ router.post("/templates", async (req: Request, res: Response) => {
     // Return template even if table is not yet created
   }
 
+  clinicEvents.emitClinicEvent(session.clinicId, "template.created" as any, { templateId: newId, title: parsed.data.title });
   res.status(201).json(template);
 });
 
@@ -144,6 +146,7 @@ router.patch("/templates/:id", async (req: Request, res: Response) => {
     // Proceed
   }
 
+  clinicEvents.emitClinicEvent(session.clinicId, "template.updated" as any, { templateId: id });
   res.json({ id, ...parsed.data });
 });
 
@@ -165,6 +168,7 @@ router.delete("/templates/:id", async (req: Request, res: Response) => {
     // Proceed
   }
 
+  clinicEvents.emitClinicEvent(session.clinicId, "template.deleted" as any, { templateId: id });
   res.json({ success: true, id });
 });
 

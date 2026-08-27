@@ -116,7 +116,7 @@ export default function AiReceptionPage() {
     queryKey: ["ai-reception-stats"],
     queryFn: ({ signal }) => getAiStats(signal),
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 
   const stats = query.data;

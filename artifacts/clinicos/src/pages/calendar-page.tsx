@@ -102,8 +102,7 @@ export default function CalendarPage() {
     queryKey: ["calendar-appointments", selectedBranchId],
     queryFn: ({ signal }) => getCalendarAppointments(signal),
     staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    refetchInterval: false,
   });
 
   const optionsQuery = useQuery({

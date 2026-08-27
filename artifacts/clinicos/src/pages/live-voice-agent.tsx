@@ -271,7 +271,7 @@ export default function LiveVoiceAgentPage() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const view = viewFromLocation(location);
-  const overviewQuery = useQuery({ queryKey: ["voice", "overview"], queryFn: ({ signal }) => getVoiceOverview(signal), staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
+  const overviewQuery = useQuery({ queryKey: ["voice", "overview"], queryFn: ({ signal }) => getVoiceOverview(signal), staleTime: 15_000, refetchInterval: false });
   const fallbackQuery = useQuery({ queryKey: ["operations", "voice-agent"], queryFn: ({ signal }) => getVoiceAgentData(signal), enabled: view === "overview" && overviewQuery.isError, staleTime: 15_000 });
   const navigate = (next: VoiceView) => setLocation(next === "overview" ? "/voice-agent" : `/voice-agent/${next}`);
   const refresh = () => { void overviewQuery.refetch(); if (fallbackQuery.isFetched) void fallbackQuery.refetch(); };

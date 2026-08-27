@@ -4,6 +4,7 @@ import { getProfile } from "./auth";
 import { supabaseRequest } from "../lib/supabase";
 import { readSession } from "../lib/session";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 
@@ -94,6 +95,7 @@ router.patch("/settings", async (req, res) => {
     res.status(500).json({ error: "Settings were saved, but the updated profile could not be loaded." });
     return;
   }
+  clinicEvents.emitClinicEvent(current.session.clinicId, "settings.updated", { clinicId: current.session.clinicId });
   res.json(profile);
 });
 

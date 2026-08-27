@@ -224,8 +224,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
     queryKey: ["operations", "summary", "dashboard"],
     queryFn: ({ signal }) => getOperationsSummary(signal),
     staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    refetchInterval: false,
     refetchOnWindowFocus: true,
     retry: 1,
   });

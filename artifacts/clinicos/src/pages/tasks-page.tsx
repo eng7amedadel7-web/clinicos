@@ -147,17 +147,17 @@ export default function TasksPage() {
   const followUpsQuery = useQuery({
     queryKey: ["operations", "follow-ups", selectedBranchId],
     queryFn: ({ signal }) => getOperationsList("follow-ups", signal, selectedBranchId === "all" ? undefined : selectedBranchId),
-    staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false,
+    staleTime: 15_000, refetchInterval: false,
   });
   const noShowsQuery = useQuery({
     queryKey: ["operations", "no-shows", selectedBranchId],
     queryFn: ({ signal }) => getOperationsList("no-shows", signal, selectedBranchId === "all" ? undefined : selectedBranchId),
-    staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false,
+    staleTime: 15_000, refetchInterval: false,
   });
   const waitlistQuery = useQuery({
     queryKey: ["operations", "waitlist", selectedBranchId],
     queryFn: ({ signal }) => getOperationsList("waitlist", signal, selectedBranchId === "all" ? undefined : selectedBranchId),
-    staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false,
+    staleTime: 15_000, refetchInterval: false,
   });
 
   const followUpAction = useMutation({

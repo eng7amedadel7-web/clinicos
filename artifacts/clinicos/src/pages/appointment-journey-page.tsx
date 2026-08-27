@@ -56,7 +56,7 @@ export default function AppointmentJourneyPage() {
   const [location] = useLocation();
   const [slipOpen, setSlipOpen] = useState(false);
   const id = location.split("/")[2] ?? "";
-  const query = useQuery({ queryKey: ["appointment-journey", id], queryFn: ({ signal }) => getJourney(id, signal), enabled: Boolean(id), staleTime: 15_000, refetchInterval: 30_000, refetchIntervalInBackground: false });
+  const query = useQuery({ queryKey: ["appointment-journey", id], queryFn: ({ signal }) => getJourney(id, signal), enabled: Boolean(id), staleTime: 15_000, refetchInterval: false });
   if (query.isLoading) return <section className="mx-auto max-w-[1150px]"><div className="surface flex min-h-[320px] items-center justify-center text-sm text-[hsl(var(--muted-foreground))]">{en ? "Loading appointment journey..." : "جارٍ تحميل رحلة الموعد..."}</div></section>;
   if (query.isError || !query.data) return <section className="mx-auto max-w-[1150px]"><div className="surface flex min-h-[320px] flex-col items-center justify-center p-10 text-center"><AlertTriangle className="mb-3 text-[#a64036] dark:text-[#eb9a90]" /><p className="text-sm font-bold dark:text-[#e2ecf1]">{en ? "Could not load appointment journey" : "تعذر تحميل رحلة الموعد"}</p><p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">{query.error instanceof Error ? query.error.message : (en ? "A temporary error occurred." : "حدث خطأ مؤقت.")}</p><button className="primary-button mt-5" onClick={() => query.refetch()}><RefreshCw size={15} /> {en ? "Retry" : "إعادة المحاولة"}</button></div></section>;
   const data = query.data;
