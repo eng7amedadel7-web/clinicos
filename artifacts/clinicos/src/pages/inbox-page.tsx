@@ -9,46 +9,12 @@ import {
   type InboxMessage,
 } from "@/lib/inbox-api";
 import { usePreferences } from "@/lib/preferences";
+import { useRealtimeStatus } from "@/lib/realtime";
 import { InboxSidebar } from "@/components/inbox/inbox-sidebar";
 import { ChatWindow } from "@/components/inbox/chat-window";
 import { PatientSheet } from "@/components/inbox/patient-sheet";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WorkflowBuilderModal } from "@/components/workflow-builder-modal";
-
-function useInboxLiveUpdates(selectedId: string | null) {
-  const queryClient = useQueryClient();
-  const [connected, setConnected] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
-    const query = selectedId ? `?conversationId=${encodeURIComponent(selectedId)}` : "";
-    const source = new EventSource(`/api/inbox/stream${query}`, { withCredentials: true });
-    source.onopen = () => setConnected(true);
-
-    const handleInvalidate = () => {
-      setConnected(true);
-      void queryClient.invalidateQueries({ queryKey: ["inbox"] });
-      if (selectedId) {
-        void queryClient.invalidateQueries({ queryKey: ["inbox-operations", selectedId] });
-      }
-    };
-
-    source.addEventListener("invalidate", handleInvalidate);
-    source.addEventListener("inbox.message_received", handleInvalidate);
-    source.addEventListener("inbox.message_sent", handleInvalidate);
-    source.addEventListener("inbox.handoff_requested", handleInvalidate);
-    source.addEventListener("inbox.mode_changed", handleInvalidate);
-    source.addEventListener("heartbeat", () => setConnected(true));
-    source.onerror = () => setConnected(false);
-
-    return () => {
-      setConnected(false);
-      source.close();
-    };
-  }, [queryClient, selectedId]);
-
-  return connected;
-}
 
 export default function InboxPage() {
   const queryClient = useQueryClient();
@@ -79,18 +45,15 @@ export default function InboxPage() {
   const [outcomeNote, setOutcomeNote] = useState("");
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
 
-  const streamConnected = useInboxLiveUpdates(selectedId);
+  const realtimeStatus = useRealtimeStatus();
 
   // Queries
   const inboxQuery = useQuery({
     queryKey: ["inbox", selectedId],
     queryFn: ({ signal }) => getInboxPayload(selectedId, signal),
-    staleTime: 15_000,
-    // Vercel instances do not share the in-memory SSE event bus. Keep a short
-    // authenticated refresh as a durable fallback for inbound channel events.
-    refetchInterval: 15_000,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
+    staleTime: Infinity,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
@@ -310,7 +273,7 @@ export default function InboxPage() {
             channelCounts={data?.channelCounts}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
-            streamConnected={streamConnected}
+            realtimeStatus={realtimeStatus}
             onRefresh={() => inboxQuery.refetch()}
             isRefreshing={inboxQuery.isFetching}
             en={en}

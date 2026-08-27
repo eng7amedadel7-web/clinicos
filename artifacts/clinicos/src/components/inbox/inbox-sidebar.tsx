@@ -8,6 +8,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import type { InboxChannel, InboxConversation } from "@/lib/inbox-api";
+import type { RealtimeStatus } from "@/lib/realtime";
 import { ChannelIcon, formatRelativeTime } from "./inbox-icons";
 
 export function InboxSidebar({
@@ -25,7 +26,7 @@ export function InboxSidebar({
   channelCounts,
   statusFilter,
   onStatusFilterChange,
-  streamConnected,
+  realtimeStatus,
   onRefresh,
   isRefreshing,
   en,
@@ -44,7 +45,7 @@ export function InboxSidebar({
   channelCounts?: Record<string, number>;
   statusFilter: "all" | "needs-staff" | "ai" | "snoozed";
   onStatusFilterChange: (status: "all" | "needs-staff" | "ai" | "snoozed") => void;
-  streamConnected: boolean;
+  realtimeStatus: RealtimeStatus;
   onRefresh: () => void;
   isRefreshing: boolean;
   en: boolean;
@@ -78,13 +79,13 @@ export function InboxSidebar({
         <div className="flex items-center gap-1.5">
           <div
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold border ${
-              streamConnected
+              realtimeStatus === "live"
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60"
                 : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60"
             }`}
           >
-            {streamConnected ? <Wifi className="size-2.5" /> : <WifiOff className="size-2.5" />}
-            <span>{streamConnected ? (en ? "Live" : "مباشر") : (en ? "Polling" : "تحديث دوري")}</span>
+            {realtimeStatus === "live" ? <Wifi className="size-2.5" /> : <WifiOff className="size-2.5" />}
+            <span>{realtimeStatus === "live" ? (en ? "Live" : "مباشر") : realtimeStatus === "connecting" ? (en ? "Connecting" : "جاري الاتصال") : (en ? "Disconnected" : "غير متصل")}</span>
           </div>
 
           <button

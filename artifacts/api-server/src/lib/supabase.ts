@@ -12,10 +12,14 @@ type RequestInitLike = {
   body?: string;
 };
 
-function directSupabaseConfig() {
+export function getSupabasePublicConfig() {
   const url = process.env.SUPABASE_URL?.trim();
   const key = (process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY)?.trim();
   return url && key ? { url: url.replace(/\/+$/, ""), key } : null;
+}
+
+function directSupabaseConfig() {
+  return getSupabasePublicConfig();
 }
 
 async function parseResponse<T>(response: Response): Promise<SupabaseResponse<T>> {

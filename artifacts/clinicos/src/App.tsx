@@ -71,7 +71,7 @@ import { QuickAddModal } from '@/components/quick-add-modal';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
-import { useRealtimeSync } from '@/lib/realtime';
+import { RealtimeStatusContext, useRealtimeSync } from '@/lib/realtime';
 import { getOperationsSummary } from '@/lib/operations-api';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 } } });
@@ -994,7 +994,7 @@ function ProtectedShell() {
   const { language } = usePreferences();
   const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
   const needsLogin = sessionQuery.isError || !sessionQuery.data;
-  useRealtimeSync();
+  const realtimeStatus = useRealtimeSync(sessionQuery.data?.clinic.id);
 
   useEffect(() => {
     if (needsLogin && location !== '/login') {
@@ -1029,8 +1029,9 @@ function ProtectedShell() {
   if (needsLogin) return null;
   const session = sessionQuery.data;
   return (
-    <NotificationsProvider>
-      <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr">
+    <RealtimeStatusContext.Provider value={realtimeStatus}>
+      <NotificationsProvider>
+        <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr">
         <Sidebar clinicName={session.clinic.name} userName={session.user.fullName} mobileOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
         {menuOpen ? <div className="sidebar-overlay md:hidden" role="presentation" onClick={() => setMenuOpen(false)} /> : null}
         <div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl">
@@ -1066,8 +1067,9 @@ function ProtectedShell() {
             </Suspense>
           </div>
         </div>
-      </div>
-    </NotificationsProvider>
+        </div>
+      </NotificationsProvider>
+    </RealtimeStatusContext.Provider>
   );
 }
 

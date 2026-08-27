@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { supabaseAuthRequest, supabaseRequest } from "../lib/supabase";
+import { getSupabasePublicConfig, supabaseAuthRequest, supabaseRequest } from "../lib/supabase";
 import {
   clearSession,
   readSession,
@@ -398,6 +398,39 @@ router.get("/session", async (req, res) => {
     return;
   }
   res.json(profile);
+});
+
+router.get("/realtime-token", async (req, res) => {
+  const session = readSession(req);
+  if (!session) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+
+  const userResult = await supabaseRequest<SupabaseAuthUser>(
+    "/auth/v1/user",
+    { headers: restHeaders(session.accessToken) },
+  );
+  if (!userResult.ok || !userResult.data?.id || userResult.data.id !== session.userId) {
+    clearSession(res);
+    res.status(401).json({ error: "Your session has expired. Please sign in again." });
+    return;
+  }
+
+  const profile = await getProfile(userResult.data, session.accessToken);
+  if (!profile || profile.clinic.id !== session.clinicId) {
+    clearSession(res);
+    res.status(403).json({ error: "This account is no longer assigned to the selected clinic." });
+    return;
+  }
+
+  const publicConfig = getSupabasePublicConfig();
+  if (!publicConfig) {
+    res.status(503).json({ error: "Realtime configuration is unavailable." });
+    return;
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ url: publicConfig.url, anonKey: publicConfig.key, accessToken: session.accessToken, clinicId: profile.clinic.id });
 });
 
 router.post("/logout", (_req, res) => {
