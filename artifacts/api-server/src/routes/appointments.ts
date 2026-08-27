@@ -1,15 +1,19 @@
 import { Router } from "express";
 import { readSession } from "../lib/session";
+import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 
 const router = Router();
 
-type AppointmentRow = { id?: string; public_id?: string; patient_id?: string; branch_id?: string; doctor_id?: string; service_id?: string; slot_id?: string; appointment_status?: string; scheduled_at?: string; booking_number?: string | null; queue_number?: number | null; notes?: string | null };
+type AppointmentRow = { id?: string; public_id?: string; clinic_id?: string; patient_id?: string; branch_id?: string; doctor_id?: string; service_id?: string; slot_id?: string; appointment_status?: string; scheduled_at?: string; booking_number?: string | null; queue_number?: number | null; notes?: string | null; created_at?: string | null; updated_at?: string | null; confirmed_at?: string | null; completed_at?: string | null; cancelled_at?: string | null; cancellation_reason?: string | null };
 type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string };
 type DoctorRow = { id?: string; name?: string; specialization?: string | null };
 type ServiceRow = { id?: string; name?: string; duration_minutes?: number };
 type SlotRow = { id?: string; doctor_id?: string; service_id?: string; start_time?: string; end_time?: string; slot_status?: string };
 type AppointmentInput = { patientId?: unknown; slotId?: unknown; scheduledAt?: unknown; status?: unknown; notes?: unknown; appointmentType?: unknown };
+type CheckinRow = { status?: string; checked_in_at?: string | null; called_at?: string | null; in_service_at?: string | null; completed_at?: string | null; cancelled_at?: string | null; created_at?: string | null };
+type FollowUpRow = { status?: string; followup_goal?: string | null; next_due_at?: string | null; created_at?: string | null };
+type NoShowRow = { case_status?: string; classification?: string | null; risk_level?: string | null; last_activity_at?: string | null; created_at?: string | null };
 
 function appointmentHeaders(accessToken: string, extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...extra };
@@ -124,6 +128,50 @@ router.post("/appointments", async (req, res) => {
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حجز الموعد." }); return; }
   res.status(201).json(result.data?.[0] ?? null);
+});
+
+router.get("/appointments/:id/journey", async (req, res) => {
+  let session;
+  try {
+    session = await requireClinicPermission(req, "Appointments", "appointments", "read");
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return;
+  }
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+  const appointmentResult = await supabaseRequest<AppointmentRow[]>(
+    `/rest/v1/appointments?select=id,public_id,clinic_id,patient_id,branch_id,scheduled_at,appointment_status,booking_number,queue_number,created_at,updated_at,confirmed_at,completed_at,cancelled_at,cancellation_reason&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(req.params.id)}&limit=1`,
+    { headers },
+  );
+  if (!appointmentResult.ok) { res.status(appointmentResult.status || 502).json({ error: "تعذر تحميل بيانات الموعد." }); return; }
+  const appointment = appointmentResult.data?.[0];
+  if (!appointment?.id) { res.status(404).json({ error: "الموعد غير موجود في العيادة الحالية." }); return; }
+
+  const [checkinsResult, followUpsResult, noShowsResult] = await Promise.all([
+    supabaseRequest<CheckinRow[]>(`/rest/v1/appointment_checkins?select=status,checked_in_at,called_at,in_service_at,completed_at,cancelled_at,created_at&${clinicFilter(session.clinicId)}&appointment_id=eq.${encodeURIComponent(appointment.id)}&order=created_at.desc&limit=1`, { headers }),
+    supabaseRequest<FollowUpRow[]>(`/rest/v1/follow_up_cases?select=status,followup_goal,next_due_at,created_at&${clinicFilter(session.clinicId)}&appointment_id=eq.${encodeURIComponent(appointment.id)}&order=created_at.desc&limit=1`, { headers }),
+    supabaseRequest<NoShowRow[]>(`/rest/v1/no_show_cases?select=case_status,classification,risk_level,last_activity_at,created_at&${clinicFilter(session.clinicId)}&appointment_id=eq.${encodeURIComponent(appointment.id)}&order=created_at.desc&limit=1`, { headers }),
+  ]);
+  if (!checkinsResult.ok || !followUpsResult.ok || !noShowsResult.ok) { res.status(502).json({ error: "تعذر تحميل بيانات رحلة الموعد المرتبطة." }); return; }
+
+  const checkin = checkinsResult.data?.[0];
+  const events: Array<{ id: string; event_type: string; actor_type: string; occurred_at: string }> = [];
+  const addEvent = (id: string, eventType: string, occurredAt?: string | null, actorType = "النظام") => { if (occurredAt) events.push({ id, event_type: eventType, actor_type: actorType, occurred_at: occurredAt }); };
+  addEvent("created", "تم إنشاء الحجز", appointment.created_at);
+  addEvent("confirmed", "تم تأكيد الموعد", appointment.confirmed_at);
+  addEvent("checked-in", "تم تسجيل الوصول", checkin?.checked_in_at, "الاستقبال");
+  addEvent("called", "تم استدعاء المستخدم", checkin?.called_at, "الاستقبال");
+  addEvent("in-service", "بدأت الخدمة", checkin?.in_service_at, "الفريق الطبي");
+  addEvent("completed", "اكتملت الزيارة", appointment.completed_at || checkin?.completed_at);
+  addEvent("cancelled", "تم إلغاء الموعد", appointment.cancelled_at || checkin?.cancelled_at);
+  events.sort((left, right) => Date.parse(left.occurred_at) - Date.parse(right.occurred_at));
+
+  res.json({
+    appointment,
+    events,
+    followUp: followUpsResult.data?.[0] || null,
+    noShow: noShowsResult.data?.[0] || null,
+  });
 });
 
 router.patch("/appointments/:id", async (req, res) => {
