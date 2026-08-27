@@ -272,7 +272,7 @@ router.post("/inbox/:id/outcome", async (req, res) => {
 
 router.patch("/inbox/:id/mode", async (req, res) => {
   let session;
-  try { session = await requireClinicPermission(req, "inbox", "conversations", "handoff"); } catch (error) { respondToPermissionError(res, error); return; }
+  try { session = await requireClinicPermission(req, "inbox", "handoffs", "handoff"); } catch (error) { respondToPermissionError(res, error); return; }
   const mode = req.body?.mode === "AI" ? "AI" : req.body?.mode === "Human" ? "Human" : "";
   if (!mode) { res.status(400).json({ error: "وضع المحادثة غير صالح." }); return; }
   const conversation = await supabaseRequest<Conversation[]>(`/rest/v1/conversations?select=id&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(req.params.id)}&limit=1`, { headers: headers(session.accessToken) });
@@ -290,7 +290,7 @@ router.patch("/inbox/:id/mode", async (req, res) => {
 router.post("/inbox/:id/messages", async (req, res) => {
   let session;
   try {
-    session = await requireClinicPermission(req, "inbox", "conversations", "handoff");
+    session = await requireClinicPermission(req, "inbox", "messages", "create");
     await assertConversation(session, req.params.id);
     await assertOutboundReady(session, req.params.id);
   } catch (error) {
@@ -318,7 +318,7 @@ router.post("/inbox/:id/messages", async (req, res) => {
     return;
   }
   clinicEvents.emitClinicEvent(session.clinicId, "inbox.message_sent", { conversationId, messageId: reply.message_id, content });
-  res.status(201).json({ id: reply.message_id ?? null, conversation_id: conversationId, content, direction: "outgoing", sender_type: "staff", message_status: "queued" });
+  res.status(201).json({ id: reply.message_id ?? null, conversation_id: conversationId, content, direction: "outgoing", sender_type: "clinic", message_status: "sent" });
 });
 
 export default router;
