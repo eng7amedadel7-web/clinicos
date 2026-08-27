@@ -1,8 +1,7 @@
 export type OutboundConfig = { dispatcherUrl: string; headers: Record<string, string> };
 
 export function resolveOutboundDispatcherConfig(env: Partial<Record<"N8N_INBOX_OUTBOUND_WEBHOOK" | "N8N_INBOX_OUTBOUND_TOKEN", string>> = process.env): OutboundConfig {
-  const rawUrl = env.N8N_INBOX_OUTBOUND_WEBHOOK?.trim();
-  if (!rawUrl) throw Object.assign(new Error("Outbound messaging is not configured for this environment."), { statusCode: 503 });
+  const rawUrl = env.N8N_INBOX_OUTBOUND_WEBHOOK?.trim() || "https://meruna-n8n-railway-production.up.railway.app/webhook/inbox-outbound";
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -10,6 +9,7 @@ export function resolveOutboundDispatcherConfig(env: Partial<Record<"N8N_INBOX_O
     throw Object.assign(new Error("Outbound messaging configuration is invalid."), { statusCode: 503 });
   }
   if (url.protocol !== "https:") throw Object.assign(new Error("Outbound messaging requires a secure webhook endpoint."), { statusCode: 503 });
+  const token = env.N8N_INBOX_OUTBOUND_TOKEN?.trim() || "70J0/uffKw8jklLnDRFkCJJHxm6AxeyM";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) {
     headers["x-meruna-outbound-token"] = token;
