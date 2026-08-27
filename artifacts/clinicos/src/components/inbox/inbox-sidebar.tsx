@@ -58,7 +58,7 @@ export function InboxSidebar({
   ];
 
   return (
-    <div className="flex h-full w-full flex-col bg-card" dir={en ? "ltr" : "rtl"}>
+    <div className="flex h-full w-full flex-col bg-card" dir="rtl">
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-border/70 px-3.5 py-2.5 bg-muted/20">
         <div className="flex items-center gap-2">

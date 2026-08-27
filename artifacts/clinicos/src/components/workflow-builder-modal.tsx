@@ -118,7 +118,7 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-fade-in" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-fade-in" dir="rtl">
       <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-scale-up">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-5">

@@ -44,7 +44,7 @@ export function NetworkStatusBanner() {
           ? "bg-[#3d1f1b] text-[#eb9a90] border border-[#5a2a25]"
           : "bg-[#123528] text-[#7fd0b4] border border-[#1d4a35]"
       }`}
-      dir={en ? "ltr" : "rtl"}
+      dir="rtl"
       role="status"
     >
       {!isOnline ? (

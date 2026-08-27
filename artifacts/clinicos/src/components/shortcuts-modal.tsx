@@ -33,7 +33,7 @@ export function ShortcutsModal({ open, onClose, en = false }: ShortcutsModalProp
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in"
       onClick={onClose}
-      dir={en ? "ltr" : "rtl"}
+      dir="rtl"
     >
       <div
         className="surface w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-border space-y-5 animate-rise"

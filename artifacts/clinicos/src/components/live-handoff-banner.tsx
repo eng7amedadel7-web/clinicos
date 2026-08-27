@@ -18,7 +18,7 @@ export function LiveHandoffBanner({ onTakeOver }: { onTakeOver?: () => void }) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 md:p-5 shadow-lg animate-rise" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="relative overflow-hidden rounded-3xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 md:p-5 shadow-lg animate-rise" dir="rtl">
       <button
         type="button"
         onClick={() => setIsVisible(false)}

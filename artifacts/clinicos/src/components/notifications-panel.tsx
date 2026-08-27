@@ -116,7 +116,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
     <div
       ref={panelRef}
       className="absolute end-0 top-full z-50 mt-2 w-84 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card shadow-2xl animate-in slide-in-from-top-2 duration-150 overflow-hidden"
-      dir={en ? "ltr" : "rtl"}
+      dir="rtl"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/80 bg-muted/40 px-4 py-3">

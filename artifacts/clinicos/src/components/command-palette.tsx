@@ -151,7 +151,7 @@ export function CommandPalette({
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <div dir={ar ? 'rtl' : 'ltr'} className="overflow-hidden">
+      <div dir="rtl" className="overflow-hidden">
         <CommandInput
           value={query}
           onValueChange={setQuery}

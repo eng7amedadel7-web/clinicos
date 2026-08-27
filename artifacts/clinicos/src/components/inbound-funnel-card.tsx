@@ -54,7 +54,7 @@ export function InboundFunnelCard() {
   ];
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="surface rounded-3xl p-6 md:p-8 space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
         <div>

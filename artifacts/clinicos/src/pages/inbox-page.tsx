@@ -271,7 +271,7 @@ export default function InboxPage() {
   const savedReplies = savedRepliesQuery.data ?? [];
 
   return (
-    <div className="flex h-full w-full flex-1 overflow-hidden" dir={en ? "ltr" : "rtl"}>
+    <div className="flex h-full w-full flex-1 overflow-hidden" dir="rtl">
       <div className="flex flex-1 min-h-0 overflow-hidden border border-border/80 bg-card rounded-xl shadow-xs">
         {/* SIDEBAR: Hidden on mobile when a chat is open */}
         <div
@@ -339,7 +339,7 @@ export default function InboxPage() {
 
       {/* Internal Note Dialog */}
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-        <DialogContent dir={en ? "ltr" : "rtl"}>
+        <DialogContent dir="rtl">
           <DialogHeader>
             <DialogTitle>{en ? "Add Internal Staff Note" : "إضافة ملاحظة داخلية للموظفين"}</DialogTitle>
           </DialogHeader>
@@ -369,7 +369,7 @@ export default function InboxPage() {
 
       {/* Snooze Dialog */}
       <Dialog open={snoozeDialogOpen} onOpenChange={setSnoozeDialogOpen}>
-        <DialogContent dir={en ? "ltr" : "rtl"}>
+        <DialogContent dir="rtl">
           <DialogHeader>
             <DialogTitle>{en ? "Snooze Conversation" : "تأجيل المحادثة مؤقتاً"}</DialogTitle>
           </DialogHeader>
@@ -414,7 +414,7 @@ export default function InboxPage() {
 
       {/* Outcome Dialog */}
       <Dialog open={outcomeDialogOpen} onOpenChange={setOutcomeDialogOpen}>
-        <DialogContent dir={en ? "ltr" : "rtl"}>
+        <DialogContent dir="rtl">
           <DialogHeader>
             <DialogTitle>{en ? "Record Conversation Outcome" : "تسجيل نتيجة المحادثة"}</DialogTitle>
           </DialogHeader>

@@ -100,7 +100,7 @@ export function ChatWindow({
   }
 
   return (
-    <div className="flex flex-1 flex-col min-w-0 h-full bg-background" dir={en ? "ltr" : "rtl"}>
+    <div className="flex flex-1 flex-col min-w-0 h-full bg-background" dir="rtl">
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-border/80 px-4 py-2.5 bg-card/90 backdrop-blur shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">

@@ -48,7 +48,7 @@ export function AppointmentSlipModal({
     >
       <div
         className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-slate-900 border border-slate-200 print:border-none print:shadow-none print:max-w-none print:w-full"
-        dir={en ? "ltr" : "rtl"}
+        dir="rtl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Screen only */}

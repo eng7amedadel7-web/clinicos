@@ -74,7 +74,7 @@ export function EnhancedEmptyState({ type, title, description, actionLabel, onAc
   const Icon = config.icon;
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center animate-fade-in md:p-12" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center animate-fade-in md:p-12" dir="rtl">
       {/* Decorative Icon Glow */}
       <div className="relative mb-5 flex size-18 items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-inner">
         <Icon className="size-8" />

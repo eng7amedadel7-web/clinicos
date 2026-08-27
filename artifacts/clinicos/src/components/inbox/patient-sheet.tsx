@@ -36,7 +36,7 @@ export function PatientSheet({
   return (
     <aside
       className="flex w-72 shrink-0 flex-col border-r border-border bg-card shadow-sm animate-in slide-in-from-left-4 duration-200"
-      dir={en ? "ltr" : "rtl"}
+      dir="rtl"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-muted/20">

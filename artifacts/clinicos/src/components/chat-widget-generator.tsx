@@ -36,7 +36,7 @@ export function ChatWidgetGenerator() {
   };
 
   return (
-    <div className="surface rounded-3xl p-6 md:p-8 space-y-8 animate-rise" dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="surface rounded-3xl p-6 md:p-8 space-y-8 animate-rise" dir="rtl">
       {/* Section Header */}
       <div className="flex flex-col justify-between gap-4 border-b border-border/70 pb-6 md:flex-row md:items-center">
         <div className="flex items-center gap-3.5">
