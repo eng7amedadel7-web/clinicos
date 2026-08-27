@@ -18,6 +18,19 @@ export type ClinicRealtimeEvent = {
 
 type RealtimeListener = (event: ClinicRealtimeEvent) => void;
 
+type RealtimeConfig = {
+  url: string;
+  anonKey: string;
+  accessToken: string;
+  clinicId: string;
+};
+
+type DatabaseChange = {
+  eventType?: string;
+  new?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+};
+
 class RealtimeEventHub {
   private listeners = new Set<RealtimeListener>();
 
@@ -32,8 +45,8 @@ class RealtimeEventHub {
     for (const listener of this.listeners) {
       try {
         listener(event);
-      } catch (err) {
-        console.error("[RealtimeHub] Listener error:", err);
+      } catch (error) {
+        console.error("[RealtimeHub] Listener error", error instanceof Error ? error.name : "unknown");
       }
     }
   }
@@ -41,41 +54,27 @@ class RealtimeEventHub {
 
 export const realtimeHub = new RealtimeEventHub();
 
-type RealtimeConfig = {
-  url: string;
-  anonKey: string;
-  accessToken: string;
-  clinicId: string;
-};
-
-async function loadRealtimeConfig(signal: AbortSignal): Promise<RealtimeConfig | null> {
-  try {
-    const response = await fetch("/api/auth/realtime-token", {
-      credentials: "include",
-      cache: "no-store",
-      signal,
-    });
-    if (!response.ok) return null;
-    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!payload || typeof payload !== "object") return null;
-    if (
-      typeof payload.url !== "string" ||
-      typeof payload.anonKey !== "string" ||
-      typeof payload.accessToken !== "string" ||
-      typeof payload.clinicId !== "string"
-    ) {
-      return null;
-    }
-    return payload as unknown as RealtimeConfig;
-  } catch {
-    return null;
+async function loadRealtimeConfig(signal: AbortSignal): Promise<RealtimeConfig> {
+  const response = await fetch("/api/auth/realtime-token", {
+    credentials: "include",
+    cache: "no-store",
+    signal,
+  });
+  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!response.ok || !payload) throw new Error("Realtime authentication failed");
+  if (
+    typeof payload.url !== "string" ||
+    typeof payload.anonKey !== "string" ||
+    typeof payload.accessToken !== "string" ||
+    typeof payload.clinicId !== "string"
+  ) {
+    throw new Error("Realtime configuration is incomplete");
   }
+  return payload as unknown as RealtimeConfig;
 }
 
-// Map event types to specific React Query keys for targeted, zero-flicker background refetching
 function getQueryKeysForEvent(eventType: string): string[][] {
   const keys: string[][] = [["dashboard"]];
-
   if (eventType.startsWith("inbox.")) {
     keys.push(["inbox"], ["inbox-operations"]);
   } else if (eventType.startsWith("appointment.")) {
@@ -91,35 +90,70 @@ function getQueryKeysForEvent(eventType: string): string[][] {
   } else {
     keys.push(["inbox"], ["inbox-operations"], ["appointments"], ["patients"], ["operations"], ["calendar"]);
   }
-
   return keys;
 }
 
-// Debounced batch query invalidator (60ms window) to prevent UI thrashing during rapid events
 function createBatchInvalidator(queryClient: QueryClient) {
   const pendingKeys = new Set<string>();
   let timer: ReturnType<typeof setTimeout> | null = null;
-
   return (eventType: string) => {
-    const keys = getQueryKeysForEvent(eventType);
-    for (const key of keys) {
-      pendingKeys.add(JSON.stringify(key));
-    }
-
+    for (const key of getQueryKeysForEvent(eventType)) pendingKeys.add(JSON.stringify(key));
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       for (const serializedKey of pendingKeys) {
         try {
-          const queryKey = JSON.parse(serializedKey) as string[];
-          void queryClient.invalidateQueries({ queryKey });
+          void queryClient.invalidateQueries({ queryKey: JSON.parse(serializedKey) as string[] });
         } catch {
-          // ignore parsing error
+          // A local cache key cannot affect authorization or persisted data.
         }
       }
       pendingKeys.clear();
       timer = null;
     }, 60);
   };
+}
+
+function eventForDatabaseChange(table: string, payload: DatabaseChange): ClinicRealtimeEvent {
+  const row = payload.new ?? {};
+  const eventType = payload.eventType ?? "UPDATE";
+  if (table === "messages" && eventType === "INSERT") {
+    const incoming = String(row.direction ?? "").toLowerCase() === "incoming";
+    return {
+      type: incoming ? "inbox.message_received" : "inbox.message_sent",
+      data: {
+        conversationId: typeof row.conversation_id === "string" ? row.conversation_id : undefined,
+        messageId: typeof row.id === "string" ? row.id : undefined,
+        content: typeof row.content === "string" ? row.content : undefined,
+      },
+      at: new Date().toISOString(),
+    };
+  }
+  if (table === "appointments" && eventType === "INSERT") {
+    return { type: "appointment.booked", data: {}, at: new Date().toISOString() };
+  }
+  if (table === "appointments" && String(row.appointment_status ?? "").toLowerCase() === "cancelled") {
+    return { type: "appointment.cancelled", data: {}, at: new Date().toISOString() };
+  }
+  const eventByTable: Record<string, string> = {
+    appointment_checkins: "appointment.updated",
+    appointment_slots: "appointment.updated",
+    appointment_waitlists: "operations.waitlist_updated",
+    appointments: "appointment.updated",
+    branches: "invalidate",
+    channels: "inbox.invalidate",
+    conversations: "inbox.invalidate",
+    doctors: "invalidate",
+    follow_up_cases: "operations.followup_updated",
+    messages: "inbox.invalidate",
+    no_show_cases: "operations.noshow_updated",
+    patients: "patient.updated",
+    services: "invalidate",
+    voice_agent_call_logs: "voice.updated",
+    voice_agent_configurations: "voice.updated",
+    voice_knowledge_sources: "voice.knowledge_updated",
+    voice_operational_settings: "voice.updated",
+  };
+  return { type: eventByTable[table] ?? "invalidate", data: {}, at: new Date().toISOString() };
 }
 
 export function useRealtimeSync(clinicId?: string): RealtimeStatus {
@@ -131,158 +165,110 @@ export function useRealtimeSync(clinicId?: string): RealtimeStatus {
     batchInvalidateRef.current = createBatchInvalidator(queryClient);
   }, [queryClient]);
 
-  // Primary Liveness Layer: Server-Sent Events (SSE) Stream
   useEffect(() => {
-    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
-
-    let source: EventSource | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-    let retryDelay = 1000;
-    let isCleanedUp = false;
-
-    const connectSSE = () => {
-      if (isCleanedUp) return;
-
-      try {
-        source = new EventSource("/api/inbox/stream", { withCredentials: true });
-
-        source.onopen = () => {
-          retryDelay = 1000;
-          setStatus("live");
-        };
-
-        const handleIncomingEvent = (type: string, e: MessageEvent) => {
-          try {
-            const data = e.data ? (JSON.parse(e.data) as Record<string, unknown>) : {};
-            const eventPayload: ClinicRealtimeEvent = {
-              type,
-              data,
-              at: new Date().toISOString(),
-            };
-
-            // Broadcast to all UI listeners (notifications, counters, pages)
-            realtimeHub.emit(eventPayload);
-
-            // Invalidate targeted queries silently in background
-            batchInvalidateRef.current(type);
-          } catch {
-            batchInvalidateRef.current(type);
-          }
-        };
-
-        const domainEvents = [
-          "inbox.message_received",
-          "inbox.message_sent",
-          "inbox.handoff_requested",
-          "inbox.mode_changed",
-          "inbox.note_added",
-          "inbox.snoozed",
-          "inbox.unsnoozed",
-          "inbox.outcome_set",
-          "appointment.booked",
-          "appointment.updated",
-          "appointment.cancelled",
-          "patient.created",
-          "patient.updated",
-          "patient.deleted",
-          "operations.waitlist_updated",
-          "operations.followup_updated",
-          "operations.noshow_updated",
-          "queue.link_issued",
-          "queue.ticket_updated",
-          "voice.knowledge_updated",
-          "invalidate",
-        ];
-
-        for (const eventName of domainEvents) {
-          source.addEventListener(eventName, (e: MessageEvent) => handleIncomingEvent(eventName, e));
-        }
-
-        source.addEventListener("heartbeat", () => setStatus("live"));
-
-        source.onerror = () => {
-          if (source) {
-            source.close();
-            source = null;
-          }
-          if (!isCleanedUp) {
-            setStatus("connecting");
-            reconnectTimeout = setTimeout(connectSSE, retryDelay);
-            retryDelay = Math.min(retryDelay * 1.5, 15000);
-          }
-        };
-      } catch (err) {
-        console.error("[Realtime] Failed to initialize SSE stream", err);
-        setStatus("error");
-      }
-    };
-
-    connectSSE();
-
-    return () => {
-      isCleanedUp = true;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (source) {
-        source.close();
-        source = null;
-      }
-    };
-  }, []);
-
-  // Secondary Liveness Layer: Direct Supabase Realtime channel (if configured/available)
-  useEffect(() => {
-    if (!clinicId) return;
+    if (!clinicId) {
+      setStatus("connecting");
+      return;
+    }
 
     const controller = new AbortController();
     let client: SupabaseClient | null = null;
+    let channel: ReturnType<SupabaseClient["channel"]> | null = null;
     let disposed = false;
 
-    const connectSupabase = async () => {
+    const connect = async () => {
       const config = await loadRealtimeConfig(controller.signal);
-      if (disposed || !config || config.clinicId !== clinicId) return;
+      if (disposed || config.clinicId !== clinicId) return;
 
-      try {
-        client = createClient(config.url, config.anonKey, {
-          auth: { persistSession: false, autoRefreshToken: false },
-          realtime: { params: { eventsPerSecond: 10 } },
-        });
-        client.realtime.setAuth(config.accessToken);
+      client = createClient(config.url, config.anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        realtime: { params: { eventsPerSecond: 10 } },
+      });
+      client.realtime.setAuth(config.accessToken);
+      channel = client.channel("clinic-inbox");
 
-        const channel = client.channel(`clinic-inbox:${config.clinicId}`);
-        const onDatabaseChange = (table: string) => {
-          if (!disposed) {
-            batchInvalidateRef.current(`table.${table}`);
-          }
-        };
+      const handleChange = (table: string, payload: DatabaseChange) => {
+        if (disposed) return;
+        const event = eventForDatabaseChange(table, payload);
+        realtimeHub.emit(event);
+        batchInvalidateRef.current(event.type);
+      };
 
-        channel.on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `clinic_id=eq.${config.clinicId}` }, () => onDatabaseChange("messages"));
-        channel.on("postgres_changes", { event: "*", schema: "public", table: "conversations", filter: `clinic_id=eq.${config.clinicId}` }, () => onDatabaseChange("conversations"));
-        channel.on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `clinic_id=eq.${config.clinicId}` }, () => onDatabaseChange("appointments"));
-
-        channel.subscribe((channelStatus) => {
-          if (disposed) return;
-          if (channelStatus === "SUBSCRIBED") setStatus("live");
-        });
-      } catch {
-        // SSE remains the primary authoritative sync channel
+      const tables = [
+        "appointment_checkins",
+        "appointment_slots",
+        "appointment_waitlists",
+        "appointments",
+        "branches",
+        "channels",
+        "conversations",
+        "doctors",
+        "follow_up_cases",
+        "messages",
+        "no_show_cases",
+        "patients",
+        "services",
+        "voice_agent_call_logs",
+        "voice_agent_configurations",
+        "voice_knowledge_sources",
+        "voice_operational_settings",
+      ] as const;
+      for (const table of tables) {
+        channel.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table, filter: `clinic_id=eq.${config.clinicId}` },
+          (payload) => handleChange(table, payload as DatabaseChange),
+        );
       }
+
+      channel.subscribe((channelStatus) => {
+        if (disposed) return;
+        if (channelStatus === "SUBSCRIBED") setStatus("live");
+        if (channelStatus === "CHANNEL_ERROR" || channelStatus === "TIMED_OUT" || channelStatus === "CLOSED") {
+          setStatus("error");
+        }
+      });
+
+      const tokenRefreshInterval = window.setInterval(async () => {
+        try {
+          const nextConfig = await loadRealtimeConfig(controller.signal);
+          if (!disposed && nextConfig.clinicId === config.clinicId) client?.realtime.setAuth(nextConfig.accessToken);
+        } catch {
+          // Token refresh failure is reflected by the channel status; no data refresh is used here.
+        }
+      }, 45 * 60_000);
+
+      return () => {
+        window.clearInterval(tokenRefreshInterval);
+        void client?.removeChannel(channel!);
+        client = null;
+        channel = null;
+      };
     };
 
-    void connectSupabase();
+    let cleanup: (() => void) | undefined;
+    void connect()
+      .then((dispose) => {
+        cleanup = dispose;
+        if (disposed) cleanup?.();
+      })
+      .catch(() => {
+        if (!disposed) setStatus("error");
+      });
 
     return () => {
       disposed = true;
       controller.abort();
+      cleanup?.();
       void client?.removeAllChannels();
       client = null;
+      channel = null;
     };
-  }, [clinicId]);
+  }, [clinicId, queryClient]);
 
   return status;
 }
 
 export function useRealtimeSubscription(handler: (event: ClinicRealtimeEvent) => void) {
-  useEffect(() => {
-    return realtimeHub.subscribe(handler);
-  }, [handler]);
+  useEffect(() => realtimeHub.subscribe(handler), [handler]);
 }
