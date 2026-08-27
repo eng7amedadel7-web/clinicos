@@ -365,11 +365,13 @@ function AuthLayout({ children, mode, languageToggle = false }: { children: Reac
         </div>
 
         {/* Form area */}
-        <div className="m-auto w-full max-w-[440px] py-8">{children}</div>
+        <div className="m-auto w-full max-w-[460px] py-8">
+          <div className="rounded-[28px] border border-white/10 bg-white/[.04] p-7 shadow-[0_20px_60px_rgba(2,10,25,.45)] backdrop-blur-md sm:p-9">{children}</div>
+        </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between text-[10px] text-white/25">
-          <span>MERUNA SYSTEM</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block size-1.5 rounded-full bg-cyan-400/70" /> MERUNA</span>
           <span className="flex items-center gap-1.5"><ShieldCheck size={11} /> {text.secure}</span>
         </div>
       </section>
@@ -548,7 +550,7 @@ function LoginPage() {
           data-testid="button-demo-login"
         >
           <Sparkles className="size-4 text-cyan-400" />
-          <span>{lang === 'ar' ? '🚀 تجربة فورية كمدير عيادة (Demo)' : '🚀 Quick Demo Login as Clinic Admin'}</span>
+          <span>{lang === 'ar' ? 'تجربة فورية كمدير عيادة (Demo)' : 'Quick Demo Login as Clinic Admin'}</span>
         </button>
 
         {/* Divider */}

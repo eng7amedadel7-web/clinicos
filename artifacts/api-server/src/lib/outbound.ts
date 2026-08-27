@@ -10,8 +10,16 @@ export function resolveOutboundDispatcherConfig(env: Partial<Record<"N8N_INBOX_O
     throw Object.assign(new Error("Outbound messaging configuration is invalid."), { statusCode: 503 });
   }
   if (url.protocol !== "https:") throw Object.assign(new Error("Outbound messaging requires a secure webhook endpoint."), { statusCode: 503 });
-  const token = env.N8N_INBOX_OUTBOUND_TOKEN?.trim();
-  return { dispatcherUrl: url.toString(), headers: { "Content-Type": "application/json", ...(token ? { "x-meruna-outbound-token": token } : {}) } };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["x-meruna-outbound-token"] = token;
+    headers["Authorization"] = token;
+    if (!token.toLowerCase().startsWith("bearer ")) {
+      headers["X-API-KEY"] = token;
+      headers["x-token"] = token;
+    }
+  }
+  return { dispatcherUrl: url.toString(), headers };
 }
 
 export async function dispatchOutbound(conversationId: string, messageId?: string | null) {
