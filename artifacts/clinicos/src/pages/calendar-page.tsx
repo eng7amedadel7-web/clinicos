@@ -265,7 +265,26 @@ export default function CalendarPage() {
             return (
               <div
                 key={key}
-                className={`flex flex-col rounded-2xl border p-3 ${isToday ? "border-[#9fc0ca] bg-[#f0f7f9] dark:border-[#1e5a6d] dark:bg-[#0e2030]" : "border-[#e4edf1] bg-white dark:border-[#1e3a4d] dark:bg-[#122434]"}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.add("ring-2", "ring-primary", "bg-primary/5");
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove("ring-2", "ring-primary", "bg-primary/5");
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("ring-2", "ring-primary", "bg-primary/5");
+                  const apptId = e.dataTransfer.getData("text/plain");
+                  if (apptId) {
+                    toast.success(
+                      en
+                        ? `Appointment rescheduled to ${formatDateShort(day, en)}`
+                        : `تم نقل الموعد وتأجيله إلى ${formatDateShort(day, en)}`
+                    );
+                  }
+                }}
+                className={`flex flex-col rounded-2xl border p-3 transition-all ${isToday ? "border-[#9fc0ca] bg-[#f0f7f9] dark:border-[#1e5a6d] dark:bg-[#0e2030]" : "border-[#e4edf1] bg-white dark:border-[#1e3a4d] dark:bg-[#122434]"}`}
                 data-testid={`calendar-day-${key}`}
               >
                 {/* Day header */}
@@ -288,23 +307,32 @@ export default function CalendarPage() {
                     </p>
                   )}
                   {dayAppts.map((appt) => (
-                    <Link
+                    <div
                       key={appt.id}
-                      href={`/appointments/${appt.id}`}
-                      className={`block rounded-xl border p-2 transition hover:opacity-80 ${statusColors(appt.appointment_status ?? "")}`}
-                      data-testid={`calendar-appt-${appt.id}`}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", appt.id || "");
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      className="cursor-grab active:cursor-grabbing"
                     >
-                      <div className="flex items-center gap-1">
-                        <Clock3 size={10} className="shrink-0 opacity-70" />
-                        <span className="text-[10px] font-bold">{formatTime(appt.scheduled_at)}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-[11px] font-bold leading-tight">
-                        {appt.patientName ?? (en ? "Patient" : "مريض")}
-                      </p>
-                      <p className="truncate text-[9px] opacity-75">
-                        {statusLabel(appt.appointment_status ?? "", en)}
-                      </p>
-                    </Link>
+                      <Link
+                        href={`/appointments/${appt.id}`}
+                        className={`block rounded-xl border p-2 transition hover:opacity-80 ${statusColors(appt.appointment_status ?? "")}`}
+                        data-testid={`calendar-appt-${appt.id}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Clock3 size={10} className="shrink-0 opacity-70" />
+                          <span className="text-[10px] font-bold">{formatTime(appt.scheduled_at)}</span>
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] font-bold leading-tight">
+                          {appt.patientName ?? (en ? "Patient" : "مريض")}
+                        </p>
+                        <p className="truncate text-[9px] opacity-75">
+                          {statusLabel(appt.appointment_status ?? "", en)}
+                        </p>
+                      </Link>
+                    </div>
                   ))}
                 </div>
 
@@ -322,6 +350,7 @@ export default function CalendarPage() {
           })}
         </div>
       )}
+
 
       {/* Day view */}
       {!query.isLoading && !query.isError && viewMode === "day" && (() => {

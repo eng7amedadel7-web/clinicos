@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import './meruna-home.css';
 import { ChannelSignalSection, MomentumMarquee, PatientJourneySection } from './meruna-home-inspired';
 import HomeTrustSections from './meruna-home-trust';
@@ -232,6 +232,22 @@ function LiveWorkspacePulse({ lang, clinicName, stats }: { lang: Lang; clinicNam
   return <aside className="meruna-live-pulse" aria-label={isArabic ? 'ملخص عيادتك الحالي' : 'Your live clinic summary'}><div><span className="meruna-kicker">{isArabic ? 'مساحة العمل متصلة' : 'WORKSPACE CONNECTED'}</span><h2>{isArabic ? `مرحباً بفريق ${clinicName}` : `Welcome back, ${clinicName}`}</h2><p>{isArabic ? 'هذه لمحة مباشرة من مساحة عيادتك الحالية.' : 'A live glimpse from your current clinic workspace.'}</p></div><div className="meruna-live-stats">{stats.slice(0, 3).map((stat) => <div key={`${stat.label}-${stat.value}`}><strong>{stat.value}</strong><span>{stat.label}</span><small>{stat.helper}</small></div>)}</div><a href="/dashboard" className="meruna-live-link">{isArabic ? 'فتح مساحة العمل' : 'Open workspace'} <ArrowUpRight size={15} /></a></aside>;
 }
 
+/* ─── Testimonials data ───────────────────────────────────────────── */
+const testimonials = [
+  { nameAr: 'د. سميرة ناصر', nameEn: 'Dr. Samira Nasser', roleAr: 'مديرة شبكة نورا الصحية', roleEn: 'Director, Noura Health Network', initials: 'SN', quoteAr: 'لأول مرة أشعر أن هناك من يمسك كل الخيوط، حتى عندما تكون غرفة الانتظار ممتلئة.', quoteEn: 'For the first time, it feels like someone is holding every thread — even when the waiting room is full.', stat: '+18 hrs / week' },
+  { nameAr: 'د. خالد العمري', nameEn: 'Dr. Khaled Al-Omari', roleAr: 'طب الأسنان — الرياض', roleEn: 'Dental Specialist, Riyadh', initials: 'KO', quoteAr: 'انخفضت الغيابات بنسبة 40% في أول شهرين. الفريق وفّر ساعات كانت تضيع في المتابعة اليدوية.', quoteEn: 'No-shows dropped 40% in the first two months. The team saved hours that used to vanish into manual follow-ups.', stat: '−40% no-shows' },
+  { nameAr: 'أ. منى الشهري', nameEn: 'Mona Al-Shahri', roleAr: 'مديرة عمليات — مجموعة عيادات الشفاء', roleEn: 'Operations Manager, Al-Shifa Clinics', initials: 'MS', quoteAr: 'المريض الآن يحجز ويتأكد ويتذكر موعده بدون أن نتصل به مرة واحدة. كل شيء آلي ويشعر بالإنسانية.', quoteEn: 'Patients now book, confirm, and remember their appointment without a single call from us. Everything is automated and feels human.', stat: '0 missed follow-ups' },
+  { nameAr: 'د. أحمد فاروق', nameEn: 'Dr. Ahmed Farouk', roleAr: 'رئيس قسم العيادات الخارجية', roleEn: 'Head of Outpatient Clinics', initials: 'AF', quoteAr: 'الصوت الذكي يستجيب للمرضى بطبيعية كاملة. لا أحد يشعر أنه يتحدث لآلة.', quoteEn: 'The voice agent responds with complete naturalness. No patient feels like they are talking to a machine.', stat: '4.9★ patient rating' },
+  { nameAr: 'د. لمياء حسن', nameEn: 'Dr. Lamia Hassan', roleAr: 'عيادة الأطفال — القاهرة', roleEn: 'Pediatric Clinic, Cairo', initials: 'LH', quoteAr: 'الآن كل رسالة واتساب لها رد في ثوانٍ. المرضى سعداء والفريق مرتاح.', quoteEn: 'Every WhatsApp message now gets a reply in seconds. Patients are happy, the team is calm.', stat: '<5s response time' },
+];
+
+const globalStats = [
+  { labelAr: 'عيادة موثوقة', labelEn: 'Trusted Clinics', target: 120, suffix: '+' },
+  { labelAr: 'رضا المرضى', labelEn: 'Patient Satisfaction', target: 98, suffix: '%' },
+  { labelAr: 'تغطية يومية', labelEn: 'Daily Coverage', target: 24, suffix: '/7' },
+  { labelAr: 'مواعيد فائتة أقل', labelEn: 'Fewer No-Shows', target: 38, suffix: '%' },
+];
+
 function App() {
   const [lang, setLang] = useState<Lang>('ar');
   const [theme, setTheme] = useState<Theme>('dark');
@@ -246,7 +262,13 @@ function App() {
   const [activeSection, setActiveSection] = useState('method');
   const [isThinking, setIsThinking] = useState(false);
   const [autoPlay, setAutoPlay] = useState(true);
+  const [scrollY, setScrollY] = useState(0);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [countersVisible, setCountersVisible] = useState(false);
+  const [counterValues, setCounterValues] = useState(globalStats.map(() => 0));
+  const [heroMouse, setHeroMouse] = useState({ x: 0, y: 0 });
   const replyTimerRef = useRef<number | null>(null);
+  const statsRef = useRef<HTMLDivElement | null>(null);
   const sessionQuery = useGetAuthSession({ query: { queryKey: getGetAuthSessionQueryKey(), retry: false, staleTime: 60_000 } });
   const summaryQuery = useGetDashboardSummary({ query: { queryKey: getGetDashboardSummaryQueryKey(), enabled: Boolean(sessionQuery.data), retry: false, staleTime: 30_000 } });
   const t = copy[lang];
@@ -283,6 +305,55 @@ function App() {
     const timer = window.setTimeout(() => setToast(''), 3200);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  // Scroll tracking for sticky CTA
+  useEffect(() => {
+    const handler = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => window.removeEventListener('scroll', handler);
+  }, []);
+
+  // Testimonials auto-advance
+  useEffect(() => {
+    const timer = window.setInterval(() => setTestimonialIndex((i) => (i + 1) % testimonials.length), 5500);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Stats counter animation
+  useEffect(() => {
+    if (!statsRef.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !countersVisible) {
+        setCountersVisible(true);
+        globalStats.forEach((stat, idx) => {
+          const duration = 1800;
+          const steps = 50;
+          const interval = duration / steps;
+          let step = 0;
+          const timer = window.setInterval(() => {
+            step++;
+            setCounterValues((prev) => {
+              const next = [...prev];
+              next[idx] = Math.round((stat.target * step) / steps);
+              return next;
+            });
+            if (step >= steps) window.clearInterval(timer);
+          }, interval);
+        });
+      }
+    }, { threshold: 0.3 });
+    observer.observe(statsRef.current);
+    return () => observer.disconnect();
+  }, [countersVisible]);
+
+  // Hero mouse parallax
+  const handleHeroMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHeroMouse({
+      x: ((e.clientX - rect.left) / rect.width - 0.5) * 30,
+      y: ((e.clientY - rect.top) / rect.height - 0.5) * 30,
+    });
+  }, []);
 
   const activeSample = useMemo(() => t.chat.samples[sampleIndex], [t, sampleIndex]);
   const currentMessages = messages.length ? messages : activeSample.messages;
@@ -381,11 +452,41 @@ function App() {
       <MomentumMarquee locale={isArabic ? 'ar' : 'en'} />
 
       <main id="top">
+        {/* STICKY DEMO CTA PILL */}
+        <div
+          className={`fixed bottom-6 right-6 z-40 transition-all duration-500 ${scrollY > 400 ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}
+          aria-hidden={scrollY <= 400}
+        >
+          <button
+            type="button"
+            onClick={openDemo}
+            data-testid="button-sticky-demo"
+            className="flex items-center gap-2.5 rounded-full bg-[hsl(var(--primary))] px-5 py-3 text-[12px] font-bold text-white shadow-[0_8px_30px_hsl(var(--primary)/.4)] transition-all hover:scale-105 hover:shadow-[0_12px_40px_hsl(var(--primary)/.55)]"
+          >
+            <Sparkles className="size-4" />
+            {isArabic ? 'احجز عرضاً تجريبياً' : 'Book a live demo'}
+          </button>
+        </div>
+
         {/* HERO SECTION */}
-        <section className="cf-hero relative overflow-hidden pb-20 pt-32 md:pb-28 md:pt-40">
+        <section
+          className="cf-hero relative overflow-hidden pb-20 pt-32 md:pb-28 md:pt-40"
+          onMouseMove={handleHeroMouseMove}
+        >
           <div className="absolute inset-0 cf-grid-paper opacity-45" />
-          <div className="absolute -right-40 top-[-190px] size-[600px] rounded-full bg-[hsl(var(--primary)/.08)] blur-3xl" />
-          <div className="absolute -left-48 bottom-[-300px] size-[620px] rounded-full border-[90px] border-[hsl(var(--accent)/.08)]" />
+          {/* Parallax orbs */}
+          <div
+            className="pointer-events-none absolute -right-40 top-[-190px] size-[600px] rounded-full bg-[hsl(var(--primary)/.08)] blur-3xl transition-transform duration-[800ms] ease-out"
+            style={{ transform: `translate(${heroMouse.x * 0.6}px, ${heroMouse.y * 0.5}px)` }}
+          />
+          <div
+            className="pointer-events-none absolute -left-48 bottom-[-300px] size-[620px] rounded-full border-[90px] border-[hsl(var(--accent)/.08)] transition-transform duration-[1000ms] ease-out"
+            style={{ transform: `translate(${heroMouse.x * -0.4}px, ${heroMouse.y * -0.3}px)` }}
+          />
+          <div
+            className="pointer-events-none absolute left-1/3 top-1/4 size-[220px] rounded-full bg-[hsl(var(--accent)/.06)] blur-2xl transition-transform duration-[1200ms] ease-out"
+            style={{ transform: `translate(${heroMouse.x * 0.8}px, ${heroMouse.y * 0.7}px)` }}
+          />
           <div className="cf-container relative grid items-center gap-14 lg:grid-cols-[.84fr_1.16fr] lg:gap-16">
             <div className={`${isArabic ? 'text-right' : 'text-left'}`}>
               <Eyebrow>{t.hero.eyebrow}</Eyebrow>
@@ -448,6 +549,22 @@ function App() {
               <span className="flex items-center gap-2"><UsersRound className="size-4 text-[hsl(var(--accent))]" />{t.trust.networks}</span>
               <span className="flex items-center gap-2"><Moon className="size-4 text-[hsl(var(--primary))]" />{t.trust.always}</span>
             </div>
+          </div>
+        </section>
+
+        {/* ANIMATED STATS COUNTER ROW */}
+        <section className="cf-blue-soft border-b border-[hsl(var(--border))] py-10">
+          <div ref={statsRef} className="cf-container grid grid-cols-2 gap-6 md:grid-cols-4">
+            {globalStats.map((stat, idx) => (
+              <div key={stat.labelEn} className="text-center">
+                <div className="cf-mono text-[36px] font-extrabold text-[hsl(var(--primary))] md:text-[48px]">
+                  {counterValues[idx]}{stat.suffix}
+                </div>
+                <div className="mt-1 text-[11px] font-bold text-[hsl(var(--muted-foreground))]">
+                  {isArabic ? stat.labelAr : stat.labelEn}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -582,26 +699,89 @@ function App() {
           </div>
         </section>
 
-        {/* TESTIMONIAL QUOTE */}
+        {/* TESTIMONIALS CAROUSEL */}
         <section className="cf-navy py-24 md:py-32">
-          <div className="cf-container grid gap-12 lg:grid-cols-[.7fr_1.3fr] lg:items-end">
-            <div>
-              <Eyebrow light>{t.testimonial.eyebrow}</Eyebrow>
-              <div className="cf-mono text-[42px] font-bold text-[hsl(var(--primary))]">{t.testimonial.stat}</div>
-              <p className="mt-2 text-[12px] text-[hsl(214_22%_68%)]">{t.testimonial.statBody}</p>
+          <div className="cf-container">
+            <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+              <div>
+                <Eyebrow light>{t.testimonial.eyebrow}</Eyebrow>
+                <h2 className="cf-display text-[32px] font-extrabold text-white md:text-[44px]">
+                  {isArabic ? 'قصص نجاح من داخل العيادات' : 'Stories from the Clinic Floor'}
+                </h2>
+              </div>
+              {/* Carousel navigation controls */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  {testimonials.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setTestimonialIndex(idx)}
+                      className={`size-2.5 rounded-full transition-all ${
+                        testimonialIndex === idx ? 'w-7 bg-[hsl(var(--primary))]' : 'bg-white/20 hover:bg-white/40'
+                      }`}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5" dir="ltr">
+                  <button
+                    type="button"
+                    onClick={() => setTestimonialIndex((i) => (i - 1 + testimonials.length) % testimonials.length)}
+                    className="flex size-9 items-center justify-center rounded-full border border-white/20 text-white transition hover:bg-white/10"
+                    aria-label="Previous testimonial"
+                  >
+                    <ChevronRight className="size-4 rotate-180" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTestimonialIndex((i) => (i + 1) % testimonials.length)}
+                    className="flex size-9 items-center justify-center rounded-full border border-white/20 text-white transition hover:bg-white/10"
+                    aria-label="Next testimonial"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              </div>
             </div>
-            <blockquote className="cf-display max-w-[780px] text-[24px] font-semibold leading-[1.45] text-[hsl(214_33%_94%)] md:text-[33px]">
-              “{t.testimonial.quote}”
-              <footer className="mt-6 flex items-center gap-3 font-sans text-[11px] not-italic text-[hsl(214_22%_68%)]">
-                <span className="flex size-9 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[10px] font-bold text-white">SN</span>
-                <span>
-                  <strong className="block text-[hsl(214_33%_94%)]">{t.testimonial.name}</strong>
-                  <span>{t.testimonial.role}</span>
-                </span>
-              </footer>
-            </blockquote>
+
+            {/* Active Testimonial Card */}
+            <div className="grid gap-10 rounded-[30px] border border-white/10 bg-white/[.04] p-8 md:grid-cols-[.65fr_1.35fr] md:items-center md:p-12">
+              <div className="border-b border-white/10 pb-6 md:border-b-0 md:border-e md:pe-8 md:pb-0">
+                <div className="cf-mono text-[36px] font-bold text-[hsl(var(--primary))] md:text-[44px]">
+                  {testimonials[testimonialIndex].stat}
+                </div>
+                <p className="mt-2 text-[12px] text-[hsl(214_22%_68%)]">
+                  {isArabic ? 'تأثير حقيقي في تشغيل العيادة' : 'Measurable impact on daily operations'}
+                </p>
+                <div className="mt-6 flex items-center gap-1 text-amber-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={i} className="text-sm">★</span>
+                  ))}
+                  <span className="ms-2 text-[11px] font-bold text-white/80">5.0 / 5.0</span>
+                </div>
+              </div>
+
+              <blockquote className="cf-display text-[22px] font-semibold leading-[1.5] text-[hsl(214_33%_94%)] md:text-[30px]">
+                “{isArabic ? testimonials[testimonialIndex].quoteAr : testimonials[testimonialIndex].quoteEn}”
+                <footer className="mt-7 flex items-center gap-3.5 font-sans text-[12px] not-italic text-[hsl(214_22%_68%)]">
+                  <span className="flex size-10 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[11px] font-bold text-white shadow-md">
+                    {testimonials[testimonialIndex].initials}
+                  </span>
+                  <div>
+                    <strong className="block text-[14px] text-[hsl(214_33%_94%)]">
+                      {isArabic ? testimonials[testimonialIndex].nameAr : testimonials[testimonialIndex].nameEn}
+                    </strong>
+                    <span className="text-[11px] text-[hsl(214_22%_68%)]">
+                      {isArabic ? testimonials[testimonialIndex].roleAr : testimonials[testimonialIndex].roleEn}
+                    </span>
+                  </div>
+                </footer>
+              </blockquote>
+            </div>
           </div>
         </section>
+
 
         {/* FAQ SECTION */}
         <FaqSection locale={isArabic ? 'ar' : 'en'} />

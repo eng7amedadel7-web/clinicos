@@ -226,8 +226,52 @@ export function CommandPalette({
 
           {(patientResults.length > 0 || appointmentResults.length > 0 || conversationResults.length > 0) && <CommandSeparator />}
           
+          {/* Quick Actions (when no search query) */}
+          {!term && (
+            <>
+              <CommandGroup heading={ar ? 'إجراءات سريعة' : 'Quick Actions'}>
+                <CommandItem
+                  value="action-new-appointment"
+                  onSelect={() => go('/calendar')}
+                  className="flex items-center gap-2 cursor-pointer text-primary font-bold"
+                >
+                  <Clock3 className="size-4 shrink-0" />
+                  <span className="flex-1">{ar ? 'حجز موعد كشف جديد' : 'Book New Appointment'}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">C</span>
+                </CommandItem>
+                <CommandItem
+                  value="action-new-patient"
+                  onSelect={() => go('/patients')}
+                  className="flex items-center gap-2 cursor-pointer text-primary font-bold"
+                >
+                  <UserRound className="size-4 shrink-0" />
+                  <span className="flex-1">{ar ? 'إضافة ملف مريض جديد' : 'Create New Patient Profile'}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">P</span>
+                </CommandItem>
+                <CommandItem
+                  value="action-voice-agent"
+                  onSelect={() => go('/voice-agent')}
+                  className="flex items-center gap-2 cursor-pointer text-primary font-bold"
+                >
+                  <PhoneCall className="size-4 shrink-0" />
+                  <span className="flex-1">{ar ? 'تشغيل وكيل المكالمات الصوتي' : 'Launch AI Voice Agent'}</span>
+                </CommandItem>
+                <CommandItem
+                  value="action-analytics"
+                  onSelect={() => go('/analytics')}
+                  className="flex items-center gap-2 cursor-pointer text-primary font-bold"
+                >
+                  <BarChart3 className="size-4 shrink-0" />
+                  <span className="flex-1">{ar ? 'استعراض تقارير العيادة' : 'View Clinic Reports & Analytics'}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">R</span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
           {pageResults.length > 0 && (
-            <CommandGroup heading={ar ? 'الصفحات' : 'Pages'}>
+            <CommandGroup heading={ar ? 'الصفحات والأقسام' : 'Pages & Sections'}>
               {pageResults.map((page) => {
                 const Icon = page.icon;
                 return (
@@ -245,6 +289,7 @@ export function CommandPalette({
               })}
             </CommandGroup>
           )}
+
         </CommandList>
         <div className="flex items-center justify-between border-t border-border/50 px-3 py-1.5 text-[10px] text-muted-foreground bg-muted/30">
           <span>{ar ? 'استخدم الأسهم للتنقل و Enter للاختيار' : 'Use arrows to navigate, Enter to select'}</span>

@@ -297,8 +297,36 @@ export function ChatWindow({
         )}
       </div>
 
-      {/* Bottom Textarea & Send Input */}
-      <div className="p-3 border-t border-border/80 bg-card shrink-0">
+      {/* AI Smart Suggestions */}
+      <div className="px-3 pt-2 pb-1 border-t border-border/40 bg-card/60 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+        <span className="flex items-center gap-1 font-bold text-primary shrink-0 text-[10px]">
+          <Sparkles className="size-3" />
+          {en ? "AI Suggestions:" : "اقتراحات الذكاء الاصطناعي:"}
+        </span>
+        {[
+          en
+            ? "Your appointment is confirmed. See you then!"
+            : "أهلاً بك! تم تأكيد موعدك بنجاح، ونتطلع لاستقبالك.",
+          en
+            ? "We have an open slot tomorrow at 5:00 PM. Would that suit you?"
+            : "يتوفر موعد بديل غداً الساعة 5:00 م، هل يناسبك؟",
+          en
+            ? "A receipt and clinic directions have been sent to your WhatsApp."
+            : "تم إرسال تذكرة الحجز واللوكيشن عبر الواتساب فوراً."
+        ].map((sug, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setReplyText(sug)}
+            className="shrink-0 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 font-medium text-foreground hover:bg-primary/15 hover:border-primary/40 transition text-[10px]"
+          >
+            {sug.slice(0, 32)}…
+          </button>
+        ))}
+      </div>
+
+      {/* Bottom Textarea & Send Input with WhatsApp Preview Trigger */}
+      <div className="p-3 border-t border-border/80 bg-card shrink-0 space-y-2">
         <div className="relative flex items-end gap-2 rounded-xl border border-border/80 bg-muted/30 p-1.5 focus-within:border-primary focus-within:bg-background transition">
           <textarea
             value={replyText}
@@ -323,7 +351,20 @@ export function ChatWindow({
             <Send className="size-3.5" />
           </button>
         </div>
+
+        {/* WhatsApp Preview Bar (if typing) */}
+        {replyText.trim().length > 0 && (
+          <div className="flex items-center justify-between rounded-xl bg-emerald-950/20 border border-emerald-500/20 px-3 py-1.5 text-[10px] text-emerald-700 dark:text-emerald-300">
+            <span className="flex items-center gap-1.5 font-bold">
+              <span>📱</span>
+              <span>{en ? "WhatsApp Live Preview:" : "معاينة الواتساب الحية للمريض:"}</span>
+              <span className="font-normal opacity-85 truncate max-w-xs">{replyText}</span>
+            </span>
+            <span className="font-mono text-[9px] opacity-70">✓✓ {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

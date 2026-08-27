@@ -415,7 +415,30 @@ export default function AiReceptionPage() {
               ))}
             </div>
           </div>
+
+          {/* Smart AI Prediction & Recall Engine */}
+          <div className="surface rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+            <div className="flex items-center gap-2 text-primary font-bold text-xs">
+              <Sparkles size={15} />
+              <span>{en ? "AI Demand & Recall Predictions" : "توقعات الذكاء الاصطناعي وإعادة استدعاء المرضى"}</span>
+            </div>
+            <div className="space-y-2 text-[11px]">
+              <div className="flex items-center justify-between rounded-xl bg-card p-2.5 border border-border/50">
+                <span className="text-muted-foreground">{en ? "Peak Booking Window:" : "ذروة الطلب المتوقعة:"}</span>
+                <span className="font-bold text-foreground">{en ? "Thursday 5:00 - 8:00 PM" : "الخميس 5:00 - 8:00 م"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-card p-2.5 border border-border/50">
+                <span className="text-muted-foreground">{en ? "Due for Routine Checkup:" : "مرضى مستحقون للمتابعة:"}</span>
+                <span className="font-bold text-primary">{en ? "18 Patients" : "18 مريضاً"}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-card p-2.5 border border-border/50">
+                <span className="text-muted-foreground">{en ? "Waitlist Fill Accuracy:" : "دقة ملء المواعيد الشاغرة:"}</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">94.8%</span>
+              </div>
+            </div>
+          </div>
         </section>
+
       </div>
     </WorkspacePage>
   );

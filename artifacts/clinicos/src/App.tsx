@@ -66,6 +66,8 @@ import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/comp
 import { NotificationsBell } from '@/components/notifications-panel';
 import { ShortcutsModal } from '@/components/shortcuts-modal';
 import { NetworkStatusBanner } from '@/components/network-status';
+import { OnboardingTour } from '@/components/onboarding-tour';
+import { QuickAddModal } from '@/components/quick-add-modal';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
@@ -682,6 +684,8 @@ function ProtectedShell() {
           <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
           <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} en={language === 'en'} />
           <NetworkStatusBanner />
+          <OnboardingTour />
+          <QuickAddModal />
           <div className="workspace-route flex min-h-0 flex-1 flex-col">
             <Suspense fallback={<RouteLoadingFallback />}>
               <Switch>

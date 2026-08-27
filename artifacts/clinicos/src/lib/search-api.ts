@@ -13,8 +13,8 @@ async function safeJson<T>(path: string, signal?: AbortSignal): Promise<T | null
 }
 
 export async function getSearchPatients(signal?: AbortSignal): Promise<SearchPatient[]> {
-  const data = await safeJson<Array<Record<string, unknown>>>("/api/patients", signal);
-  if (!Array.isArray(data)) return [];
+  const raw = await safeJson<{ items?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>("/api/patients", signal);
+  const data = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
   return data.map((row) => ({
     id: String(row.id ?? ""),
     name: typeof row.name === "string" && row.name.trim() ? row.name : "مريض بدون اسم",

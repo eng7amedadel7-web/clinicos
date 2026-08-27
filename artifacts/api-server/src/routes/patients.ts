@@ -21,11 +21,20 @@ function input(body: PatientInput) {
 router.get("/patients", async (req, res) => {
   let session;
   try { session = await requireClinicPermission(req, "Patients", "patients", "read"); } catch (error) { respondToPermissionError(res, error); return; }
-  const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=1000";
+  const limit = clampInt(req.query.limit, 1000, 1, 1000);
+  const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
+  const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=" + limit + "&offset=" + offset;
   const result = await supabaseRequest<PatientRow[]>(path, { headers: { Authorization: `Bearer ${session.accessToken}` } });
   if (!result.ok) { res.status(result.status || 502).json({ error: "Patients could not be loaded." }); return; }
-  res.json((result.data ?? []).map((patient) => ({ id: patient.id, name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم", phone: patient.phone || "—", createdAt: patient.created_at || null })));
+  const items = (result.data ?? []).map((patient) => ({ id: patient.id, name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم", phone: patient.phone || "—", createdAt: patient.created_at || null }));
+  res.json({ items, total: items.length, hasMore: items.length >= limit });
 });
+
+function clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseInt(typeof value === "string" ? value : "", 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
 
 router.post("/patients", async (req, res) => {
   let session;
