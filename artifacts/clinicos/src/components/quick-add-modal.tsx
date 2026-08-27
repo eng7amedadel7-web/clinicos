@@ -19,7 +19,7 @@ export function QuickAddModal() {
   const [patientPhone, setPatientPhone] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [patientGender, setPatientGender] = useState<'MALE' | 'FEMALE'>('MALE');
-  const [doctorName, setDoctorName] = useState('د. سارة أحمد');
+  const [doctorName, setDoctorName] = useState('طبيب عام');
   const [apptDate, setApptDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [apptTime, setApptTime] = useState('17:00');
   const [notes, setNotes] = useState('');
@@ -250,11 +250,11 @@ export function QuickAddModal() {
                       <select
                         value={doctorName}
                         onChange={(e) => setDoctorName(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-hidden focus:border-primary"
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
                       >
-                        <option value="د. سارة أحمد">د. سارة أحمد (أسنان)</option>
-                        <option value="د. خالد العمري">د. خالد العمري (جراحة)</option>
-                        <option value="د. أحمد فاروق">د. أحمد فاروق (باطنة)</option>
+                        <option value="طبيب عام">{isArabic ? 'طبيب 1 (كشف عام)' : 'General Physician 1'}</option>
+                        <option value="طبيب استشاري">{isArabic ? 'طبيب 2 (استشاري)' : 'Specialist Physician 2'}</option>
+                        <option value="طبيب جراحة">{isArabic ? 'طبيب 3 (جراحة)' : 'Surgeon 3'}</option>
                       </select>
                     </div>
                   </div>

@@ -239,10 +239,10 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
                 <div className="rounded-xl bg-card border border-border/60 p-3 text-xs shadow-xs">
                   <p className="leading-relaxed text-foreground">
                     {(isArabic ? selectedRule.templateAr : selectedRule.templateEn)
-                      .replace('{{patient_name}}', isArabic ? 'يوسف أحمد' : 'John Doe')
+                      .replace('{{patient_name}}', isArabic ? 'المريض' : 'Patient')
                       .replace('{{appointment_time}}', isArabic ? '5:30 م' : '5:30 PM')
-                      .replace('{{doctor_name}}', isArabic ? 'د. سارة' : 'Dr. Sarah')
-                      .replace('{{review_link}}', 'g.page/clinicos/review')}
+                      .replace('{{doctor_name}}', isArabic ? 'الطبيب المعالج' : 'Attending Doctor')
+                      .replace('{{review_link}}', 'g.page/clinic/review')}
                   </p>
                   <span className="mt-2 block text-end font-mono text-[9px] text-muted-foreground">
                     {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
