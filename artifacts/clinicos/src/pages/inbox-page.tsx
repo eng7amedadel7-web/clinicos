@@ -172,35 +172,6 @@ function useInboxLiveUpdates(selectedId: string | null) {
   return connected;
 }
 
-// Built-in clinic quick replies fallback
-const DEFAULT_PRESET_REPLIES = [
-  {
-    id: "hours-location",
-    title: "ساعات العمل والموقع",
-    content: "أهلاً بك! نسعد بخدمتك في عيادة MERUNA. مواعيد العمل من السبت إلى الخميس: 10:00 ص - 9:00 م. الموقع: الفرع الرئيسي، برج الأطباء، الدور الرابع.",
-  },
-  {
-    id: "booking-confirm",
-    title: "تأكيد موعد كشف",
-    content: "تم تسجيل رغبتك في حجز موعد. يرجى تزويدنا بالاسم الثلاثي ورقم الهاتف والموعد المفضل للتأكيد فوراً.",
-  },
-  {
-    id: "price-list",
-    title: "الاستفسار عن الأسعار",
-    content: "سعر الكشف الأولي هو 250 ر.س شامل الفحص السريري والاستشارة الطبية، وتوجد باقات متابعة دورية مخفضة.",
-  },
-  {
-    id: "fasting-instructions",
-    title: "تعليمات ما قبل التحاليل",
-    content: "نرجو الصيام لمدة 8 إلى 12 ساعة قبل موعد الفحص المخبري مع شرب الماء فقط عند الحاجة.",
-  },
-  {
-    id: "doctor-busy",
-    title: "تحويل للطبيب المختص",
-    content: "تم تحويل استفسارك إلى الطبيب المختص وسيتم الرد عليك في أقرب وقت ممكن خلال ساعات العمل.",
-  },
-];
-
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const { language } = usePreferences();
@@ -474,9 +445,8 @@ export default function InboxPage() {
     }
   };
 
-  const savedReplies = (savedRepliesQuery.data && savedRepliesQuery.data.length > 0)
-    ? savedRepliesQuery.data
-    : DEFAULT_PRESET_REPLIES;
+  const savedReplies = savedRepliesQuery.data ?? [];
+  const selectedChannelOnline = selected?.channelStatus === "connected";
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -874,9 +844,9 @@ export default function InboxPage() {
                           {selected.channel || (en ? "Direct Channel" : "قناة مباشرة")}
                         </span>
                         <span>•</span>
-                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                          <span className="size-1.5 rounded-full bg-emerald-500" />
-                          {en ? "Online" : "متصل"}
+                        <span className={`flex items-center gap-1 font-medium ${selectedChannelOnline ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                          <span className={`size-1.5 rounded-full ${selectedChannelOnline ? "bg-emerald-500" : "bg-slate-400"}`} />
+                          {selectedChannelOnline ? (en ? "Online" : "متصل") : (en ? "Channel unavailable" : "القناة غير متاحة")}
                         </span>
                       </div>
                     </div>
@@ -974,7 +944,7 @@ export default function InboxPage() {
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6">
                       {/* Security & Confidentiality Notice */}
                       <div className="mx-auto max-w-md rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-center text-[10px] text-muted-foreground backdrop-blur-xs">
-                        🔒 {en ? "Encrypted HIPAA-ready communication log" : "سجل محادثات مشفر ومقيد بضوابط الخصوصية الطبية للعيادة"}
+                        {en ? "Clinic communication log protected by server permissions" : "سجل محادثات العيادة محمي بصلاحيات الخادم"}
                       </div>
 
                       {/* Messages rendering */}
@@ -1069,26 +1039,30 @@ export default function InboxPage() {
 
                     {/* Chat Bottom Composer */}
                     <div className="border-t border-border bg-card p-3 md:p-4">
-                      {/* Quick Canned Replies Bar */}
-                      <div className="mb-2.5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                        <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-primary">
-                          <Zap className="size-3.5" />
-                          <span>{en ? "Quick Replies:" : "ردود سريعة:"}</span>
-                        </span>
-                        {savedReplies.slice(0, 4).map((reply) => {
-                          const replyTextValue = "body_template" in reply ? reply.body_template : reply.content;
-                          const replyTitle = "template_key" in reply ? reply.template_key : reply.title;
-                          return (
+                      {/* Backend-provided quick replies only */}
+                      {savedReplies.length > 0 ? (
+                        <div className="mb-2.5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                          <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-primary">
+                            <Zap className="size-3.5" />
+                            <span>{en ? "Quick Replies:" : "ردود محفوظة:"}</span>
+                          </span>
+                          {savedReplies.slice(0, 4).map((reply) => (
                             <button
                               key={reply.id}
-                              onClick={() => setReplyText(replyTextValue)}
+                              onClick={() => setReplyText(reply.body_template)}
                               className="shrink-0 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 text-[10px] font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 active:scale-95"
                             >
-                              {replyTitle}
+                              {reply.template_key}
                             </button>
-                          );
-                        })}
-                      </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mb-2.5 text-[10px] text-muted-foreground">
+                          {savedRepliesQuery.isError
+                            ? (en ? "Saved replies are unavailable right now." : "الردود المحفوظة غير متاحة حاليًا.")
+                            : (en ? "No saved replies configured for this clinic." : "لا توجد ردود محفوظة مكوّنة لهذه العيادة.")}
+                        </p>
+                      )}
 
                       {/* Input Box & Action Buttons */}
                       <div className="flex items-end gap-2">
@@ -1114,7 +1088,8 @@ export default function InboxPage() {
 
                         <button
                           onClick={handleSendMessage}
-                          disabled={!replyText.trim() || sendMutation.isPending}
+                          disabled={!replyText.trim() || sendMutation.isPending || !selectedChannelOnline}
+                          title={selectedChannelOnline ? (en ? "Send message" : "إرسال الرسالة") : (en ? "Connect this channel before sending" : "وصّل القناة قبل الإرسال")}
                           className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md transition hover:bg-primary/90 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
                         >
                           {sendMutation.isPending ? (
@@ -1128,8 +1103,12 @@ export default function InboxPage() {
                       <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground px-1">
                         <span>
                           {en
-                            ? "Messages are dispatched via secured clinic webhooks & logged to patient record."
-                            : "يتم توجيه الرسائل عبر مسار الربط المعتمد للعيادة وحفظها مباشرة في سجل المريض."}
+                            ? selectedChannelOnline
+                              ? "Messages are dispatched via the secured clinic route and logged to the patient record."
+                              : "Replies are disabled until this channel is connected."
+                            : selectedChannelOnline
+                              ? "يتم توجيه الرسائل عبر مسار الخادم المحمي للعيادة وحفظها في سجل المريض."
+                              : "الإرسال متوقف حتى تصبح هذه القناة متصلة."}
                         </span>
                         <span>{replyText.length > 0 ? `${replyText.length} حرف` : ""}</span>
                       </div>
@@ -1144,7 +1123,7 @@ export default function InboxPage() {
                           {en ? "Patient Overview" : "بطاقة المريض"}
                         </strong>
                         <Link
-                          href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`}
+                          href={`/patients/${encodeURIComponent(selected.patient_id || selected.id)}`}
                           className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
                         >
                           <span>{en ? "Patient 360" : "الملف الكامل"}</span>
@@ -1174,7 +1153,7 @@ export default function InboxPage() {
                           ) : null}
 
                           <Link
-                            href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`}
+                            href={`/patients/${encodeURIComponent(selected.patient_id || selected.id)}`}
                             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary/10 py-1.5 text-[10px] font-bold text-primary transition hover:bg-primary/20"
                           >
                             <UserRound className="size-3" />

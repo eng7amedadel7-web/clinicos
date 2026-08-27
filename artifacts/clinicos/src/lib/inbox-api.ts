@@ -78,8 +78,11 @@ export async function getInboxPayload(conversationId: string | null, signal?: Ab
 
 export async function getSavedReplies(language: "ar" | "en" = "ar", signal?: AbortSignal): Promise<SavedReply[]> {
   const response = await fetch(`/api/inbox/saved-replies?language=${language}`, { credentials: "include", signal });
-  const payload = (await response.json().catch(() => [])) as SavedReply[] | { error?: string };
-  if (!response.ok || !Array.isArray(payload)) return [];
+  const payload = (await response.json().catch(() => null)) as SavedReply[] | { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل الردود المحفوظة.");
+  }
+  if (!Array.isArray(payload)) throw new Error("تعذر تحميل الردود المحفوظة.");
   return payload;
 }
 
