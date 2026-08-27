@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import { getAnalyticsSummary } from "@/lib/analytics-api";
 import { usePreferences } from "@/lib/preferences";
+import { InboundFunnelCard } from "@/components/inbound-funnel-card";
 
 const CHANNEL_COLORS: Record<string, string> = {
   whatsapp: "#25D366",
@@ -299,6 +300,9 @@ export default function AnalyticsPage() {
 
       {data && (
         <>
+          {/* ── INBOUND CONVERSION FUNNEL ── */}
+          <InboundFunnelCard />
+
           {/* ── APPOINTMENTS SECTION ── */}
           <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs">
             <SectionTitle icon={CalendarCheck}>

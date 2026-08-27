@@ -71,6 +71,7 @@ import { QuickAddModal } from '@/components/quick-add-modal';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
+import { useRealtimeSync } from '@/lib/realtime';
 import { getOperationsSummary } from '@/lib/operations-api';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 } } });
@@ -641,6 +642,7 @@ function ProtectedShell() {
   const { language } = usePreferences();
   const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
   const needsLogin = sessionQuery.isError || !sessionQuery.data;
+  useRealtimeSync();
 
   useEffect(() => {
     if (needsLogin && location !== '/login') {

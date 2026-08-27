@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@paddle/paddle-js": "1.4.2"
+    "@paddle/paddle-js": "1.4.2",
+    "@supabase/supabase-js": "^2.112.4"
   }
 }

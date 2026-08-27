@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
@@ -261,10 +261,14 @@ function BillingView({ data }: { data: Json }) {
   return <Card title={en ? "Plan & Billing" : "الخطة والفوترة"} subtitle={en ? "Read-only summary; no payment or cancellation commands inside Voice" : "ملخص قراءة فقط؛ لا توجد أوامر دفع أو إلغاء داخل Voice"} icon={CircleDollarSign}><div className="grid gap-3 md:grid-cols-2"><DataField label={en ? "Subscription Status" : "حالة الاشتراك"} value={text(subscription.status, en ? "No visible subscription" : "لا يوجد اشتراك ظاهر")} /><DataField label={en ? "Plan" : "الخطة"} value={text(plan.name, en ? "Unavailable" : "غير متاحة")} /><DataField label={en ? "Data State" : "حالة البيانات"} value={text(billing.data_state, "unavailable")} /><DataField label={en ? "Last Updated" : "آخر تحديث"} value={text(billing.as_of, "Verified by MERUNA")} /></div><div className="voice-agent-managed-note"><ShieldCheck size={15} /><span>{en ? "Payment, plan changes, and cancellation are gated off this page and are not executed from the frontend." : "الدفع وتغيير الخطة والإلغاء محجوبة من هذه الصفحة ولا تُنفذ من الواجهة."}</span></div></Card>;
 }
 
+import { VoiceStudioModal } from "@/components/voice-studio-modal";
+import { LiveHandoffBanner } from "@/components/live-handoff-banner";
+
 export default function LiveVoiceAgentPage() {
   const { language, theme } = usePreferences();
   const en = language === "en";
   const dark = theme === "dark";
+  const [studioOpen, setStudioOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const view = viewFromLocation(location);
   const overviewQuery = useQuery({ queryKey: ["voice", "overview"], queryFn: ({ signal }) => getVoiceOverview(signal), staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
@@ -274,5 +278,31 @@ export default function LiveVoiceAgentPage() {
   const data = overviewQuery.data || (fallbackQuery.data ? { dashboard: { metrics: { calls_today: fallbackQuery.data.total }, recent_calls: fallbackQuery.data.calls, agent: fallbackQuery.data.configuration, settings: fallbackQuery.data.operationalSettings } } : undefined);
   const isFetching = overviewQuery.isFetching || fallbackQuery.isFetching;
   const content = view === "overview" ? (overviewQuery.isLoading && !data ? <LoadingState /> : overviewQuery.isError && !data ? <ErrorState onRetry={refresh} /> : <OverviewView data={data || {}} onNavigate={navigate} />) : view === "calls" || view === "bookings" ? <ListView kind={view} onNavigate={navigate} /> : <DetailView kind={view} />;
-  return <main className={`voice-agent-page mx-auto w-full max-w-[1440px] ${dark ? "bg-[#0b1824]" : "bg-[#f6f9fa]"}`} dir="rtl"><PageHeader view={view} onRefresh={refresh} fetching={isFetching} /><VoiceNavigation active={view} onNavigate={navigate} />{content}</main>;
+  
+  return (
+    <main className={`voice-agent-page mx-auto w-full max-w-[1440px] ${dark ? "bg-[#0b1824]" : "bg-[#f6f9fa]"}`} dir="rtl">
+      {/* Top Banner for Urgent Escalations */}
+      <div className="mb-4">
+        <LiveHandoffBanner />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <PageHeader view={view} onRefresh={refresh} fetching={isFetching} />
+        <button
+          type="button"
+          onClick={() => setStudioOpen(true)}
+          className="flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-md transition hover:opacity-90"
+        >
+          <Sparkles className="size-4" />
+          <span>{en ? "Open Voice Agent Studio 🎙️" : "استوديو تخصيص الوكيل الصوتي 🎙️"}</span>
+        </button>
+      </div>
+
+      <VoiceNavigation active={view} onNavigate={navigate} />
+      {content}
+
+      <VoiceStudioModal isOpen={studioOpen} onClose={() => setStudioOpen(false)} />
+    </main>
+  );
 }
+

@@ -13,6 +13,7 @@ import { InboxSidebar } from "@/components/inbox/inbox-sidebar";
 import { ChatWindow } from "@/components/inbox/chat-window";
 import { PatientSheet } from "@/components/inbox/patient-sheet";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { WorkflowBuilderModal } from "@/components/workflow-builder-modal";
 
 function useInboxLiveUpdates(selectedId: string | null) {
   const queryClient = useQueryClient();
@@ -76,6 +77,7 @@ export default function InboxPage() {
   const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
   const [selectedOutcome, setSelectedOutcome] = useState("حجز موعد بنجاح");
   const [outcomeNote, setOutcomeNote] = useState("");
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
 
   const streamConnected = useInboxLiveUpdates(selectedId);
 
@@ -451,6 +453,10 @@ export default function InboxPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Automated Follow-Up Workflow Triggers Modal */}
+      <WorkflowBuilderModal isOpen={workflowModalOpen} onClose={() => setWorkflowModalOpen(false)} />
     </div>
   );
 }
+
