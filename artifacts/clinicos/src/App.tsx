@@ -1,4 +1,4 @@
-import { createContext, type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, type CSSProperties, type ReactNode, Suspense, lazy, useContext, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -56,23 +56,27 @@ import {
   useUpdateClinicSettings,
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { FollowUpsPage, LiveAppointmentsPage, LiveInboxPage, LivePatientsPage, NoShowsPage, WaitlistPage } from '@/pages/live-operations-pages';
-import LiveDashboard from '@/pages/live-dashboard';
-import LiveVoiceAgentPage from '@/pages/live-voice-agent';
-import BillingPage from '@/pages/billing';
-import Patient360Page from '@/pages/patient-360-page';
-import AppointmentJourneyPage from '@/pages/appointment-journey-page';
-import MerunaHome from '@/pages/meruna-home';
-import CurrentMerunaHome from '@/pages/meruna-home-current';
-import MergedMerunaHome from '@/pages/meruna-home-merged';
-import LegalPage from '@/pages/legal-pages';
-import OperationsDashboard from '@/pages/operations-dashboard';
-import OrganizationSettings from '@/pages/organization-settings';
 import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/components/command-palette';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { getOperationsSummary } from '@/lib/operations-api';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 } } });
+const LiveDashboard = lazy(() => import('@/pages/live-dashboard'));
+const LiveVoiceAgentPage = lazy(() => import('@/pages/live-voice-agent'));
+const BillingPage = lazy(() => import('@/pages/billing'));
+const Patient360Page = lazy(() => import('@/pages/patient-360-page'));
+const AppointmentJourneyPage = lazy(() => import('@/pages/appointment-journey-page'));
+const MerunaHome = lazy(() => import('@/pages/meruna-home'));
+const CurrentMerunaHome = lazy(() => import('@/pages/meruna-home-current'));
+const MergedMerunaHome = lazy(() => import('@/pages/meruna-home-merged'));
+const LegalPage = lazy(() => import('@/pages/legal-pages'));
+const OrganizationSettings = lazy(() => import('@/pages/organization-settings'));
+const LivePatientsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.LivePatientsPage })));
+const LiveAppointmentsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.LiveAppointmentsPage })));
+const InboxPage = lazy(() => import('@/pages/inbox-page'));
+const WaitlistPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.WaitlistPage })));
+const FollowUpsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.FollowUpsPage })));
+const NoShowsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.NoShowsPage })));
 
 type LoginValues = { email: string; password: string };
 type RegisterValues = { fullName: string; clinicName: string; email: string; password: string };
@@ -93,6 +97,18 @@ function ErrorMessage({ onRetry, compact = false }: { onRetry: () => void; compa
       <h2 className="text-lg font-bold text-[#18374d]">تعذّر تحميل البيانات</h2>
       <p className="mt-1 max-w-sm text-sm leading-6 text-[#718591]">حدث خلل مؤقت. حاول مرة أخرى، وسنستأنف من حيث توقفت.</p>
       <button className="primary-button mt-5" onClick={onRetry} data-testid="button-retry"><RefreshCw size={16} /> إعادة المحاولة</button>
+    </div>
+  );
+}
+
+function RouteLoadingFallback({ fullHeight = false }: { fullHeight?: boolean }) {
+  return (
+    <div className={`flex min-w-0 flex-1 items-center justify-center bg-transparent p-6 ${fullHeight ? 'min-h-[100dvh]' : 'min-h-[320px]'}`} dir="rtl" data-testid="state-route-loading">
+      <div className="w-full max-w-xl space-y-4">
+        <div className="skeleton h-5 w-32" />
+        <div className="skeleton h-12 w-full" />
+        <div className="skeleton h-40 w-full" />
+      </div>
     </div>
   );
 }
@@ -385,7 +401,6 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   const navGroups: Array<{ id: string; title: string; links: Array<{ href: string; label: string; icon: typeof Home }> }> = [
     { id: 'operations', title: language === 'ar' ? 'التشغيل' : 'Operations', links: [
       { href: '/dashboard', label: t('overview'), icon: Home },
-      { href: '/operations', label: language === 'ar' ? 'لوحة التشغيل' : 'Operations board', icon: Activity },
       { href: '/waitlist', label: t('waitlist'), icon: Clock3 },
       { href: '/follow-ups', label: t('followUps'), icon: Sparkles },
       { href: '/no-shows', label: t('noShowsOpen'), icon: ShieldCheck },
@@ -594,22 +609,23 @@ function ProtectedShell() {
       <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
       <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
       <div className="workspace-route flex min-h-0 flex-1 flex-col">
-        <Switch>
-          <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
-          <Route path="/patients" component={LivePatientsPage} />
-          <Route path="/patients/:id" component={Patient360Page} />
-          <Route path="/appointments" component={LiveAppointmentsPage} />
-          <Route path="/appointments/:id" component={AppointmentJourneyPage} />
-          <Route path="/inbox" component={LiveInboxPage} />
-          <Route path="/waitlist" component={WaitlistPage} />
-          <Route path="/follow-ups" component={FollowUpsPage} />
-          <Route path="/no-shows" component={NoShowsPage} />
-          <Route path="/voice-agent" component={LiveVoiceAgentPage} />
-          <Route path="/billing" component={BillingPage} />
-          <Route path="/operations">{() => <OperationsDashboard session={session} />}</Route>
-          <Route path="/organization" component={OrganizationSettings} />
-          <Route>{() => <LiveDashboard session={session} />}</Route>
-        </Switch>
+        <Suspense fallback={<RouteLoadingFallback />}>
+          <Switch>
+            <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
+            <Route path="/patients" component={LivePatientsPage} />
+            <Route path="/patients/:id" component={Patient360Page} />
+            <Route path="/appointments" component={LiveAppointmentsPage} />
+            <Route path="/appointments/:id" component={AppointmentJourneyPage} />
+            <Route path="/inbox" component={InboxPage} />
+            <Route path="/waitlist" component={WaitlistPage} />
+            <Route path="/follow-ups" component={FollowUpsPage} />
+            <Route path="/no-shows" component={NoShowsPage} />
+            <Route path="/voice-agent" component={LiveVoiceAgentPage} />
+            <Route path="/billing" component={BillingPage} />
+            <Route path="/organization" component={OrganizationSettings} />
+            <Route>{() => <LiveDashboard session={session} />}</Route>
+          </Switch>
+        </Suspense>
       </div>
     </div>
   </div>;
@@ -624,7 +640,7 @@ function Router() {
   const [location] = useLocation();
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
   const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || legalRoutes.includes(location);
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/operations" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<RouteLoadingFallback fullHeight />}><Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch></Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 
 function App() {

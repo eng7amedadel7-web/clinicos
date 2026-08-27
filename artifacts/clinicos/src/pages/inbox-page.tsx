@@ -27,6 +27,34 @@ function formatDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("ar-EG");
 }
 
+function useInboxLiveUpdates(selectedId: string | null) {
+  const queryClient = useQueryClient();
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
+    const query = selectedId ? `?conversationId=${encodeURIComponent(selectedId)}` : "";
+    const source = new EventSource(`/api/inbox/stream${query}`, { withCredentials: true });
+    source.onopen = () => setConnected(true);
+
+    source.addEventListener("invalidate", () => {
+      setConnected(true);
+      void queryClient.invalidateQueries({ queryKey: ["inbox"] });
+    });
+    source.addEventListener("heartbeat", () => setConnected(true));
+    source.onerror = () => {
+      setConnected(false);
+    };
+
+    return () => {
+      setConnected(false);
+      source.close();
+    };
+  }, [queryClient, selectedId]);
+
+  return connected;
+}
+
 export default function InboxPage() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(() => new URLSearchParams(window.location.search).get("conversationId"));
@@ -34,12 +62,15 @@ export default function InboxPage() {
   const [channelType, setChannelType] = useState("all");
   const [channelId, setChannelId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
+  const streamConnected = useInboxLiveUpdates(selectedId);
   const inboxQuery = useQuery({
     queryKey: ["inbox", selectedId],
     queryFn: ({ signal }) => getInboxPayload(selectedId, signal),
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: streamConnected ? 5 * 60_000 : 30_000,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     placeholderData: keepPreviousData,
   });
   const modeMutation = useMutation({
@@ -107,7 +138,7 @@ export default function InboxPage() {
         <p className="mt-1 text-[13px] text-[hsl(var(--muted-foreground))]">{inboxQuery.isFetching ? "تحديث صامت للبيانات..." : `${visible.length} من ${(data?.conversations ?? []).length} محادثات حقيقية`}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold ${inboxQuery.isFetching ? "bg-[#fff0d8] text-[#9a6513]" : "bg-[#d9f0e8] text-[#176b58]"}`}><span className="size-1.5 rounded-full bg-current" /> {inboxQuery.isFetching ? "جارٍ التحديث" : "متصل"}</span>
+        <span className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold ${inboxQuery.isFetching ? "bg-[#fff0d8] text-[#9a6513]" : streamConnected ? "bg-[#d9f0e8] text-[#176b58]" : "bg-[#e8edf0] text-[#607785]"}`}><span className="size-1.5 rounded-full bg-current" /> {inboxQuery.isFetching ? "جارٍ التحديث" : streamConnected ? "متصل لحظيًا" : "متصل"}</span>
         <button onClick={() => inboxQuery.refetch()} disabled={inboxQuery.isFetching} className="flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-[11px] font-bold"><RefreshCw size={14} className={inboxQuery.isFetching ? "animate-spin" : ""} /> تحديث</button>
       </div>
     </div>

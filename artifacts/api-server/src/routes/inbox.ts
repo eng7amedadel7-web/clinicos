@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 import { dispatchOutbound } from "../lib/outbound";
@@ -6,7 +6,7 @@ import { dispatchOutbound } from "../lib/outbound";
 const router = Router();
 type Conversation = { id?: string; patient_id?: string; clinic_id?: string; channel_id?: string; channel_conversation_id?: string; last_patient_message?: string | null; assigned_staff_id?: string | null; ai_status?: string; is_handoff?: boolean; is_archived?: boolean; last_activity_at?: string; status?: string; priority?: string; };
 type Patient = { id?: string; name?: string; first_name?: string; last_name?: string; };
-type Channel = { id?: string; type?: string; provider?: string; status?: string; is_enabled?: boolean; config?: Record<string, unknown> };
+type Channel = { id?: string; type?: string; provider?: string; status?: string; is_enabled?: boolean; updated_at?: string; config?: Record<string, unknown> };
 type Message = { id?: string; conversation_id?: string; content?: string; direction?: string; sender_type?: string; created_at?: string; message_status?: string; };
 
 const headers = (token: string, extra: Record<string, string> = {}) => ({
@@ -14,6 +14,48 @@ const headers = (token: string, extra: Record<string, string> = {}) => ({
 });
 const clinicFilter = (clinicId: string) => `clinic_id=eq.${encodeURIComponent(clinicId)}&deleted_at=is.null`;
 const patientName = (patient?: Patient) => patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || "محادثة بدون اسم";
+
+function sseHeaders(res: Response) {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+}
+
+function sseEvent(res: Response, event: string, data: Record<string, unknown>) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+async function readInboxFingerprint(session: { clinicId: string; accessToken: string }, conversationId?: string | null) {
+  const authHeaders = { headers: headers(session.accessToken) };
+  const [conversationHead, channelHead, selectedMessageHead] = await Promise.all([
+    supabaseRequest<Conversation[]>(
+      `/rest/v1/conversations?select=id,last_activity_at,assigned_staff_id,ai_status,is_handoff,status,priority&${clinicFilter(session.clinicId)}&is_archived=eq.false&order=last_activity_at.desc.nullslast&limit=1`,
+      authHeaders,
+    ),
+    supabaseRequest<Channel[]>(
+      `/rest/v1/channels?select=id,status,is_enabled,updated_at&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=updated_at.desc.nullslast&limit=1`,
+      authHeaders,
+    ),
+    conversationId
+      ? supabaseRequest<Message[]>(
+          `/rest/v1/messages?select=id,created_at,message_status&conversation_id=eq.${encodeURIComponent(conversationId)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=created_at.desc&limit=1`,
+          authHeaders,
+        )
+      : Promise.resolve({ ok: true, status: 200, data: [] as Message[] }),
+  ]);
+  const fingerprint = {
+    conversation: conversationHead.ok ? conversationHead.data?.[0] ?? null : null,
+    channel: channelHead.ok ? channelHead.data?.[0] ?? null : null,
+    selectedMessage: selectedMessageHead.ok ? selectedMessageHead.data?.[0] ?? null : null,
+  };
+  return {
+    ok: conversationHead.ok && channelHead.ok && selectedMessageHead.ok,
+    fingerprint: JSON.stringify(fingerprint),
+  };
+}
 
 async function assertConversation(session: { clinicId: string; accessToken: string }, conversationId: string) {
   const result = await supabaseRequest<Conversation[]>(`/rest/v1/conversations?select=id&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(conversationId)}&limit=1`, { headers: headers(session.accessToken) });
@@ -85,6 +127,61 @@ router.get("/inbox", async (req, res) => {
     conversations,
     selectedConversationId: conversationId || null,
     messages,
+  });
+});
+
+router.get("/inbox/stream", async (req: Request, res: Response) => {
+  let session;
+  try {
+    session = await requireClinicPermission(req, "inbox", "conversations", "read");
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return;
+  }
+
+  const selectedConversationId = typeof req.query.conversationId === "string" && req.query.conversationId.trim()
+    ? req.query.conversationId.trim()
+    : null;
+
+  if (selectedConversationId) {
+    try {
+      await assertConversation(session, selectedConversationId);
+    } catch (error) {
+      respondToPermissionError(res, error);
+      return;
+    }
+  }
+
+  sseHeaders(res);
+  let closed = false;
+  let lastFingerprint = "";
+
+  const pushIfChanged = async (reason: "initial" | "changed" | "heartbeat") => {
+    if (closed) return;
+    const snapshot = await readInboxFingerprint(session, selectedConversationId);
+    if (!snapshot.ok) {
+      sseEvent(res, "error", { reason: "sync_failed" });
+      return;
+    }
+    if (reason === "heartbeat") {
+      sseEvent(res, "heartbeat", { at: new Date().toISOString() });
+      return;
+    }
+    if (!lastFingerprint || snapshot.fingerprint !== lastFingerprint) {
+      lastFingerprint = snapshot.fingerprint;
+      sseEvent(res, "invalidate", { reason, at: new Date().toISOString() });
+    }
+  };
+
+  await pushIfChanged("initial");
+  const changeInterval = setInterval(() => { void pushIfChanged("changed"); }, 10_000);
+  const heartbeatInterval = setInterval(() => { void pushIfChanged("heartbeat"); }, 25_000);
+
+  req.on("close", () => {
+    closed = true;
+    clearInterval(changeInterval);
+    clearInterval(heartbeatInterval);
+    res.end();
   });
 });
 

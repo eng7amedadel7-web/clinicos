@@ -29,6 +29,26 @@ const checkoutSchema = z.object({
 });
 
 type BillingProfile = Awaited<ReturnType<typeof getProfile>>;
+type StoredSubscription = {
+  id?: string;
+  paddle_price_id?: string | null;
+  plan?: string;
+  billing_interval?: string;
+  status?: string;
+  trial_ends_at?: string | null;
+  current_period_starts_at?: string | null;
+  current_period_ends_at?: string | null;
+  cancel_at_period_end?: boolean;
+  scheduled_change?: Record<string, unknown> | null;
+  paddle_subscription_id?: string;
+};
+type StoredTransaction = {
+  id?: string;
+  status?: string;
+  total?: string | null;
+  currency_code?: string;
+  billed_at?: string | null;
+};
 type PaddleSubscription = {
   id: string;
   customer_id?: string;
@@ -95,21 +115,120 @@ function assertAdminResult(result: { ok: boolean; status: number }, operation: s
   if (!result.ok) throw new Error(`${operation} failed (${result.status}).`);
 }
 
+function trialEndsAtFor(subscription: PaddleSubscription) {
+  if (subscription.status !== "trialing") return null;
+  return subscription.next_billed_at ?? subscription.current_billing_period?.ends_at ?? null;
+}
+
+function summarizeLifecycle(subscription: StoredSubscription | null) {
+  if (!subscription?.status) {
+    return {
+      phase: "none",
+      statusLabel: "غير مشترك",
+      periodLabel: "لا توجد دورة فوترة نشطة",
+      effectiveEndsAt: null,
+      isTrialing: false,
+      needsAttention: false,
+    } as const;
+  }
+
+  const isTrialing = subscription.status === "trialing";
+  const effectiveEndsAt = subscription.current_period_ends_at ?? subscription.trial_ends_at ?? null;
+  const statusMap: Record<string, string> = {
+    trialing: "فترة تجريبية",
+    active: "نشط",
+    past_due: "متأخر السداد",
+    paused: "موقوف مؤقتًا",
+    canceled: "ملغي",
+  };
+  const periodLabel = isTrialing
+    ? "انتهاء التجربة"
+    : subscription.cancel_at_period_end
+      ? "الإلغاء المجدول"
+      : "التجديد القادم";
+
+  return {
+    phase: subscription.status,
+    statusLabel: statusMap[subscription.status] ?? subscription.status,
+    periodLabel,
+    effectiveEndsAt,
+    isTrialing,
+    needsAttention: subscription.status === "past_due",
+  } as const;
+}
+
+async function syncSubscriptionSnapshot(clinicId: string, stored: StoredSubscription | null) {
+  if (!stored?.paddle_subscription_id) return stored;
+  const remote = await paddleRequest<PaddleSubscription>(`/subscriptions/${encodeURIComponent(stored.paddle_subscription_id)}`);
+  const selection = planFromPrice(remote.items?.[0]?.price?.id);
+  const write = await supabaseAdminRequest<unknown>("/rest/v1/clinic_subscriptions?on_conflict=clinic_id", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({
+      clinic_id: clinicId,
+      paddle_subscription_id: remote.id,
+        paddle_price_id: remote.items?.[0]?.price?.id ?? stored.paddle_price_id ?? null,
+      plan: selection.plan,
+      billing_interval: selection.interval,
+      status: remote.status,
+      trial_ends_at: trialEndsAtFor(remote),
+      current_period_starts_at: remote.current_billing_period?.starts_at ?? null,
+      current_period_ends_at: remote.current_billing_period?.ends_at ?? null,
+      cancel_at_period_end: Boolean(remote.scheduled_change),
+      scheduled_change: remote.scheduled_change ?? {},
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  assertAdminResult(write, "Subscription sync");
+  if (remote.customer_id) {
+    const customerWrite = await supabaseAdminRequest<unknown>("/rest/v1/billing_customers?on_conflict=clinic_id", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ clinic_id: clinicId, paddle_customer_id: remote.customer_id, updated_at: new Date().toISOString() }),
+    });
+    assertAdminResult(customerWrite, "Customer sync");
+  }
+  return {
+    ...stored,
+    paddle_subscription_id: remote.id,
+    plan: selection.plan,
+    billing_interval: selection.interval,
+    status: remote.status,
+    trial_ends_at: trialEndsAtFor(remote),
+    current_period_starts_at: remote.current_billing_period?.starts_at ?? null,
+    current_period_ends_at: remote.current_billing_period?.ends_at ?? null,
+    cancel_at_period_end: Boolean(remote.scheduled_change),
+    scheduled_change: remote.scheduled_change ?? {},
+  } satisfies StoredSubscription;
+}
+
 router.get("/billing", async (req, res) => {
   const context = await requireClinic(req, res);
   if (!context) return;
   const headers = authHeaders(context.session.accessToken);
   const [subscription, transactions] = await Promise.all([
-    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/clinic_subscriptions?select=id,plan,billing_interval,status,trial_ends_at,current_period_starts_at,current_period_ends_at,cancel_at_period_end&clinic_id=eq.${context.session.clinicId}&limit=1`, { headers }),
-    supabaseRequest<Record<string, unknown>[]>(`/rest/v1/billing_transactions?select=id,status,total,currency_code,billed_at&clinic_id=eq.${context.session.clinicId}&order=billed_at.desc&limit=20`, { headers }),
+    supabaseRequest<StoredSubscription[]>(`/rest/v1/clinic_subscriptions?select=id,paddle_price_id,plan,billing_interval,status,trial_ends_at,current_period_starts_at,current_period_ends_at,cancel_at_period_end,scheduled_change,paddle_subscription_id&clinic_id=eq.${context.session.clinicId}&limit=1`, { headers }),
+    supabaseRequest<StoredTransaction[]>(`/rest/v1/billing_transactions?select=id,status,total,currency_code,billed_at&clinic_id=eq.${context.session.clinicId}&order=billed_at.desc&limit=20`, { headers }),
   ]);
   if (!subscription.ok || !transactions.ok) {
     req.log?.error({ subscriptionStatus: subscription.status, transactionsStatus: transactions.status }, "Billing data lookup failed");
     res.status(502).json({ error: "Billing data is temporarily unavailable." });
     return;
   }
+
+  let currentSubscription = subscription.data?.[0] ?? null;
+  if (currentSubscription?.paddle_subscription_id) {
+    try {
+      currentSubscription = await syncSubscriptionSnapshot(context.session.clinicId, currentSubscription);
+    } catch (error) {
+      req.log?.warn({ err: error, subscriptionId: currentSubscription.paddle_subscription_id }, "Billing subscription sync skipped");
+    }
+  }
+  const lifecycle = summarizeLifecycle(currentSubscription);
+
   res.json({
-    subscription: subscription.ok ? subscription.data?.[0] ?? null : null,
+    subscription: currentSubscription,
+    lifecycle,
     transactions: transactions.ok ? transactions.data ?? [] : [],
     canManage: context.profile.user.role === "owner" || context.profile.user.role === "admin",
     clientToken: process.env.PADDLE_CLIENT_TOKEN ?? null,
@@ -235,6 +354,7 @@ export async function paddleWebhook(req: Request, res: Response) {
           plan: selection.plan,
           billing_interval: selection.interval,
           status: data.status === "canceled" ? "canceled" : data.status,
+          trial_ends_at: trialEndsAtFor(data),
           current_period_starts_at: data.current_billing_period?.starts_at,
           current_period_ends_at: data.current_billing_period?.ends_at,
           cancel_at_period_end: Boolean(data.scheduled_change),

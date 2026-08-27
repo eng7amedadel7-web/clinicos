@@ -73,7 +73,15 @@ function EmptyState({ text }: { text: string }) {
 }
 
 export default function LiveVoiceAgentPage() {
-  const query = useQuery({ queryKey: ["operations", "voice-agent"], queryFn: ({ signal }) => getVoiceAgentData(signal), staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
+  const query = useQuery({
+    queryKey: ["operations", "voice-agent"],
+    queryFn: ({ signal }) => getVoiceAgentData(signal),
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
   const data = query.data;
   const calls = data?.calls ?? [];
   const completed = calls.filter((call) => call.call_status === "completed").length;
