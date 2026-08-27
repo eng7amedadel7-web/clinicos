@@ -42,3 +42,34 @@ export function writeSession(res: Response, session: SessionPayload) {
 export function clearSession(res: Response) {
   res.clearCookie(SESSION_COOKIE);
 }
+
+function decodeJwtExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"),
+    ) as { exp?: unknown };
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+// Supabase access tokens expire long before the session cookie does; without a
+// refresh every clinic user would be signed out roughly an hour after login.
+export function sessionNeedsRefresh(session: SessionPayload): boolean {
+  if (!session.refreshToken) return false;
+  const expiresAt = decodeJwtExpiry(session.accessToken);
+  if (!expiresAt) return false;
+  return expiresAt * 1000 - Date.now() < 5 * 60_000;
+}
+
+const recentRefreshes = new Map<string, number>();
+
+// Refresh token rotation makes parallel refreshes with the same token risky,
+// so throttle per user; the window is short enough for serverless instances.
+export function shouldThrottleRefresh(userId: string): boolean {
+  const last = recentRefreshes.get(userId) ?? 0;
+  if (Date.now() - last < 30_000) return true;
+  recentRefreshes.set(userId, Date.now());
+  return false;
+}

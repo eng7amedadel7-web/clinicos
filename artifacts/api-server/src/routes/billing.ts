@@ -157,8 +157,8 @@ function summarizeLifecycle(subscription: StoredSubscription | null) {
   } as const;
 }
 
-async function syncSubscriptionSnapshot(clinicId: string, stored: StoredSubscription | null) {
-  if (!stored?.paddle_subscription_id) return stored;
+async function syncSubscriptionSnapshot(clinicId: string, stored: StoredSubscription) {
+  if (!stored.paddle_subscription_id) return stored;
   const remote = await paddleRequest<PaddleSubscription>(`/subscriptions/${encodeURIComponent(stored.paddle_subscription_id)}`);
   const selection = planFromPrice(remote.items?.[0]?.price?.id);
   const write = await supabaseAdminRequest<unknown>("/rest/v1/clinic_subscriptions?on_conflict=clinic_id", {
