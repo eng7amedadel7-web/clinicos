@@ -14,11 +14,12 @@ export function resolveOutboundDispatcherConfig(env: Partial<Record<"N8N_INBOX_O
   return { dispatcherUrl: url.toString(), headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) } };
 }
 
-export async function dispatchOutbound(conversationId: string) {
+export async function dispatchOutbound(conversationId: string, messageId?: string | null) {
   const config = resolveOutboundDispatcherConfig();
+  const payload = { conversation_id: conversationId, ...(messageId ? { message_id: messageId } : {}) };
   let response: Response;
   try {
-    response = await fetch(config.dispatcherUrl, { method: "POST", headers: config.headers, body: JSON.stringify({ conversation_id: conversationId }), signal: AbortSignal.timeout(20_000) });
+    response = await fetch(config.dispatcherUrl, { method: "POST", headers: config.headers, body: JSON.stringify(payload), signal: AbortSignal.timeout(20_000) });
   } catch {
     throw Object.assign(new Error("Outbound dispatcher could not be reached."), { statusCode: 502 });
   }

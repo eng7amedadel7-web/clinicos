@@ -311,7 +311,7 @@ router.post("/inbox/:id/messages", async (req, res) => {
   const reply = queued.data as InboxReplyResult;
   const conversationId = reply.conversation_id || req.params.id;
   try {
-    await dispatchOutbound(conversationId);
+    await dispatchOutbound(conversationId, reply.message_id);
   } catch (error) {
     const statusCode = typeof error === "object" && error && "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : 502;
     res.status(statusCode).json({ error: error instanceof Error ? error.message : "تعذر الوصول إلى مسار إرسال الرسائل." });
