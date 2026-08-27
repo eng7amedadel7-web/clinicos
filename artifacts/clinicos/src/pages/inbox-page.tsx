@@ -57,9 +57,10 @@ import {
 } from "@/lib/inbox-api";
 import { usePreferences } from "@/lib/preferences";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// Brand SVG Icons
+// Official Brand SVG Icons
 function WhatsAppIcon({ className = "size-4" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -118,16 +119,16 @@ function formatRelativeTime(dateString: string | null | undefined, en: boolean) 
   if (diffInSeconds < 60) return en ? "Just now" : "الآن";
   if (diffInSeconds < 3600) {
     const mins = Math.floor(diffInSeconds / 60);
-    return en ? `${mins}m ago` : `منذ ${mins} د`;
+    return en ? `${mins}m` : `${mins} د`;
   }
   if (diffInSeconds < 86400) {
     const hours = Math.floor(diffInSeconds / 3600);
-    return en ? `${hours}h ago` : `منذ ${hours} س`;
+    return en ? `${hours}h` : `${hours} س`;
   }
   if (diffInSeconds < 172800) {
     return en ? "Yesterday" : "أمس";
   }
-  return date.toLocaleDateString(en ? "en-US" : "ar-EG", { month: "short", day: "numeric" });
+  return date.toLocaleDateString(en ? "en-US" : "ar-EG", { month: "numeric", day: "numeric" });
 }
 
 function formatMessageTime(dateString: string | null | undefined, en: boolean) {
@@ -213,8 +214,7 @@ export default function InboxPage() {
   const [channelId, setChannelId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "needs-staff" | "ai" | "snoozed">("all");
   const [replyText, setReplyText] = useState("");
-  const [showPatientPanel, setShowPatientPanel] = useState(true);
-  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [patientSheetOpen, setPatientSheetOpen] = useState(false);
 
   // Dialog States
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
@@ -323,38 +323,28 @@ export default function InboxPage() {
     return [
       {
         key: "all",
-        label: en ? "All Channels" : "كل القنوات",
-        icon: <Layers className="size-4" />,
-        color: "text-slate-600 dark:text-slate-300",
-        activeBg: "bg-primary text-primary-foreground",
+        label: en ? "All" : "الكل",
+        icon: <Layers className="size-3.5" />,
       },
       {
         key: "whatsapp",
         label: en ? "WhatsApp" : "واتساب",
-        icon: <WhatsAppIcon className="size-4" />,
-        color: "text-emerald-600 dark:text-emerald-400",
-        activeBg: "bg-emerald-600 text-white shadow-emerald-600/30",
+        icon: <WhatsAppIcon className="size-3.5 text-emerald-500" />,
       },
       {
         key: "instagram",
         label: en ? "Instagram" : "إنستغرام",
-        icon: <InstagramIcon className="size-4" />,
-        color: "text-pink-600 dark:text-pink-400",
-        activeBg: "bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white",
+        icon: <InstagramIcon className="size-3.5 text-pink-500" />,
       },
       {
         key: "messenger",
         label: en ? "Messenger" : "ماسنجر",
-        icon: <MessengerIcon className="size-4" />,
-        color: "text-sky-600 dark:text-sky-400",
-        activeBg: "bg-sky-600 text-white shadow-sky-600/30",
+        icon: <MessengerIcon className="size-3.5 text-sky-500" />,
       },
       {
         key: "telegram",
         label: en ? "Telegram" : "تليجرام",
-        icon: <TelegramIcon className="size-4" />,
-        color: "text-cyan-600 dark:text-cyan-400",
-        activeBg: "bg-cyan-600 text-white shadow-cyan-600/30",
+        icon: <TelegramIcon className="size-3.5 text-cyan-500" />,
       },
     ];
   }, [en]);
@@ -480,213 +470,102 @@ export default function InboxPage() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <section className="flex h-[calc(100vh-5.2rem)] w-full flex-col overflow-hidden" dir="rtl">
-        {/* Page Top Header */}
-        <div className="mb-3 flex shrink-0 items-center justify-between border-b border-border/70 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
-              <MessagesSquare className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-extrabold tracking-tight text-foreground md:text-2xl">
-                  {en ? "Unified Inbox" : "صندوق الوارد الموحد"}
-                </h1>
-                <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                  {data?.conversations?.length ?? 0} {en ? "conversations" : "محادثة"}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {en
-                  ? "Manage multi-channel patient communications, automated AI replies, and staff handoffs."
-                  : "إدارة محادثات المرضى عبر القنوات المختلفة، والرد الآلي الذكي، وتحويلات الفريق الطبي."}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Live SSE Status Badge */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-xs transition ${
-                    inboxQuery.isFetching
-                      ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
-                      : streamConnected
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
-                      : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-                  }`}
-                >
-                  <span
-                    className={`size-2 rounded-full ${
-                      inboxQuery.isFetching
-                        ? "bg-amber-500 animate-spin"
-                        : streamConnected
-                        ? "bg-emerald-500 animate-pulse"
-                        : "bg-slate-400"
-                    }`}
-                  />
-                  <span>
-                    {inboxQuery.isFetching
-                      ? en ? "Syncing..." : "جارٍ المزامنة..."
-                      : streamConnected
-                      ? en ? "Live Connected" : "متصل لحظياً"
-                      : en ? "Offline" : "تحديث دوري"}
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {streamConnected
-                  ? en ? "Real-time updates active via server-sent events." : "التحديث اللحظي مفعل عبر بث الخادم المباشر."
-                  : en ? "Connecting to real-time events stream..." : "الاتصال جارٍ بمحرك التحديثات اللحظية..."}
-              </TooltipContent>
-            </Tooltip>
-
-            <button
-              onClick={() => inboxQuery.refetch()}
-              disabled={inboxQuery.isFetching}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs transition hover:bg-muted active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`size-3.5 ${inboxQuery.isFetching ? "animate-spin" : ""}`} />
-              <span>{en ? "Refresh" : "تحديث"}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Loading State */}
-        {inboxQuery.isLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-2xl border border-border bg-card">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary animate-pulse">
-                <MessagesSquare className="size-6" />
-              </div>
-              <p className="text-sm font-semibold text-foreground">{en ? "Loading conversations..." : "جارٍ تحميل محادثات العيادة..."}</p>
-              <p className="text-xs text-muted-foreground">{en ? "Connecting channels and active sessions" : "جاري ربط القنوات وجلسات المرضى"}</p>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Error State */}
-        {inboxQuery.isError ? (
-          <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center">
-            <AlertTriangle className="mb-3 size-10 text-destructive" />
-            <h3 className="text-base font-bold text-foreground">{en ? "Could not load inbox" : "تعذر تحميل صندوق الوارد"}</h3>
-            <p className="mt-1 max-w-md text-xs text-muted-foreground">
-              {inboxQuery.error instanceof Error ? inboxQuery.error.message : en ? "A temporary network error occurred." : "حدث خطأ مؤقت في الاتصال."}
-            </p>
-            <button
-              onClick={() => inboxQuery.refetch()}
-              className="mt-4 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-md transition hover:bg-primary/90"
-            >
-              <RefreshCw className="size-3.5" />
-              <span>{en ? "Retry Loading" : "إعادة المحاولة"}</span>
-            </button>
-          </div>
-        ) : null}
-
-        {/* Main Inbox 3-Column Studio */}
+      <section className="flex h-[calc(100vh-5.5rem)] w-full flex-col overflow-hidden" dir="rtl">
+        {/* Main WhatsApp-Style 2-Column Application Shell */}
         {data && !inboxQuery.isError ? (
           <div className="flex flex-1 min-h-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-            {/* COLUMN 1: Channels Rail (Far Right in RTL) */}
-            <aside className="flex w-16 shrink-0 flex-col items-center border-l border-border bg-muted/30 py-3">
-              <span className="mb-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground/80">
-                {en ? "Channels" : "القنوات"}
-              </span>
-
-              <div className="flex flex-1 flex-col gap-2">
-                {channels.map((channel) => {
-                  const isActive = channelType === channel.key;
-                  const count =
-                    channel.key === "all"
-                      ? data.conversations.length
-                      : data.conversations.filter((c) => c.channelType === channel.key).length;
-
-                  return (
-                    <Tooltip key={channel.key}>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => {
-                            setChannelType(channel.key);
-                            setChannelId(null);
-                          }}
-                          className={`relative flex size-11 flex-col items-center justify-center rounded-xl transition ${
-                            isActive
-                              ? `${channel.activeBg} shadow-md scale-105`
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          }`}
-                        >
-                          {channel.icon}
-                          {count > 0 ? (
-                            <span
-                              className={`absolute -top-1 -left-1 flex size-4.5 items-center justify-center rounded-full text-[9px] font-black ${
-                                isActive
-                                  ? "bg-white text-slate-900 dark:bg-slate-900 dark:text-white"
-                                  : "bg-primary text-primary-foreground"
-                              }`}
-                            >
-                              {count}
-                            </span>
-                          ) : null}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <span>{channel.label}</span>
-                          <span className="opacity-70">({count})</span>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-
-              {/* Bot Info pill */}
-              <div className="mt-auto flex flex-col items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="grid size-9 place-items-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                      <Sparkles className="size-4" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p className="text-xs font-bold">{en ? "AI Auto-reply is Active" : "الرد الذكي مفعل تلقائياً"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </aside>
-
-            {/* COLUMN 2: Conversations List & Search & Status Filter */}
-            <div className="flex w-80 shrink-0 flex-col border-l border-border bg-card md:w-88">
-              {/* Search & Channel accounts header */}
-              <div className="border-b border-border p-3 space-y-2.5">
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder={en ? "Search by patient name, phone, message..." : "ابحث بالاسم، الهاتف، أو نص الرسالة..."}
-                    className="w-full rounded-xl border border-input bg-muted/40 py-2 pr-8 pl-8 text-xs placeholder:text-muted-foreground/70 focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  {search ? (
-                    <button
-                      onClick={() => setSearch("")}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  ) : null}
+            
+            {/* RIGHT SIDEBAR (WhatsApp Style Chats Panel) */}
+            <div className="flex w-84 shrink-0 flex-col border-l border-border bg-card md:w-96">
+              
+              {/* Top Header: Title, Live SSE Indicator, Refresh */}
+              <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <div className="grid size-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <MessagesSquare className="size-4.5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground">
+                      {en ? "Chats" : "المحادثات"}
+                    </h2>
+                    <span className="text-[10px] text-muted-foreground">
+                      {visibleConversations.length} {en ? "of" : "من"} {data.conversations.length}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Sub-accounts filter for channel if applicable */}
+                <div className="flex items-center gap-1.5">
+                  {/* Live Status Chip */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition ${
+                          streamConnected
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+                        }`}
+                      >
+                        <span className={`size-1.5 rounded-full ${streamConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                        <span>{streamConnected ? (en ? "Live" : "مباشر") : (en ? "Sync" : "دوري")}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {streamConnected ? (en ? "Real-time updates active" : "التحديث اللحظي مفعل") : (en ? "Polling updates" : "تحديث دوري")}
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <button
+                    onClick={() => inboxQuery.refetch()}
+                    disabled={inboxQuery.isFetching}
+                    className="grid size-7 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted active:scale-95 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`size-3.5 ${inboxQuery.isFetching ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Integrated Channel Selector (Horizontal Tabs at Top) */}
+              <div className="border-b border-border bg-muted/10 p-2.5 space-y-2">
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
+                  {channels.map((channel) => {
+                    const isActive = channelType === channel.key;
+                    const count =
+                      channel.key === "all"
+                        ? data.conversations.length
+                        : data.conversations.filter((c) => c.channelType === channel.key).length;
+
+                    return (
+                      <button
+                        key={channel.key}
+                        onClick={() => {
+                          setChannelType(channel.key);
+                          setChannelId(null);
+                        }}
+                        className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition ${
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        {channel.icon}
+                        <span>{channel.label}</span>
+                        <span className={`text-[9px] rounded-full px-1.5 py-0.2 ${isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Sub-accounts row if channel selected */}
                 {channelType !== "all" ? (
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
                     <button
                       onClick={() => setChannelId(null)}
-                      className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-bold transition ${
+                      className={`shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-bold transition ${
                         channelId === null
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "border border-border bg-muted/30 text-muted-foreground hover:bg-muted"
+                          ? "bg-primary/20 text-primary border border-primary/30"
+                          : "border border-border bg-card text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       {en ? "All Accounts" : "جميع الحسابات"}
@@ -699,29 +578,44 @@ export default function InboxPage() {
                           <button
                             key={ch.id}
                             onClick={() => setChannelId(ch.id)}
-                            className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold transition ${
+                            className={`flex shrink-0 items-center gap-1 rounded-lg border px-2 py-0.5 text-[9px] font-bold transition ${
                               isSelected
                                 ? "border-primary bg-primary/10 text-primary"
-                                : "border-border bg-muted/20 text-muted-foreground hover:bg-muted"
+                                : "border-border bg-card text-muted-foreground hover:bg-muted"
                             }`}
                           >
-                            <span
-                              className={`size-1.5 rounded-full ${
-                                ch.status === "connected" || ch.isEnabled ? "bg-emerald-500" : "bg-amber-500"
-                              }`}
-                            />
-                            <span className="truncate max-w-[110px]">{ch.displayName || ch.type}</span>
+                            <span className={`size-1.5 rounded-full ${ch.status === "connected" || ch.isEnabled ? "bg-emerald-500" : "bg-amber-500"}`} />
+                            <span className="truncate max-w-[90px]">{ch.displayName || ch.type}</span>
                           </button>
                         );
                       })}
                   </div>
                 ) : null}
 
-                {/* Filter Tabs */}
-                <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted/50 p-1 text-[10px] font-bold text-muted-foreground">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={en ? "Search chats or messages..." : "ابحث في المحادثات أو الرسائل..."}
+                    className="w-full rounded-xl border border-input bg-card py-2 pr-8 pl-8 text-xs placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  {search ? (
+                    <button
+                      onClick={() => setSearch("")}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+
+                {/* Status Chips Filter */}
+                <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted/60 p-1 text-[10px] font-bold text-muted-foreground">
                   <button
                     onClick={() => setStatusFilter("all")}
-                    className={`rounded-lg py-1.5 transition ${
+                    className={`rounded-lg py-1 transition ${
                       statusFilter === "all" ? "bg-card text-foreground shadow-xs" : "hover:text-foreground"
                     }`}
                   >
@@ -729,33 +623,33 @@ export default function InboxPage() {
                   </button>
                   <button
                     onClick={() => setStatusFilter("needs-staff")}
-                    className={`rounded-lg py-1.5 transition ${
+                    className={`rounded-lg py-1 transition ${
                       statusFilter === "needs-staff" ? "bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 shadow-xs" : "hover:text-foreground"
                     }`}
                   >
-                    {en ? "Needs Staff" : "تتطلب موظف"}
+                    {en ? "Staff" : "موظف"}
                   </button>
                   <button
                     onClick={() => setStatusFilter("ai")}
-                    className={`rounded-lg py-1.5 transition ${
+                    className={`rounded-lg py-1 transition ${
                       statusFilter === "ai" ? "bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 shadow-xs" : "hover:text-foreground"
                     }`}
                   >
-                    {en ? "AI Bot" : "مساعد ذكي"}
+                    {en ? "AI" : "ذكي"}
                   </button>
                   <button
                     onClick={() => setStatusFilter("snoozed")}
-                    className={`rounded-lg py-1.5 transition ${
+                    className={`rounded-lg py-1 transition ${
                       statusFilter === "snoozed" ? "bg-card text-foreground shadow-xs" : "hover:text-foreground"
                     }`}
                   >
-                    {en ? "Snoozed" : "مؤجلة"}
+                    {en ? "Snooze" : "مؤجلة"}
                   </button>
                 </div>
               </div>
 
               {/* Conversations List Scroll Area */}
-              <div className="flex-1 overflow-y-auto divide-y divide-border/50">
+              <div className="flex-1 overflow-y-auto divide-y divide-border/40">
                 {visibleConversations.map((item) => {
                   const isSelected = selectedId === item.id;
                   const initials = (item.name || "م").trim().slice(0, 2);
@@ -766,13 +660,13 @@ export default function InboxPage() {
                       onClick={() => selectConversation(item.id)}
                       className={`group relative flex w-full gap-3 p-3.5 text-right transition hover:bg-muted/50 ${
                         isSelected
-                          ? "bg-primary/6 border-r-3 border-primary dark:bg-primary/10"
+                          ? "bg-primary/8 border-r-3 border-primary dark:bg-primary/15"
                           : ""
                       }`}
                     >
                       {/* Avatar with Channel Badge */}
                       <div className="relative shrink-0">
-                        <div className="grid size-10.5 place-items-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 font-bold text-slate-700 shadow-xs dark:from-slate-800 dark:to-slate-900 dark:text-slate-200">
+                        <div className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 font-bold text-slate-700 shadow-xs dark:from-slate-800 dark:to-slate-900 dark:text-slate-200">
                           <span className="text-xs">{initials}</span>
                         </div>
                         <span className="absolute -bottom-1 -left-1 grid size-5 place-items-center rounded-full border-2 border-card bg-card shadow-xs">
@@ -786,7 +680,7 @@ export default function InboxPage() {
                           <strong className="truncate text-xs font-bold text-foreground">
                             {item.name}
                           </strong>
-                          <span className="shrink-0 text-[10px] text-muted-foreground/80 font-medium">
+                          <span className="shrink-0 text-[10px] text-muted-foreground font-medium">
                             {formatRelativeTime(item.lastActivityAt, en)}
                           </span>
                         </div>
@@ -795,8 +689,8 @@ export default function InboxPage() {
                           {item.lastMessage || (en ? "No message content" : "بدون نص")}
                         </p>
 
-                        {/* Status Pills */}
-                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                        {/* Status Tags */}
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                           {item.needsStaff ? (
                             <StatusPill tone="amber">
                               <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -810,7 +704,7 @@ export default function InboxPage() {
                           ) : (
                             <StatusPill tone="blue">
                               <UserRound className="size-2.5" />
-                              {en ? "Staff Handled" : "بواسطة موظف"}
+                              {en ? "Staff" : "موظف"}
                             </StatusPill>
                           )}
 
@@ -829,26 +723,31 @@ export default function InboxPage() {
                 {visibleConversations.length === 0 ? (
                   <div className="flex h-64 flex-col items-center justify-center p-6 text-center text-muted-foreground">
                     <MessageSquare className="mb-2 size-8 stroke-1 text-muted-foreground/40" />
-                    <p className="text-xs font-bold text-foreground">{en ? "No conversations found" : "لا توجد محادثات مطابقة"}</p>
+                    <p className="text-xs font-bold text-foreground">{en ? "No chats found" : "لا توجد محادثات"}</p>
                     <p className="mt-1 text-[11px] text-muted-foreground/80">
                       {search
-                        ? en ? "Try adjusting your search terms" : "جرب تغيير مصطلح البحث"
-                        : en ? "No messages in this filter" : "لا توجد رسائل مسجلة في هذا القسم"}
+                        ? en ? "Try changing search terms" : "جرب تغيير مصطلح البحث"
+                        : en ? "No messages in this filter" : "لا توجد رسائل في هذا القسم"}
                     </p>
                   </div>
                 ) : null}
               </div>
             </div>
 
-            {/* COLUMN 3: Active Conversation Studio & Messages */}
+            {/* LEFT FULL-WIDTH CHAT AREA (WhatsApp Style) */}
             {selected ? (
               <div className="flex flex-1 min-w-0 flex-col bg-background">
-                {/* Chat Top Bar */}
-                <div className="flex shrink-0 items-center justify-between border-b border-border bg-card/80 px-5 py-3 backdrop-blur-sm">
-                  {/* Patient Info Header */}
-                  <div className="flex items-center gap-3">
+                
+                {/* Chat Top Bar Header */}
+                <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-5 py-3 shadow-xs z-10">
+                  
+                  {/* Clickable Patient Profile Info Header (Opens Side Sheet) */}
+                  <button
+                    onClick={() => setPatientSheetOpen(true)}
+                    className="flex items-center gap-3 text-right group rounded-xl p-1 -m-1 transition hover:bg-muted/60"
+                  >
                     <div className="relative">
-                      <div className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary font-bold text-xs">
+                      <div className="grid size-10.5 place-items-center rounded-2xl bg-primary/10 text-primary font-black text-xs shadow-xs transition group-hover:scale-105">
                         {selected.name.slice(0, 2)}
                       </div>
                       <span className="absolute -bottom-1 -left-1 grid size-4.5 place-items-center rounded-full border-2 border-card bg-card shadow-xs">
@@ -858,32 +757,35 @@ export default function InboxPage() {
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <strong className="text-sm font-bold text-foreground">{selected.name}</strong>
-                        {selected.needsStaff ? (
-                          <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                            <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            {en ? "Needs Human Action" : "طلب تدخل بشري"}
-                          </span>
-                        ) : null}
+                        <strong className="text-sm font-bold text-foreground group-hover:text-primary transition">
+                          {selected.name}
+                        </strong>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                          <Info className="size-3" />
+                          <span>{en ? "View details" : "عرض التفاصيل"}</span>
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span className="capitalize">{selected.channelType}</span>
+                        <span className="capitalize font-medium">{selected.channelType}</span>
                         <span>•</span>
-                        <span className="text-muted-foreground/80 font-medium">
-                          {selected.channel || (en ? "Direct Channel" : "قناة مباشرة")}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
                           <span className="size-1.5 rounded-full bg-emerald-500" />
-                          {en ? "Online" : "متصل"}
+                          {en ? "Online" : "متصل الآن"}
                         </span>
+                        {selected.phone ? (
+                          <>
+                            <span>•</span>
+                            <span dir="ltr" className="text-muted-foreground/80">{selected.phone}</span>
+                          </>
+                        ) : null}
                       </div>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Actions & AI/Human Mode Switcher */}
                   <div className="flex items-center gap-2">
+                    
                     {/* Interactive AI / Human Mode Switch Button */}
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -904,7 +806,7 @@ export default function InboxPage() {
                           {selected.mode === "AI" ? (
                             <>
                               <Bot className="size-4 text-purple-600 dark:text-purple-400 animate-pulse" />
-                              <span>{en ? "AI Auto-Reply" : "المساعد الذكي (نشط)"}</span>
+                              <span>{en ? "AI Active" : "المساعد الذكي (نشط)"}</span>
                               <ToggleRight className="size-4 text-purple-600 dark:text-purple-400" />
                             </>
                           ) : (
@@ -923,340 +825,355 @@ export default function InboxPage() {
                       </TooltipContent>
                     </Tooltip>
 
-                    {/* Quick Operations Bar */}
+                    {/* Action Dialog Buttons */}
                     <button
                       onClick={() => setNoteDialogOpen(true)}
-                      className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted"
+                      className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
                     >
                       <FileText className="size-3.5 text-muted-foreground" />
-                      <span className="hidden lg:inline">{en ? "Note" : "ملاحظة"}</span>
+                      <span className="hidden sm:inline">{en ? "Note" : "ملاحظة"}</span>
                     </button>
 
                     <button
                       onClick={() => setSnoozeDialogOpen(true)}
-                      className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted"
+                      className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
                     >
                       <Clock3 className="size-3.5 text-muted-foreground" />
-                      <span className="hidden lg:inline">{en ? "Snooze" : "تأجيل"}</span>
+                      <span className="hidden sm:inline">{en ? "Snooze" : "تأجيل"}</span>
                     </button>
 
                     <button
                       onClick={() => setOutcomeDialogOpen(true)}
-                      className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted"
+                      className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
                     >
                       <CheckCircle2 className="size-3.5 text-muted-foreground" />
-                      <span className="hidden lg:inline">{en ? "Outcome" : "النتيجة"}</span>
+                      <span className="hidden sm:inline">{en ? "Outcome" : "النتيجة"}</span>
                     </button>
 
-                    {/* Toggle Patient Info Side Panel */}
+                    {/* Patient Profile Info Button */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => setShowPatientPanel((prev) => !prev)}
-                          className={`rounded-xl border border-border p-2 text-foreground shadow-xs transition hover:bg-muted ${
-                            showPatientPanel ? "bg-muted text-primary" : "bg-card"
-                          }`}
+                          onClick={() => setPatientSheetOpen(true)}
+                          className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:bg-muted transition"
                         >
-                          {showPatientPanel ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+                          <UserRound className="size-3.5 text-primary" />
+                          <span className="hidden md:inline">{en ? "Patient Card" : "بطاقة المريض"}</span>
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {showPatientPanel ? (en ? "Hide patient details" : "إخفاء تفاصيل المريض") : (en ? "Show patient details" : "إظهار تفاصيل المريض")}
+                        {en ? "Open patient details & notes" : "عرض بيانات وسجل المريض الكامل"}
                       </TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
 
-                {/* Chat Middle Area: Messages Stream */}
-                <div className="flex flex-1 min-h-0">
-                  {/* Messages Feed */}
-                  <div className="flex flex-1 flex-col justify-between overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6">
-                      {/* Security & Confidentiality Notice */}
-                      <div className="mx-auto max-w-md rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-center text-[10px] text-muted-foreground backdrop-blur-xs">
-                        🔒 {en ? "Encrypted HIPAA-ready communication log" : "سجل محادثات مشفر ومقيد بضوابط الخصوصية الطبية للعيادة"}
-                      </div>
+                {/* Messages Feed Area (Full Width & Spacious) */}
+                <div className="flex flex-1 flex-col justify-between overflow-hidden bg-slate-50/70 dark:bg-slate-950/30">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6">
+                    
+                    {/* Security Notice */}
+                    <div className="mx-auto max-w-sm rounded-xl border border-border/50 bg-card/60 px-3 py-1.5 text-center text-[10px] text-muted-foreground backdrop-blur-xs">
+                      🔒 {en ? "Encrypted HIPAA-compliant medical chat" : "محادثة طبية مشفرة ومقيدة بضوابط الخصوصية للعيادة"}
+                    </div>
 
-                      {/* Messages rendering */}
-                      {data.messages && data.messages.length > 0 ? (
-                        data.messages.map((message) => {
-                          const isOutgoing = message.direction === "outgoing" || message.sender_type === "staff" || message.sender_type === "ai";
-                          const isAI = message.sender_type === "ai" || (!message.sender_type && isOutgoing && selected.mode === "AI");
+                    {/* Messages rendering */}
+                    {data.messages && data.messages.length > 0 ? (
+                      data.messages.map((message) => {
+                        const isOutgoing = message.direction === "outgoing" || message.sender_type === "staff" || message.sender_type === "ai";
+                        const isAI = message.sender_type === "ai" || (!message.sender_type && isOutgoing && selected.mode === "AI");
 
-                          return (
-                            <div
-                              key={message.id}
-                              className={`flex items-end gap-2.5 ${isOutgoing ? "flex-row-reverse justify-start" : "flex-row justify-start"}`}
-                            >
-                              {/* Message sender avatar */}
-                              {!isOutgoing ? (
-                                <div className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                  {selected.name.slice(0, 1)}
-                                </div>
-                              ) : (
-                                <div
-                                  className={`grid size-7 shrink-0 place-items-center rounded-full text-white text-[10px] ${
-                                    isAI ? "bg-purple-600 shadow-xs" : "bg-primary shadow-xs"
-                                  }`}
-                                >
-                                  {isAI ? <Bot className="size-3.5" /> : <UserRound className="size-3.5" />}
-                                </div>
-                              )}
-
-                              {/* Speech Bubble */}
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex items-end gap-2.5 ${isOutgoing ? "flex-row-reverse justify-start" : "flex-row justify-start"}`}
+                          >
+                            {/* Message sender avatar */}
+                            {!isOutgoing ? (
+                              <div className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                {selected.name.slice(0, 1)}
+                              </div>
+                            ) : (
                               <div
-                                className={`group relative max-w-[80%] rounded-2xl px-4 py-3 shadow-xs md:max-w-[70%] ${
-                                  isOutgoing
-                                    ? isAI
-                                      ? "rounded-bl-xs bg-gradient-to-br from-purple-700 to-indigo-800 text-white"
-                                      : "rounded-bl-xs bg-[#16384c] text-white dark:bg-[#1f4a64]"
-                                    : "rounded-br-xs border border-border/80 bg-card text-foreground dark:bg-card"
+                                className={`grid size-7 shrink-0 place-items-center rounded-full text-white text-[10px] ${
+                                  isAI ? "bg-purple-600 shadow-xs" : "bg-primary shadow-xs"
                                 }`}
                               >
-                                {/* Header tag for Outgoing AI / Staff */}
-                                {isOutgoing ? (
-                                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold opacity-80">
-                                    {isAI ? (
-                                      <>
-                                        <Sparkles className="size-3" />
-                                        <span>{en ? "AI Smart Assistant" : "المساعد الذكي للعيادة"}</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <UserCheck className="size-3" />
-                                        <span>{en ? "Clinic Receptionist" : "موظف الاستقبال"}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                ) : null}
+                                {isAI ? <Bot className="size-3.5" /> : <UserRound className="size-3.5" />}
+                              </div>
+                            )}
 
-                                {/* Content */}
-                                <p className="text-xs leading-relaxed whitespace-pre-wrap select-text">{message.content}</p>
-
-                                {/* Footer Timestamp & Status */}
-                                <div
-                                  className={`mt-1.5 flex items-center justify-end gap-1.5 text-[9px] ${
-                                    isOutgoing ? "text-white/70" : "text-muted-foreground"
-                                  }`}
-                                >
-                                  <span>{formatMessageTime(message.created_at, en)}</span>
-                                  {isOutgoing ? (
-                                    <span>
-                                      {message.message_status === "delivered" ? (
-                                        <CheckCheck className="size-3" />
-                                      ) : (
-                                        <Check className="size-3" />
-                                      )}
-                                    </span>
-                                  ) : null}
+                            {/* Speech Bubble */}
+                            <div
+                              className={`group relative max-w-[85%] md:max-w-[65%] rounded-2xl px-4 py-3 shadow-xs ${
+                                isOutgoing
+                                  ? isAI
+                                    ? "rounded-bl-xs bg-gradient-to-br from-purple-700 to-indigo-800 text-white"
+                                    : "rounded-bl-xs bg-[#153448] text-white dark:bg-[#1a4a68]"
+                                  : "rounded-br-xs border border-border/80 bg-card text-foreground dark:bg-card"
+                              }`}
+                            >
+                              {/* Header tag for Outgoing AI / Staff */}
+                              {isOutgoing ? (
+                                <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold opacity-85">
+                                  {isAI ? (
+                                    <>
+                                      <Sparkles className="size-3" />
+                                      <span>{en ? "AI Assistant" : "المساعد الذكي للعيادة"}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="size-3" />
+                                      <span>{en ? "Clinic Staff" : "موظف الاستقبال"}</span>
+                                    </>
+                                  )}
                                 </div>
+                              ) : null}
+
+                              {/* Content */}
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap select-text">{message.content}</p>
+
+                              {/* Footer Timestamp & Status */}
+                              <div
+                                className={`mt-1.5 flex items-center justify-end gap-1.5 text-[9px] ${
+                                  isOutgoing ? "text-white/70" : "text-muted-foreground"
+                                }`}
+                              >
+                                <span>{formatMessageTime(message.created_at, en)}</span>
+                                {isOutgoing ? (
+                                  <span>
+                                    {message.message_status === "delivered" ? (
+                                      <CheckCheck className="size-3" />
+                                    ) : (
+                                      <Check className="size-3" />
+                                    )}
+                                  </span>
+                                ) : null}
                               </div>
                             </div>
-                          );
-                        })
-                      ) : (
-                        <div className="flex h-56 flex-col items-center justify-center text-center text-muted-foreground">
-                          <MessageSquare className="mb-2 size-8 text-muted-foreground/30" />
-                          <p className="text-xs font-bold text-foreground">{en ? "No messages in this chat" : "لا توجد رسائل سابقة في هذا السجل"}</p>
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {en ? "Start the conversation by sending a reply below." : "يمكنك بدء التواصل عبر كتابة رد بالأسفل."}
-                          </p>
-                        </div>
-                      )}
-
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Chat Bottom Composer */}
-                    <div className="border-t border-border bg-card p-3 md:p-4">
-                      {/* Quick Canned Replies Bar */}
-                      <div className="mb-2.5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                        <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-primary">
-                          <Zap className="size-3.5" />
-                          <span>{en ? "Quick Replies:" : "ردود سريعة:"}</span>
-                        </span>
-                        {savedReplies.slice(0, 4).map((reply) => {
-                          const replyTextValue = "body_template" in reply ? reply.body_template : reply.content;
-                          const replyTitle = "template_key" in reply ? reply.template_key : reply.title;
-                          return (
-                            <button
-                              key={reply.id}
-                              onClick={() => setReplyText(replyTextValue)}
-                              className="shrink-0 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 text-[10px] font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 active:scale-95"
-                            >
-                              {replyTitle}
-                            </button>
-                          );
-                        })}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="flex h-56 flex-col items-center justify-center text-center text-muted-foreground">
+                        <MessageSquare className="mb-2 size-8 text-muted-foreground/30" />
+                        <p className="text-xs font-bold text-foreground">{en ? "No messages in this chat" : "لا توجد رسائل سابقة في هذا السجل"}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {en ? "Start the conversation by sending a reply below." : "يمكنك بدء التواصل عبر كتابة رد بالأسفل."}
+                        </p>
                       </div>
+                    )}
 
-                      {/* Input Box & Action Buttons */}
-                      <div className="flex items-end gap-2">
-                        <div className="relative flex-1">
-                          <textarea
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                              }
-                            }}
-                            rows={2}
-                            placeholder={
-                              en
-                                ? "Write your message to the patient (Press Enter to send)..."
-                                : "اكتب رسالتك للمريض هنا (اضغط Enter للإرسال، Shift+Enter لسطر جديد)..."
-                            }
-                            className="w-full resize-none rounded-2xl border border-input bg-muted/30 px-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={!replyText.trim() || sendMutation.isPending}
-                          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md transition hover:bg-primary/90 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-                        >
-                          {sendMutation.isPending ? (
-                            <RefreshCw className="size-4 animate-spin" />
-                          ) : (
-                            <Send className="size-4" />
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground px-1">
-                        <span>
-                          {en
-                            ? "Messages are dispatched via secured clinic webhooks & logged to patient record."
-                            : "يتم توجيه الرسائل عبر مسار الربط المعتمد للعيادة وحفظها مباشرة في سجل المريض."}
-                        </span>
-                        <span>{replyText.length > 0 ? `${replyText.length} حرف` : ""}</span>
-                      </div>
-                    </div>
+                    <div ref={messagesEndRef} />
                   </div>
 
-                  {/* COLUMN 4 (Collapsible): Patient Quick 360 Side Panel */}
-                  {showPatientPanel ? (
-                    <aside className="w-72 shrink-0 border-r border-border bg-card/60 p-4 space-y-4 overflow-y-auto hidden xl:block">
-                      <div className="flex items-center justify-between">
-                        <strong className="text-xs font-bold text-foreground">
-                          {en ? "Patient Overview" : "بطاقة المريض"}
-                        </strong>
-                        <Link
-                          href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`}
-                          className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
-                        >
-                          <span>{en ? "Patient 360" : "الملف الكامل"}</span>
-                          <ExternalLink className="size-3" />
-                        </Link>
-                      </div>
-
-                      {/* Patient Avatar Card */}
-                      <div className="rounded-2xl border border-border bg-card p-3.5 text-center shadow-xs">
-                        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/10 text-lg font-black text-primary">
-                          {selected.name.slice(0, 2)}
-                        </div>
-                        <h4 className="mt-2 text-xs font-bold text-foreground">{selected.name}</h4>
-                        <p className="text-[10px] text-muted-foreground">
-                          {selected.phone || (en ? "No phone recorded" : "رقم الهاتف غير مسجل")}
-                        </p>
-
-                        <div className="mt-3 flex items-center justify-center gap-2">
-                          {selected.phone ? (
-                            <a
-                              href={`tel:${selected.phone}`}
-                              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/40 py-1.5 text-[10px] font-bold text-foreground transition hover:bg-muted"
-                            >
-                              <Phone className="size-3" />
-                              <span>{en ? "Call" : "اتصال"}</span>
-                            </a>
-                          ) : null}
-
-                          <Link
-                            href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`}
-                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary/10 py-1.5 text-[10px] font-bold text-primary transition hover:bg-primary/20"
+                  {/* Chat Bottom Composer */}
+                  <div className="border-t border-border bg-card p-3 md:p-4">
+                    {/* Quick Canned Replies Bar */}
+                    <div className="mb-2.5 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                      <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-primary">
+                        <Zap className="size-3.5" />
+                        <span>{en ? "Quick Replies:" : "ردود سريعة:"}</span>
+                      </span>
+                      {savedReplies.slice(0, 5).map((reply) => {
+                        const replyTextValue = "body_template" in reply ? reply.body_template : reply.content;
+                        const replyTitle = "template_key" in reply ? reply.template_key : reply.title;
+                        return (
+                          <button
+                            key={reply.id}
+                            onClick={() => setReplyText(replyTextValue)}
+                            className="shrink-0 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 text-[10px] font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 active:scale-95"
                           >
-                            <UserRound className="size-3" />
-                            <span>{en ? "Profile" : "الملف"}</span>
-                          </Link>
-                        </div>
+                            {replyTitle}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Input Box & Action Buttons */}
+                    <div className="flex items-end gap-2">
+                      <div className="relative flex-1">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          rows={2}
+                          placeholder={
+                            en
+                              ? "Write your message to the patient (Press Enter to send)..."
+                              : "اكتب رسالتك للمريض هنا (اضغط Enter للإرسال، Shift+Enter لسطر جديد)..."
+                          }
+                          className="w-full resize-none rounded-2xl border border-input bg-muted/30 px-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
                       </div>
 
-                      {/* Channel & AI status details */}
-                      <div className="space-y-2 rounded-2xl border border-border bg-card p-3.5 text-xs shadow-xs">
-                        <strong className="text-[11px] font-bold text-foreground block">
-                          {en ? "Channel Settings" : "بيانات الاتصال"}
-                        </strong>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{en ? "Platform" : "المنصة"}</span>
-                          <span className="font-semibold text-foreground capitalize flex items-center gap-1">
-                            {getChannelIcon(selected.channelType)}
-                            {selected.channelType}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{en ? "AI Auto-reply" : "المساعد الذكي"}</span>
-                          <span className="font-semibold text-foreground">
-                            {selected.mode === "AI" ? (en ? "Active" : "مفعّل") : (en ? "Paused" : "متوقف")}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{en ? "Status" : "الحالة"}</span>
-                          <span className="font-semibold text-foreground">
-                            {selected.needsStaff ? (en ? "Staff Attention" : "يحتاج متابعة") : (en ? "Normal" : "طبيعية")}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Recent Operations Log for this conversation */}
-                      <div className="space-y-2 rounded-2xl border border-border bg-card p-3.5 text-xs shadow-xs">
-                        <strong className="text-[11px] font-bold text-foreground block">
-                          {en ? "Activity & Notes" : "سجل الأحداث والملاحظات"}
-                        </strong>
-
-                        {operationsQuery.data && operationsQuery.data.length > 0 ? (
-                          <div className="space-y-2">
-                            {operationsQuery.data.slice(0, 4).map((op) => (
-                              <div key={op.id} className="rounded-lg bg-muted/40 p-2 text-[10px]">
-                                <div className="flex items-center justify-between font-bold text-foreground">
-                                  <span>
-                                    {op.event_type.includes("note")
-                                      ? "📝 ملاحظة داخلية"
-                                      : op.event_type.includes("snooze")
-                                      ? "⏰ تأجيل"
-                                      : "🎯 نتيجة"}
-                                  </span>
-                                  <span className="text-[9px] font-normal text-muted-foreground">
-                                    {formatRelativeTime(op.occurred_at || op.created_at, en)}
-                                  </span>
-                                </div>
-                                <p className="mt-1 text-muted-foreground">
-                                  {op.metadata?.content || op.metadata?.outcome || op.metadata?.reason || "—"}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!replyText.trim() || sendMutation.isPending}
+                        className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md transition hover:bg-primary/90 active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        {sendMutation.isPending ? (
+                          <RefreshCw className="size-4 animate-spin" />
                         ) : (
-                          <p className="text-[11px] text-muted-foreground text-center py-2">
-                            {en ? "No internal notes recorded." : "لا توجد ملاحظات داخلية بعد."}
-                          </p>
+                          <Send className="size-4" />
                         )}
-                      </div>
-                    </aside>
-                  ) : null}
+                      </button>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                      <span>
+                        {en
+                          ? "Messages are dispatched via secured clinic webhooks & logged to patient record."
+                          : "يتم توجيه الرسائل عبر مسار الربط المعتمد للعيادة وحفظها مباشرة في سجل المريض."}
+                      </span>
+                      <span>{replyText.length > 0 ? `${replyText.length} حرف` : ""}</span>
+                    </div>
+                  </div>
                 </div>
+
               </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center p-10 text-center text-muted-foreground">
                 <MessagesSquare className="mb-3 size-12 stroke-1 text-muted-foreground/30" />
                 <h3 className="text-sm font-bold text-foreground">{en ? "No Conversation Selected" : "لم يتم اختيار محادثة"}</h3>
                 <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                  {en ? "Select a conversation from the list to view the chat history and reply." : "اختر محادثة من القائمة لعرض سجل الرسائل والرد على المريض."}
+                  {en ? "Select a conversation from the list on the right to start messaging." : "اختر محادثة من القائمة على اليمين للبدء في المراسلة."}
                 </p>
               </div>
             )}
           </div>
+        ) : null}
+
+        {/* SLIDING PATIENT INFO SHEET (Opens when Clicking Avatar or Patient Button) */}
+        {selected ? (
+          <Sheet open={patientSheetOpen} onOpenChange={setPatientSheetOpen}>
+            <SheetContent side="left" className="w-full sm:max-w-md p-0 overflow-y-auto" dir="rtl">
+              <div className="p-6 space-y-5">
+                <SheetHeader className="text-right border-b border-border pb-4">
+                  <SheetTitle className="text-base font-bold text-foreground">
+                    {en ? "Patient Profile" : "بطاقة المريض والملف الطبي"}
+                  </SheetTitle>
+                </SheetHeader>
+
+                {/* Patient Header Card */}
+                <div className="rounded-2xl border border-border bg-card p-5 text-center shadow-xs">
+                  <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-primary/10 text-xl font-black text-primary">
+                    {selected.name.slice(0, 2)}
+                  </div>
+                  <h3 className="mt-3 text-sm font-bold text-foreground">{selected.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {selected.phone || (en ? "No phone recorded" : "رقم الهاتف غير مسجل")}
+                  </p>
+
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    {selected.phone ? (
+                      <a
+                        href={`tel:${selected.phone}`}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/40 py-2 text-xs font-bold text-foreground transition hover:bg-muted"
+                      >
+                        <Phone className="size-3.5" />
+                        <span>{en ? "Call" : "اتصال هاتف"}</span>
+                      </a>
+                    ) : null}
+
+                    <Link
+                      href={`/patient-360?id=${encodeURIComponent(selected.patient_id || selected.id)}`}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
+                    >
+                      <UserRound className="size-3.5" />
+                      <span>{en ? "Patient 360" : "الملف الشامل"}</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Quick Info details */}
+                <div className="space-y-2.5 rounded-2xl border border-border bg-card p-4 text-xs shadow-xs">
+                  <strong className="text-xs font-bold text-foreground block">
+                    {en ? "Channel & Connectivity" : "بيانات القناة والاتصال"}
+                  </strong>
+                  
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>{en ? "Platform" : "المنصة"}</span>
+                    <span className="font-bold text-foreground capitalize flex items-center gap-1.5">
+                      {getChannelIcon(selected.channelType)}
+                      {selected.channelType}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>{en ? "Account Name" : "اسم الحساب"}</span>
+                    <span className="font-semibold text-foreground">{selected.channel || "—"}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>{en ? "AI Auto-reply" : "المساعد الذكي"}</span>
+                    <span className="font-bold text-foreground">
+                      {selected.mode === "AI" ? (en ? "Active" : "مفعّل") : (en ? "Staff Handled" : "موظف بشري")}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>{en ? "Staff Attention" : "حالة التدخل"}</span>
+                    <span className="font-semibold text-foreground">
+                      {selected.needsStaff ? (en ? "Required" : "مطلوب") : (en ? "None" : "مستقر")}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Internal Notes & Operations Timeline */}
+                <div className="space-y-3 rounded-2xl border border-border bg-card p-4 text-xs shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-xs font-bold text-foreground">
+                      {en ? "Notes & Activity Log" : "سجل الملاحظات والأحداث"}
+                    </strong>
+                    <button
+                      onClick={() => {
+                        setPatientSheetOpen(false);
+                        setNoteDialogOpen(true);
+                      }}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="size-3" />
+                      <span>{en ? "Add Note" : "إضافة ملاحظة"}</span>
+                    </button>
+                  </div>
+
+                  {operationsQuery.data && operationsQuery.data.length > 0 ? (
+                    <div className="space-y-2">
+                      {operationsQuery.data.map((op) => (
+                        <div key={op.id} className="rounded-xl bg-muted/40 p-2.5 text-xs">
+                          <div className="flex items-center justify-between font-bold text-foreground">
+                            <span>
+                              {op.event_type.includes("note")
+                                ? "📝 ملاحظة داخلية"
+                                : op.event_type.includes("snooze")
+                                ? "⏰ تأجيل متابعة"
+                                : "🎯 تسجيل نتيجة"}
+                            </span>
+                            <span className="text-[10px] font-normal text-muted-foreground">
+                              {formatRelativeTime(op.occurred_at || op.created_at, en)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-muted-foreground text-[11px]">
+                            {op.metadata?.content || op.metadata?.outcome || op.metadata?.reason || "—"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      {en ? "No internal notes recorded yet." : "لا توجد ملاحظات مسجلة لهذا المريض بعد."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         ) : null}
 
         {/* DIALOG 1: Add Internal Note */}

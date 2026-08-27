@@ -101,8 +101,10 @@ router.get("/operations/summary", async (req, res) => {
   start.setUTCHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
+  const yesterdayStart = new Date(start);
+  yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
   const auth = { headers: headers(session) };
-  const [appointments, patients, conversations, followUps, noShows, waitlist, channels] = await Promise.all([
+  const [appointments, patients, conversations, followUps, noShows, waitlist, channels, appointmentsYesterday] = await Promise.all([
     supabaseRequest<Row[]>(`/rest/v1/appointments?select=id,patient_id,scheduled_at,appointment_status,booking_number,queue_number&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(start.toISOString())}&scheduled_at=lt.${encodeURIComponent(end.toISOString())}&order=scheduled_at.asc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter}&limit=1000`, auth),
     supabaseRequest<Row[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,status,last_intent,last_patient_message,last_activity_at,assigned_staff_id,priority,is_handoff,is_archived,ai_status&${clinicFilter}&is_archived=eq.false&order=last_activity_at.desc&limit=100`, auth),
@@ -110,6 +112,7 @@ router.get("/operations/summary", async (req, res) => {
     supabaseRequest<Row[]>(`/rest/v1/no_show_cases?select=id,patient_id,appointment_id,case_status,risk_level,last_activity_at,recovery_eligibility&${clinicOnly}&case_status=neq.closed&order=last_activity_at.desc.nullslast&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/appointment_waitlists?select=id,patient_id,service_id,doctor_id,branch_id,status,priority,created_at&${clinicOnly}&status=eq.active&order=priority.desc,created_at.asc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/channels?select=id,type,provider,status,is_enabled,config,updated_at&${clinicFilter}&is_enabled=eq.true&limit=100`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(yesterdayStart.toISOString())}&scheduled_at=lt.${encodeURIComponent(start.toISOString())}&limit=500`, auth),
   ]);
   const patientMap = new Map((patients.data ?? []).map((patient) => [String(patient.id), patient]));
   const patientName = (patientId: unknown) => {
@@ -134,6 +137,7 @@ router.get("/operations/summary", async (req, res) => {
     generatedAt: now.toISOString(),
     stats: {
       appointmentsToday: appointments.ok ? appointments.data?.length ?? 0 : null,
+      appointmentsYesterday: appointmentsYesterday.ok ? appointmentsYesterday.data?.length ?? 0 : null,
       activePatients: patients.ok ? patients.data?.length ?? 0 : null,
       conversationsNeedingStaff: conversations.ok ? attention : null,
       openFollowUps: followUps.ok ? followUps.data?.length ?? 0 : null,

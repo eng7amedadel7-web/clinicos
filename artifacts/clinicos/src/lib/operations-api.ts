@@ -4,6 +4,7 @@ export type OperationsSummary = {
   generatedAt: string;
   stats: {
     appointmentsToday: OperationsStatValue;
+    appointmentsYesterday: OperationsStatValue;
     activePatients: OperationsStatValue;
     conversationsNeedingStaff: OperationsStatValue;
     openFollowUps: OperationsStatValue;

@@ -140,7 +140,7 @@ function AnimatedNumber({ value }: { value: string }) {
   return <>{display}</>;
 }
 
-function KpiCard({ label, value, helper, accent, icon, href, index, alerts }: {
+function KpiCard({ label, value, helper, accent, icon, href, index, alerts, delta }: {
   label: string;
   value: string;
   helper: string;
@@ -149,6 +149,7 @@ function KpiCard({ label, value, helper, accent, icon, href, index, alerts }: {
   href?: string;
   index: number;
   alerts?: boolean;
+  delta?: number | null;
 }) {
   const { language } = usePreferences();
   const en = language === "en";
@@ -158,7 +159,14 @@ function KpiCard({ label, value, helper, accent, icon, href, index, alerts }: {
       {alerts ? <span className="flex items-center gap-1.5 rounded-full bg-[#fff0d8] px-2.5 py-1 text-[10px] font-bold text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]"><span className="size-1.5 animate-pulse rounded-full bg-[#d08327]" /> {en ? "Needs action" : "يحتاج إجراء"}</span> : null}
     </div>
     <p className="text-xs font-bold text-[#66808e] dark:text-[#7e939e]">{label}</p>
-    <div className="mt-1 flex items-baseline gap-2"><strong className="text-3xl tracking-tight text-[#18374d] dark:text-[#e2ecf1] tabular-nums"><AnimatedNumber value={value} /></strong></div>
+    <div className="mt-1 flex items-baseline gap-2">
+      <strong className="text-3xl tracking-tight text-[#18374d] dark:text-[#e2ecf1] tabular-nums"><AnimatedNumber value={value} /></strong>
+      {typeof delta === "number" ? (
+        <span className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${delta > 0 ? "bg-[#d9f0e8] text-[#176b58] dark:bg-[#123528] dark:text-[#7fd0b4]" : delta < 0 ? "bg-[#f8dfdc] text-[#a64036] dark:bg-[#3d1f1b] dark:text-[#eb9a90]" : "bg-[#eef2f4] text-[#66808e] dark:bg-[#10222f] dark:text-[#7e939e]"}`} data-testid={`kpi-delta-${index}`}>
+          {delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {Math.abs(delta)}
+        </span>
+      ) : null}
+    </div>
     <p className="mt-2 text-[11px] text-[#8a9ba4] dark:text-[#7e939e]">{helper}</p>
   </>;
   return <article className="surface stat-card animate-rise p-5" style={{ animationDelay: `${index * 70}ms` }} data-testid={`card-kpi-${index}`}>
@@ -197,6 +205,20 @@ export default function LiveDashboard({ session }: { session: Session }) {
   useEffect(() => {
     window.localStorage.setItem("meruna-dash-density", dense ? "compact" : "comfortable");
   }, [dense]);
+  const [hiddenSections, setHiddenSections] = useState<string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem("meruna-dash-hidden");
+      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    window.localStorage.setItem("meruna-dash-hidden", JSON.stringify(hiddenSections));
+  }, [hiddenSections]);
+  const toggleSection = (id: string) => setHiddenSections((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const isVisible = (id: string) => !hiddenSections.includes(id);
   const nowTick = useNow(1000);
   const summaryQuery = useQuery({
     queryKey: ["operations", "summary", "dashboard"],
@@ -234,6 +256,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
   const billing = billingQuery.data;
   const billingPhase = billingPhaseLabels[billing?.lifecycle.phase ?? "none"] ?? billingPhaseLabels.none;
   const billingPlan = billing?.subscription?.plan;
+  const appointmentsDelta = stats?.appointmentsToday != null && stats?.appointmentsYesterday != null ? stats.appointmentsToday - stats.appointmentsYesterday : null;
 
   const busy = summaryQuery.isLoading;
   const failed = summaryQuery.isError;
@@ -268,7 +291,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
         <button className="primary-button mt-5" onClick={refresh} data-testid="button-retry-dashboard"><RefreshCw size={16} /> {en ? "Retry" : "إعادة المحاولة"}</button>
       </div> : summary && stats ? <>
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard index={0} label={en ? "Today's appointments" : "مواعيد اليوم"} value={String(stats.appointmentsToday ?? 0)} helper={en ? "Scheduled for today" : "مجدولة على مدار اليوم"} accent="bg-[#d9f0e8] text-[#176b58] dark:bg-[#123528] dark:text-[#7fd0b4]" icon={<CalendarPlus size={19} />} href="/appointments" />
+          <KpiCard index={0} label={en ? "Today's appointments" : "مواعيد اليوم"} value={String(stats.appointmentsToday ?? 0)} delta={appointmentsDelta} helper={en ? "Scheduled for today" : "مجدولة على مدار اليوم"} accent="bg-[#d9f0e8] text-[#176b58] dark:bg-[#123528] dark:text-[#7fd0b4]" icon={<CalendarPlus size={19} />} href="/appointments" />
           <KpiCard index={1} label={en ? "Conversations need staff" : "محادثات تحتاج موظفًا"} value={String(stats.conversationsNeedingStaff ?? 0)} helper={en ? "Waiting for a human reply" : "بانتظار رد من فريقك"} accent="bg-[#fff0d8] text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]" icon={<Inbox size={19} />} href="/inbox" alerts={(stats.conversationsNeedingStaff ?? 0) > 0} />
           <KpiCard index={2} label={en ? "Open follow-ups" : "متابعات مفتوحة"} value={String(stats.openFollowUps ?? 0)} helper={en ? "Patients due for a follow-up" : "مرضى مستحقون للمتابعة"} accent="bg-[#dcecf5] text-[#22617d] dark:bg-[#143242] dark:text-[#8cc3dd]" icon={<Sparkles size={19} />} href="/follow-ups" />
           <KpiCard index={3} label={en ? "Active waitlist" : "قائمة الانتظار"} value={String(stats.activeWaitlist ?? 0)} helper={en ? "Patients seeking the nearest slot" : "مرضى يبحثون عن أقرب موعد"} accent="bg-[#e8e1f4] text-[#65518b] dark:bg-[#2a2440] dark:text-[#bcaede]" icon={<Clock3 size={19} />} href="/waitlist" />
@@ -279,6 +302,20 @@ export default function LiveDashboard({ session }: { session: Session }) {
           <Link href="/appointments" className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#22617d] transition hover:border-[#9fc0ca] hover:bg-[#f1f7f7] dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd] dark:hover:bg-[#10222f]" data-testid="quick-new-appointment"><CalendarPlus size={14} /> {en ? "New appointment" : "حجز موعد"}</Link>
           <Link href="/patients" className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#22617d] transition hover:border-[#9fc0ca] hover:bg-[#f1f7f7] dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd] dark:hover:bg-[#10222f]" data-testid="quick-add-patient"><UserPlus size={14} /> {en ? "Add patient" : "إضافة مريض"}</Link>
           <Link href="/inbox" className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe2e8] bg-white px-3.5 py-1.5 text-[11px] font-bold text-[#22617d] transition hover:border-[#9fc0ca] hover:bg-[#f1f7f7] dark:border-[#1e3a4d] dark:bg-[#122434] dark:text-[#8cc3dd] dark:hover:bg-[#10222f]" data-testid="quick-open-inbox"><Inbox size={14} /> {en ? "Open inbox" : "صندوق الوارد"}</Link>
+        </section>
+
+        <section className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="strip-customize-legend">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={en ? "Customize sections" : "تخصيص الأقسام"}>
+            <span className="text-[11px] font-bold text-[#66808e] dark:text-[#7e939e]">{en ? "Show:" : "إظهار:"}</span>
+            {([["schedule", en ? "Schedule" : "الجدول"], ["attention", en ? "Attention" : "الانتباه"], ["recovery", en ? "Recovery" : "الاسترداد"], ["conversations", en ? "Conversations" : "المحادثات"]] as const).map(([id, label]) => (
+              <button key={id} type="button" onClick={() => toggleSection(id)} aria-pressed={isVisible(id)} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold transition ${isVisible(id) ? "border-[#9fc0ca] bg-[#e6f4ee] text-[#2c7a5d] dark:border-[#1e3a4d] dark:bg-[#123528] dark:text-[#7fd0b4]" : "border-[#dbe5ea] bg-transparent text-[#93a6ae] line-through dark:border-[#1e3a4d] dark:text-[#7e939e]"}`} data-testid={`toggle-section-${id}`}>{label}</button>
+            ))}
+          </div>
+          <div className="ms-auto flex flex-wrap items-center gap-2" aria-label={en ? "Status legend" : "مفتاح الحالات"}>
+            {(["scheduled", "checked_in", "completed", "cancelled"] as const).map((status) => (
+              <span key={status} className="flex items-center gap-1 text-[10px] text-[#7f919a] dark:text-[#7e939e]"><span className={`inline-block size-2 rounded-full ${status === "scheduled" ? "bg-[#d08327]" : status === "checked_in" ? "bg-[#3d8a72]" : status === "completed" ? "bg-[#22617d]" : "bg-[#a64036]"}`} /> {statusLabels(en)[status]}</span>
+            ))}
+          </div>
         </section>
 
         <section className="grid gap-4 xl:grid-cols-2" data-testid="strip-live-queue-billing">
@@ -322,7 +359,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-          <SectionCard
+          {isVisible("schedule") && <SectionCard
             title={en ? "Today's schedule" : "جدول اليوم"}
             subtitle={en ? `Clinic ${session.clinic.name}` : `مواعيد عيادة ${session.clinic.name} المرتبطة بالسيرفر`}
             delay="delay-2"
@@ -339,9 +376,9 @@ export default function LiveDashboard({ session }: { session: Session }) {
                 <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${appointmentStatusTone(typeof appointment.appointment_status === "string" ? appointment.appointment_status : undefined)}`}>{statusLabels(en)[String(appointment.appointment_status ?? "")] ?? String(appointment.appointment_status ?? "")}</span>
               </div>)}
             </div> : <EmptyHint icon={<CalendarPlus size={20} />} title={en ? "No appointments today" : "لا توجد مواعيد اليوم"} hint={en ? "New bookings will appear here in real time." : "ستظهر الحجوزات الجديدة هنا تلقائيًا."} />}
-          </SectionCard>
+          </SectionCard>}
 
-          <div className="flex min-w-0 flex-col gap-6">
+          {isVisible("attention") && <div className="flex min-w-0 flex-col gap-6">
             <SectionCard
               title={en ? "Needs your attention" : "يحتاج انتباهك"}
               subtitle={en ? "Handoffs and unassigned conversations" : "تسليمات ومحادثات بدون موظف مسؤول"}
@@ -360,11 +397,11 @@ export default function LiveDashboard({ session }: { session: Session }) {
                 <Link href="/inbox" className="flex items-center justify-between rounded-lg bg-[#fdf6e8] px-3 py-2.5 text-[10px] font-bold text-[#986311] transition hover:bg-[#faefd4] dark:bg-[#3a2c14] dark:text-[#e0b46a] dark:hover:bg-[#4a3a1a]" data-testid="link-dashboard-inbox">{en ? "Open inbox" : "فتح صندوق الوارد"} <ArrowUpLeft size={14} /></Link>
               </div> : <EmptyHint icon={<CheckCircle2 size={20} />} title={en ? "All clear" : "كل شيء تحت السيطرة"} hint={en ? "No conversation is waiting for your team." : "لا توجد محادثات تنتظر رد فريقك الآن."} />}
             </SectionCard>
-          </div>
+          </div>}
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[.7fr_1.3fr]">
-          <SectionCard
+          {isVisible("recovery") && <SectionCard
             title={en ? "Recovery radar" : "رادار الاسترداد"}
             subtitle={en ? "Follow-ups due and no-show recovery" : "متابعات مستحقة وحالات حضور قابلة للاسترداد"}
             action={<Link href="/follow-ups" className="flex items-center gap-1 text-[11px] font-bold text-[#3c7e93] dark:text-[#8cc3dd]" data-testid="link-dashboard-recovery">{en ? "Manage" : "إدارة"} <ChevronLeft size={14} /></Link>}
@@ -388,9 +425,9 @@ export default function LiveDashboard({ session }: { session: Session }) {
                 </div>;
               })}
             </div> : <EmptyHint icon={<CheckCircle2 size={20} />} title={en ? "Nothing to recover" : "لا يوجد ما يستدعي الاسترداد"} hint={en ? "Follow-ups and no-show cases will appear here." : "ستظهر المتابعات وحالات عدم الحضور هنا."} />}
-          </SectionCard>
+          </SectionCard>}
 
-          <SectionCard
+          {isVisible("conversations") && <SectionCard
             title={en ? "Recent conversations" : "أحدث المحادثات"}
             subtitle={en ? "Latest patient activity across channels" : "آخر نشاط للمرضى على قنوات العيادة"}
             action={<Link href="/inbox" className="flex items-center gap-1 text-[11px] font-bold text-[#3c7e93] dark:text-[#8cc3dd]" data-testid="link-dashboard-conversations">{en ? "Open inbox" : "فتح الصندوق"} <ChevronLeft size={14} /></Link>}
@@ -408,7 +445,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
                 <span className="shrink-0 text-[9px] text-[#a0adb3] dark:text-[#7e939e]">{formatRelativeDay(typeof conversation.last_activity_at === "string" ? conversation.last_activity_at : null, en)}</span>
               </Link>)}
             </div> : <EmptyHint icon={<MessageSquareText size={20} />} title={en ? "No conversations yet" : "لا توجد محادثات بعد"} hint={en ? "Patient messages from connected channels will appear here." : "ستظهر رسائل المرضى من القنوات المتصلة هنا."} />}
-          </SectionCard>
+          </SectionCard>}
         </section>
 
         <section className="flex flex-wrap items-center gap-2" data-testid="strip-system-status">

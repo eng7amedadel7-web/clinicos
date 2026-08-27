@@ -671,6 +671,20 @@ function ProtectedShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [menuOpen]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === '/') { event.preventDefault(); setSearchOpen(true); return; }
+      const map: Record<string, string> = { d: '/dashboard', i: '/inbox', a: '/appointments', p: '/patients', w: '/waitlist', f: '/follow-ups', n: '/no-shows', b: '/billing' };
+      const to = map[event.key.toLowerCase()];
+      if (to) setLocation(to);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [setLocation, setSearchOpen]);
+
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (needsLogin) return null;
   const session = sessionQuery.data;
