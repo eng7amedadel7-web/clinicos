@@ -13,8 +13,8 @@ export function VoiceStudioModal({ isOpen, onClose }: { isOpen: boolean; onClose
   const [speed, setSpeed] = useState(1);
   const [greeting, setGreeting] = useState(
     isArabic
-      ? 'أهلاً بك في عياداتنا، معك سارة المساعد الذكي. كيف أقدر أساعدك اليوم في حجز موعدك؟'
-      : 'Welcome to our clinic, this is Sarah your AI assistant. How may I help you book your appointment today?'
+      ? 'أهلاً بك في العيادة، معك المساعد الذكي للاستقبال. كيف أقدر أساعدك اليوم في حجز موعدك؟'
+      : 'Welcome to our clinic, this is your AI reception assistant. How may I help you book your appointment today?'
   );
   const [emergencyKeywords, setEmergencyKeywords] = useState('نزيف حاد، ألم غير محتمل، صعوبة تنفس');
   const [isPlaying, setIsPlaying] = useState(false);

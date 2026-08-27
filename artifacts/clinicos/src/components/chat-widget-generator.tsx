@@ -7,7 +7,7 @@ export function ChatWidgetGenerator() {
   const { language } = usePreferences();
   const isArabic = language === 'ar';
 
-  const [clinicName, setClinicName] = useState('عيادات مدار التخصصية');
+  const [clinicName, setClinicName] = useState(isArabic ? 'عيادتك' : 'Your Clinic');
   const [welcomeMessage, setWelcomeMessage] = useState(
     isArabic
       ? 'مرحباً بك في عيادتنا! كيف أستطيع مساعدتك اليوم في حجز كشف أو استفسار طبي؟'
@@ -173,7 +173,7 @@ export function ChatWidgetGenerator() {
                 <span className="size-2.5 rounded-full bg-emerald-400" />
               </div>
               <span className="font-mono text-[10px] text-muted-foreground truncate" dir="ltr">
-                https://madar-clinic.com
+                https://your-clinic.com
               </span>
             </div>
 

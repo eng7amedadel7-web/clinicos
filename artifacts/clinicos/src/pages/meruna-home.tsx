@@ -95,8 +95,8 @@ const copy: Record<Lang, Copy> = {
   en: {
     nav: { method: 'How it works', capabilities: 'Capabilities', voice: 'AI voice', roi: 'ROI calculator', pricing: 'Plans', faq: 'FAQ' },
     actions: { login: 'Sign in', demo: 'Book a demo', start: 'Start live demo', explore: 'See how it works', play: 'Play call audio', send: 'Send', close: 'Close', submit: 'Request my demo' },
-    hero: { eyebrow: 'CLINIC OPERATIONS / ALWAYS ON', title: 'A calmer way to run', accent: 'any clinic.', body: 'Bring patients, appointments, conversations, AI voice reception, and daily operations into one clear workspace your whole team can trust.', proof: 'Trusted by teams who care about every patient moment.', clinics: '120+ clinics across 18 countries' },
-    demo: { live: 'LIVE FRONT DESK', welcome: 'Good morning, Dr. Maya', appointments: 'confirmed appointments', attendance: 'attendance rate', week: 'This week', confirmed: 'Appointment confirmed', newMessage: 'New patient message' },
+    hero: { eyebrow: 'CLINIC OPERATIONS / ALWAYS ON', title: 'A calmer way to run', accent: 'any clinic.', body: 'Bring patients, appointments, conversations, AI voice reception, and daily operations into one clear workspace your whole team can trust.', proof: 'Designed specifically for modern clinics in Saudi Arabia and the UAE.', clinics: 'Seamless WhatsApp & Phone AI Voice Integration' },
+    demo: { live: 'LIVE FRONT DESK', welcome: 'Good morning, Doctor', appointments: 'confirmed appointments', attendance: 'attendance rate', week: 'This week', confirmed: 'Appointment confirmed', newMessage: 'New patient message' },
     trust: { label: 'BUILT FOR THE MOMENTS BETWEEN PATIENTS', dental: 'Dental practices', primary: 'Primary care', networks: 'Multi-site networks', always: 'Teams that never close' },
     method: { eyebrow: 'THE OPERATING LAYER', title: 'The front desk is not a place.', accent: 'It is your clinic’s rhythm.', body: 'When calls, messages and follow-ups scatter across a busy team, the patient feels it. MERUNA brings each moment into one calm, accountable layer.', link: 'Explore the workspace', stat1: '−38%', stat1Body: 'fewer missed appointments', stat2: '24/7', stat2Body: 'coverage for every question' },
     capabilities: { eyebrow: 'ONE SYSTEM. EVERY MOMENT.', title: 'Less busywork.', accent: 'More care in motion.', body: 'The essentials work together, so your team can move from the first question to the next visit without losing context.', cards: [
@@ -111,9 +111,9 @@ const copy: Record<Lang, Copy> = {
       { title: 'The visit is protected', body: 'A relevant reminder makes showing up feel effortless.' },
       { title: 'The relationship continues', body: 'A helpful follow-up creates the next reason to return.' },
     ] },
-    voice: { eyebrow: 'THE VOICE OF YOUR CLINIC', title: 'Not a robot reading a script.', accent: 'A teammate who knows when to listen.', body: 'MERUNA understands intent, remembers context and hands sensitive moments to your team. Patients get a natural conversation. Your people get the room to focus.', points: ['Natural human conversation in Arabic and English', 'Live calendar slot checking with instant WhatsApp confirmation', 'Seamless human handoff whenever requested by patient'], assistant: 'MERUNA Voice Agent', listening: 'Listening for patient inquiries', placeholder: 'Try realistic phone call scenarios below…', connected: 'Live Phone Line' },
+    voice: { eyebrow: 'THE VOICE OF YOUR CLINIC', title: 'Not a robot reading a script.', accent: 'A teammate who knows when to listen.', body: 'MERUNA understands intent, remembers context and hands sensitive moments to your team. Patients get a natural conversation. Your people get the room to focus.', points: ['Natural conversation in native Saudi & Gulf dialects', 'Live calendar slot checking with instant WhatsApp confirmation', 'Seamless human handoff whenever requested by patient'], assistant: 'MERUNA Voice Agent', listening: 'Listening for patient inquiries', placeholder: 'Try realistic phone call scenarios below…', connected: 'Live Phone Line · 24/7' },
     pricing: { eyebrow: 'START WITH THE WAY YOU WORK', title: 'Begin with one clinic.', accent: 'Scale without the scramble.', body: 'A focused workspace for one location or a connected operating layer for your whole network. We shape the rollout around your reality.', plan: 'PLAN / CLINIC', planTitle: 'Your clinic workspace', features: ['Always-on patient conversations', 'Appointments, reminders and follow-ups', 'Permissions and visibility for every location'], action: 'Talk to our team', plans: [{ key: 'starter', name: 'Starter', description: 'For organized beginnings', monthly: 79, yearly: 64, features: ['One branch', 'Up to 3 users', 'Appointments and patients', 'PWA offline support'] }, { key: 'growth', name: 'Growth', description: 'For clinics on the move', monthly: 179, yearly: 144, features: ['Up to 3 branches', 'Up to 15 users', 'AI Reception & Follow-ups', 'Automated Waitlist'], popular: true }, { key: 'pro', name: 'Pro', description: 'For medical groups', monthly: 349, yearly: 280, features: ['Unlimited branches', 'AI Voice Calling Agent', 'Advanced Analytics & Reports', 'Dedicated Account Manager'] }] },
-    testimonial: { eyebrow: 'A NOTE FROM THE FLOOR', stat: '+18 hrs', statBody: 'returned to the front desk each week', quote: 'For the first time, it feels like someone is holding every thread — even when the waiting room is full.', name: 'Dr. Samira Nasser', role: 'Director, Noura Health Network' },
+    testimonial: { eyebrow: 'DESIGNED FOR YOUR REGION', stat: '24/7 AI', statBody: 'coverage across WhatsApp and Phone', quote: 'A dedicated operational layer that captures every inquiry, confirms appointments, and keeps your front desk calm.', name: 'Saudi & UAE Ready', role: 'Enterprise Front-Office AI' },
     cta: { eyebrow: 'YOUR NEXT QUIETER DAY', title: 'Give the front desk room to breathe.', accent: 'Give your clinic room to grow.', body: 'A short working session built around your patient flow — not a long sales tour.', details: 'No pressure. Just a clearer view of what could change.' },
     footer: { tagline: 'The operating system for the moments that matter.', product: 'Product', company: 'Company', legal: 'Legal', privacy: 'Privacy', terms: 'Terms', rights: '© 2026 MERUNA. Built for better clinic days.' },
     modal: { eyebrow: 'A WORKING SESSION FOR YOUR CLINIC', title: 'Let’s make the day', accent: 'feel lighter.', body: 'Leave your details and our team will come back with a practical walkthrough in one business day.', name: 'Name and clinic', namePlaceholder: 'Your name · clinic name', contact: 'Work email', contactPlaceholder: 'you@clinic.com', sentTitle: 'Request received.', sentBody: 'We’ll be in touch soon to shape a session around your clinic.', done: 'Back to the page' },
@@ -127,17 +127,17 @@ const copy: Record<Lang, Copy> = {
       search: 'Search patients',
       newConversation: 'New conversation',
       today: 'Today',
-      samplePatients: [{ name: 'Lena Morgan', detail: 'Appointment request', time: '09:41' }, { name: 'Marcus Lee', detail: 'Post-visit follow-up', time: '09:18' }, { name: 'Aisha Patel', detail: 'Missed appointment', time: 'Yesterday' }],
+      samplePatients: [{ name: 'Patient 1', detail: 'Appointment request', time: '09:41' }, { name: 'Patient 2', detail: 'Post-visit follow-up', time: '09:18' }, { name: 'Patient 3', detail: 'Missed appointment', time: 'Yesterday' }],
       samples: [
-        { label: 'Booking a new visit', messages: [{ from: 'patient', text: 'Hi, I’d like to see Dr. Chen this week.' }, { from: 'agent', text: 'I found Thursday at 4:30 PM. Would you like me to hold it for you?' }] },
-        { label: 'After a visit', messages: [{ from: 'patient', text: 'The care team was wonderful. What should I do next?' }, { from: 'agent', text: 'I’m glad to hear that. I can share your care notes and arrange the next check-in.' }] },
-        { label: 'Recovering a missed visit', messages: [{ from: 'patient', text: 'I missed my appointment this morning. I’m sorry.' }, { from: 'agent', text: 'No problem. Let’s find a new time that works for you — I have two options.' }] }
+        { label: 'Booking a new visit', messages: [{ from: 'patient', text: 'Hi, I would like to book an appointment this week.' }, { from: 'agent', text: 'I found Thursday at 4:30 PM with the attending physician. Would you like me to confirm it?' }] },
+        { label: 'After a visit', messages: [{ from: 'patient', text: 'Thank you for the care today. What are my next instructions?' }, { from: 'agent', text: 'Glad to care for you! I just shared your post-visit care notes and scheduled your follow-up check-in.' }] },
+        { label: 'Recovering a missed visit', messages: [{ from: 'patient', text: 'I missed my appointment this morning.' }, { from: 'agent', text: 'No problem at all! Let us find a convenient alternate slot for you tomorrow.' }] }
       ],
       quickChips: [
-        { label: '🦷 Book Dental Visit', prompt: 'I would like to book a dental checkup this Thursday afternoon.', reply: 'I reserved Thursday at 4:30 PM with Dr. Sarah. A confirmation slip was created for you!', booked: true },
-        { label: '💰 Pricing & Services', prompt: 'How much is a general consultation and teeth cleaning?', reply: 'Consultation is $45, and cleaning is $80 including a full preventative scan.' },
+        { label: '🦷 Book Dental Visit', prompt: 'I would like to book a dental checkup this Thursday afternoon.', reply: 'I reserved Thursday at 4:30 PM with the attending physician. A confirmation slip was created for you!', booked: true },
+        { label: '💰 Pricing & Services', prompt: 'How much is a general consultation and teeth cleaning?', reply: 'Consultation is 150 SAR, and cleaning is 250 SAR including a full preventative scan.' },
         { label: '🔄 Reschedule to Saturday', prompt: 'Can I reschedule tomorrow appointment to Saturday morning?', reply: 'Sure! I moved your booking to Saturday 10:30 AM and notified the medical team.' },
-        { label: '👨‍⚕️ Doctor Availability', prompt: 'Is Dr. Sarah available for walk-ins today?', reply: 'Dr. Sarah is in clinic until 8:00 PM today. Two slot openings remain at 5:15 PM and 6:45 PM.' },
+        { label: '👨‍⚕️ Doctor Availability', prompt: 'Is the physician available for walk-ins today?', reply: 'The attending physician is in clinic until 8:00 PM today. Two slot openings remain at 5:15 PM and 6:45 PM.' },
       ],
       input: 'Type a message or click a quick scenario above…',
       agentName: 'MERUNA AI Agent',
@@ -150,8 +150,8 @@ const copy: Record<Lang, Copy> = {
   ar: {
     nav: { method: 'كيف يعمل', capabilities: 'الإمكانات', voice: 'الصوت الذكي', roi: 'حاسبة العائد', pricing: 'الخطط', faq: 'الأسئلة الشائعة' },
     actions: { login: 'تسجيل الدخول', demo: 'احجز عرضاً', start: 'ابدأ التجربة الحية', explore: 'اكتشف كيف يعمل', play: 'تشغيل المكالمة الصوتية', send: 'إرسال', close: 'إغلاق', submit: 'أرسل طلب العرض' },
-    hero: { eyebrow: 'تشغيل العيادة / دائماً حاضر', title: 'طريقة أكثر هدوءاً لإدارة', accent: 'أي عيادة.', body: 'اجمع المرضى والمواعيد والمحادثات واستقبال المكالمات بالذكاء الاصطناعي والعمليات اليومية في مساحة عمل واضحة يثق بها فريقك بالكامل.', proof: 'يثق بنا فريق يهتم بكل لحظة مع المريض.', clinics: 'أكثر من ١٢٠ عيادة في ١٨ دولة' },
-    demo: { live: 'الاستقبال مباشر', welcome: 'صباح هادئ، د. مايا', appointments: 'مواعيد مؤكدة', attendance: 'نسبة الحضور', week: 'هذا الأسبوع', confirmed: 'تم تأكيد الموعد', newMessage: 'رسالة مريض جديدة' },
+    hero: { eyebrow: 'تشغيل العيادة / دائماً حاضر', title: 'طريقة أكثر هدوءاً لإدارة', accent: 'أي عيادة.', body: 'اجمع المرضى والمواعيد والمحادثات واستقبال المكالمات بالذكاء الاصطناعي والعمليات اليومية في مساحة عمل واضحة يثق بها فريقك بالكامل.', proof: 'مصمم خصيصاً لبيئة عمل العيادات في السعودية والإمارات.', clinics: 'ربط مباشر بالواتساب والمكالمات الهاتفية' },
+    demo: { live: 'الاستقبال مباشر', welcome: 'مرحباً بك، دكتور', appointments: 'مواعيد مؤكدة', attendance: 'نسبة الحضور', week: 'هذا الأسبوع', confirmed: 'تم تأكيد الموعد', newMessage: 'رسالة مريض جديدة' },
     trust: { label: 'مصمم للحظات بين المرضى', dental: 'عيادات الأسنان', primary: 'الرعاية الأولية', networks: 'شبكات متعددة الفروع', always: 'فرق لا تغلق أبوابها' },
     method: { eyebrow: 'طبقة التشغيل', title: 'الاستقبال ليس مكاناً.', accent: 'إنه إيقاع عيادتك.', body: 'عندما تتوزع الاتصالات والرسائل والمتابعات بين فريق مشغول، يشعر المريض بذلك. يجمع MERUNA كل لحظة في طبقة واحدة هادئة وواضحة.', link: 'اكتشف مساحة العمل', stat1: '−٣٨٪', stat1Body: 'مواعيد فائتة أقل', stat2: '٢٤/٧', stat2Body: 'تغطية لكل سؤال' },
     capabilities: { eyebrow: 'نظام واحد. كل لحظة.', title: 'مهام يومية أقل.', accent: 'رعاية أكثر في الحركة.', body: 'تعمل الأساسيات معاً، لينتقل فريقك من السؤال الأول إلى الزيارة القادمة دون فقدان السياق.', cards: [
@@ -166,9 +166,9 @@ const copy: Record<Lang, Copy> = {
       { title: 'تحصل الزيارة على حماية', body: 'تذكير مناسب يجعل الحضور أسهل.' },
       { title: 'تستمر العلاقة', body: 'متابعة مفيدة تفتح سبباً جديداً للعودة.' },
     ] },
-    voice: { eyebrow: 'صوت عيادتك', title: 'ليس روبوتاً يقرأ نصاً.', accent: 'إنه زميل يعرف متى يستمع.', body: 'يفهم MERUNA النية ويتذكر السياق ويمرر اللحظات الحساسة إلى فريقك. يحصل المريض على حوار طبيعي، ويحصل فريقك على مساحة للتركيز.', points: ['حوار طبيعي واقعي باللهجة العربية والإنجليزية', 'ربط فوري بالتقويم وحجز مباشر مع إرسال تأكيد واتساب', 'تحويل تلقائي لموظف الاستقبال عند رغبة المريض'], assistant: 'المساعد الصوتي الذكي MERUNA', listening: 'جاهز لاستقبال المكالمات فوراً', placeholder: 'جرّب سيناريوهات المكالمات الهاتفية الحية أدناه…', connected: 'خط الهاتف نشط 24/7' },
+    voice: { eyebrow: 'صوت عيادتك', title: 'ليس روبوتاً يقرأ نصاً.', accent: 'إنه زميل يعرف متى يستمع.', body: 'يفهم MERUNA النية ويتذكر السياق ويمرر اللحظات الحساسة إلى فريقك. يحصل المريض على حوار طبيعي، ويحصل فريقك على مساحة للتركيز.', points: ['حوار طبيعي واقعي باللهجة السعودية والخليجية', 'ربط فوري بالتقويم وحجز مباشر مع إرسال تأكيد واتساب', 'تحويل تلقائي لموظف الاستقبال عند رغبة المريض'], assistant: 'المساعد الصوتي الذكي MERUNA', listening: 'جاهز لاستقبال المكالمات فوراً', placeholder: 'جرّب سيناريوهات المكالمات الهاتفية الحية أدناه…', connected: 'خط الهاتف نشط 24/7' },
     pricing: { eyebrow: 'ابدأ بالطريقة التي تعمل بها', title: 'ابدأ بعيادة واحدة.', accent: 'وتوسع بلا فوضى.', body: 'مساحة عمل مركزة لموقع واحد أو طبقة تشغيل مترابطة لشبكتك كلها. نصمم البداية حول واقعك.', plan: 'الخطة / العيادة', planTitle: 'مساحة عيادتك', features: ['محادثات مرضى حاضرة دائماً', 'مواعيد وتذكيرات ومتابعات', 'صلاحيات ورؤية لكل فرع'], action: 'تحدث مع فريقنا', plans: [{ key: 'starter', name: 'Starter', description: 'للبدايات المنظمة', monthly: 79, yearly: 64, features: ['فرع واحد', 'حتى ٣ مستخدمين', 'المواعيد وسجلات المرضى', 'تطبيق PWA للعمل بدون إنترنت'] }, { key: 'growth', name: 'Growth', description: 'للعيادات سريعة النمو', monthly: 179, yearly: 144, features: ['حتى ٣ فروع', 'حتى ١٥ مستخدماً', 'الاستقبال الذكي والمتابعات الآلية', 'قائمة الانتظار الذكية'], popular: true }, { key: 'pro', name: 'Pro', description: 'للمجموعات الطبية', monthly: 349, yearly: 280, features: ['فروع بلا حدود', 'الوكيل الصوتي للمكالمات الهاتفية', 'تقارير وإحصائيات متقدمة', 'مدير حساب ودعم مخصص'] }] },
-    testimonial: { eyebrow: 'من أرض الواقع', stat: '+١٨ ساعة', statBody: 'يستعيدها فريق الاستقبال كل أسبوع', quote: 'لأول مرة أشعر أن هناك من يمسك كل الخيوط، حتى عندما تكون غرفة الانتظار ممتلئة.', name: 'د. سميرة ناصر', role: 'مديرة شبكة نورا الصحية' },
+    testimonial: { eyebrow: 'ركائز النظام الذكي', stat: '24/7', statBody: 'جاهزية كاملة للمكالمات والواتساب', quote: 'نظام تشغيل واستقبال ذكي مصمم لخصوصية العيادات وخدمة المرضى على مدار الساعة بأعلى كفاءة.', name: 'جاهزية السوق السعودي والإماراتي', role: 'نظام الاستقبال الذكي المتكامل' },
     cta: { eyebrow: 'يومك القادم بهدوء أكبر', title: 'امنح الاستقبال مساحة ليتنفس.', accent: 'وامنح عيادتك مساحة للنمو.', body: 'جلسة قصيرة مبنية حول رحلة مريضك، لا جولة مبيعات طويلة.', details: 'بلا ضغط. فقط رؤية أوضح لما يمكن أن يتغير.' },
     footer: { tagline: 'نظام تشغيل للحظات التي تهم.', product: 'المنتج', company: 'الشركة', legal: 'قانوني', privacy: 'الخصوصية', terms: 'الشروط', rights: '© ٢٠٢٦ MERUNA. لأيام عيادة أفضل.' },
     modal: { eyebrow: 'جلسة عمل لعيادتك', title: 'لنرتب يومك ليصبح', accent: 'أخف.', body: 'اترك بياناتك وسيتواصل معك فريقنا بجولة عملية خلال يوم عمل واحد.', name: 'الاسم والعيادة', namePlaceholder: 'اسمك · اسم العيادة', contact: 'البريد المهني', contactPlaceholder: 'you@clinic.com', sentTitle: 'وصل طلبك.', sentBody: 'سنعود إليك قريباً لنرتب جلسة تناسب عيادتك.', done: 'العودة إلى الصفحة' },
@@ -182,17 +182,17 @@ const copy: Record<Lang, Copy> = {
       search: 'ابحث عن مريض',
       newConversation: 'محادثة جديدة',
       today: 'اليوم',
-      samplePatients: [{ name: 'لينا مورغان', detail: 'طلب موعد', time: '٠٩:٤١' }, { name: 'ماركوس لي', detail: 'متابعة بعد الزيارة', time: '٠٩:١٨' }, { name: 'عائشة باتل', detail: 'موعد فائت', time: 'أمس' }],
+      samplePatients: [{ name: 'مريض 1', detail: 'طلب موعد كشف', time: '٠٩:٤١' }, { name: 'مريض 2', detail: 'متابعة بعد الزيارة', time: '٠٩:١٨' }, { name: 'مريض 3', detail: 'تعديل موعد', time: 'أمس' }],
       samples: [
-        { label: 'حجز زيارة جديدة', messages: [{ from: 'patient', text: 'مرحباً، أريد زيارة د. سارة هذا الأسبوع.' }, { from: 'agent', text: 'وجدت لك الخميس الساعة ٤:٣٠ م. هل أحتفظ بالموعد لك؟' }] },
-        { label: 'بعد الزيارة', messages: [{ from: 'patient', text: 'كان فريق الرعاية رائعاً. ماذا أفعل الآن؟' }, { from: 'agent', text: 'سعيدون بسماع ذلك. يمكنني مشاركة ملاحظات الرعاية وترتيب المتابعة القادمة.' }] },
-        { label: 'استعادة موعد فائت', messages: [{ from: 'patient', text: 'فاتني موعدي هذا الصباح، أعتذر.' }, { from: 'agent', text: 'لا مشكلة. لنجد وقتاً جديداً يناسبك — لدي خياران.' }] }
+        { label: 'حجز زيارة جديدة', messages: [{ from: 'patient', text: 'مرحباً، أحتاج أحجز أقرب موعد كشف هذا الأسبوع.' }, { from: 'agent', text: 'وجدت لك موعداً يوم الخميس الساعة ٤:٣٠ م مع الطبيب المعالج. هل أثبت لك الحجز؟' }] },
+        { label: 'بعد الزيارة', messages: [{ from: 'patient', text: 'شكراً لكم على الرعاية. ما هي تعليمات المتابعة؟' }, { from: 'agent', text: 'سعداء بخدمتك! أرسلت لك تعليمات ما بعد العلاج وتم تثبيت موعد المراجعة القادم.' }] },
+        { label: 'استعادة موعد فائت', messages: [{ from: 'patient', text: 'فاتني موعدي اليوم وأود اختيار موعد بديل.' }, { from: 'agent', text: 'أهلاً بك! لا مشكلة إطلاقاً، إليك خياران متاحان غداً لاختيار الأنسب لك.' }] }
       ],
       quickChips: [
-        { label: '🦷 حجز كشف أسنان', prompt: 'مساء الخير، أريد حجز موعد كشف أسنان يوم الخميس القادم.', reply: 'أهلاً بك! تم حجز موعد الخميس ٤:٣٠ م مع د. سارة. إليك تذكرة التأكيد فوراً:', booked: true },
-        { label: '💰 استفسار عن الأسعار', prompt: 'كم سعر كشف العيادة وخدمات تنظيف الأسنان؟', reply: 'سعر الكشف ٢٠٠ ج.م، وخدمة التنظيف تبدأ من ٤٥٠ ج.م شاملة الفحص الشامل.' },
-        { label: '🔄 تعديل الموعد للسبت', prompt: 'أرغب في تأجيل موعدي غداً إلى يوم السبت صباحاً.', reply: 'تم تعديل الموعد بنجاح إلى السبت ١٠:٣٠ ص وتم تحديث التقويم وإشعار الطبيب.' },
-        { label: '👨‍⚕️ مواعيد الطبيب اليوم', prompt: 'هل د. خالد متواجد في العيادة اليوم لإجراء كشف عاجل؟', reply: 'نعم، د. خالد متواجد اليوم حتى ٩:٠٠ م، ويوجد موعدان متاحان الساعة ٥:٣٠ م و ٧:٠٠ م.' },
+        { label: '🦷 حجز كشف أسنان', prompt: 'مساء الخير، أريد حجز موعد كشف أسنان يوم الخميس القادم.', reply: 'أهلاً بك! تم حجز موعد الخميس ٤:٣٠ م مع الطبيب المعالج. إليك تذكرة التأكيد فوراً:', booked: true },
+        { label: '💰 استفسار عن الأسعار', prompt: 'كم سعر كشف العيادة وجلسات تنظيف الأسنان؟', reply: 'سعر الكشف ١٥٠ ريال، وخدمة التنظيف تبدأ من ٢٥٠ ريال شاملة الفحص الشامل.' },
+        { label: '🔄 تعديل الموعد للسبت', prompt: 'أرغب في تأجيل موعدي غداً إلى يوم السبت صباحاً.', reply: 'تم تعديل الموعد بنجاح إلى السبت ١٠:٣٠ ص وتم تحديث التقويم وإشعار الطبيب المعالج.' },
+        { label: '👨‍⚕️ مواعيد الطبيب اليوم', prompt: 'هل الطبيب متواجد في العيادة اليوم لإجراء كشف؟', reply: 'نعم، الطبيب المعالج متواجد اليوم حتى ٩:٠٠ م، ويوجد موعدان متاحان الساعة ٥:٣٠ م و ٧:٠٠ م.' },
       ],
       input: 'اكتب رسالة أو اختر سيناريو سريع من الأعلى…',
       agentName: 'وكيل MERUNA الذكي',
@@ -232,20 +232,19 @@ function LiveWorkspacePulse({ lang, clinicName, stats }: { lang: Lang; clinicNam
   return <aside className="meruna-live-pulse" aria-label={isArabic ? 'ملخص عيادتك الحالي' : 'Your live clinic summary'}><div><span className="meruna-kicker">{isArabic ? 'مساحة العمل متصلة' : 'WORKSPACE CONNECTED'}</span><h2>{isArabic ? `مرحباً بفريق ${clinicName}` : `Welcome back, ${clinicName}`}</h2><p>{isArabic ? 'هذه لمحة مباشرة من مساحة عيادتك الحالية.' : 'A live glimpse from your current clinic workspace.'}</p></div><div className="meruna-live-stats">{stats.slice(0, 3).map((stat) => <div key={`${stat.label}-${stat.value}`}><strong>{stat.value}</strong><span>{stat.label}</span><small>{stat.helper}</small></div>)}</div><a href="/dashboard" className="meruna-live-link">{isArabic ? 'فتح مساحة العمل' : 'Open workspace'} <ArrowUpRight size={15} /></a></aside>;
 }
 
-/* ─── Testimonials data ───────────────────────────────────────────── */
+/* ─── Core Pillars (Built for Saudi & UAE Market) ───────────────────── */
 const testimonials = [
-  { nameAr: 'د. سميرة ناصر', nameEn: 'Dr. Samira Nasser', roleAr: 'مديرة شبكة نورا الصحية', roleEn: 'Director, Noura Health Network', initials: 'SN', quoteAr: 'لأول مرة أشعر أن هناك من يمسك كل الخيوط، حتى عندما تكون غرفة الانتظار ممتلئة.', quoteEn: 'For the first time, it feels like someone is holding every thread — even when the waiting room is full.', stat: '+18 hrs / week' },
-  { nameAr: 'د. خالد العمري', nameEn: 'Dr. Khaled Al-Omari', roleAr: 'طب الأسنان — الرياض', roleEn: 'Dental Specialist, Riyadh', initials: 'KO', quoteAr: 'انخفضت الغيابات بنسبة 40% في أول شهرين. الفريق وفّر ساعات كانت تضيع في المتابعة اليدوية.', quoteEn: 'No-shows dropped 40% in the first two months. The team saved hours that used to vanish into manual follow-ups.', stat: '−40% no-shows' },
-  { nameAr: 'أ. منى الشهري', nameEn: 'Mona Al-Shahri', roleAr: 'مديرة عمليات — مجموعة عيادات الشفاء', roleEn: 'Operations Manager, Al-Shifa Clinics', initials: 'MS', quoteAr: 'المريض الآن يحجز ويتأكد ويتذكر موعده بدون أن نتصل به مرة واحدة. كل شيء آلي ويشعر بالإنسانية.', quoteEn: 'Patients now book, confirm, and remember their appointment without a single call from us. Everything is automated and feels human.', stat: '0 missed follow-ups' },
-  { nameAr: 'د. أحمد فاروق', nameEn: 'Dr. Ahmed Farouk', roleAr: 'رئيس قسم العيادات الخارجية', roleEn: 'Head of Outpatient Clinics', initials: 'AF', quoteAr: 'الصوت الذكي يستجيب للمرضى بطبيعية كاملة. لا أحد يشعر أنه يتحدث لآلة.', quoteEn: 'The voice agent responds with complete naturalness. No patient feels like they are talking to a machine.', stat: '4.9★ patient rating' },
-  { nameAr: 'د. لمياء حسن', nameEn: 'Dr. Lamia Hassan', roleAr: 'عيادة الأطفال — القاهرة', roleEn: 'Pediatric Clinic, Cairo', initials: 'LH', quoteAr: 'الآن كل رسالة واتساب لها رد في ثوانٍ. المرضى سعداء والفريق مرتاح.', quoteEn: 'Every WhatsApp message now gets a reply in seconds. Patients are happy, the team is calm.', stat: '<5s response time' },
+  { nameAr: 'فهم متقدم للهجة السعودية والخليجية', nameEn: 'Native Saudi & Gulf Dialect Understanding', roleAr: 'تفاعل طبيعي ومريح للمريض', roleEn: 'Natural & Empathetic Dialogue', initials: '🇸🇦', quoteAr: 'يفهم الوكيل الصوتي اللهجات المحلية الدارجة بدقة وسلاسة، ويتحدث مع المريض بطبيعية واحترافية كاملة بدون أي تعقيد.', quoteEn: 'The voice agent naturally comprehends local dialects and communicates with warmth and clarity 24/7.', stat: '24/7 AI Voice' },
+  { nameAr: 'ربط رسمي ومباشر مع الواتساب', nameEn: 'Official WhatsApp Business Integration', roleAr: 'أتمتة التأكيد والموقع الجغرافي', roleEn: 'Automated Confirmation & Maps', initials: '💬', quoteAr: 'إرسال تأكيد الموعد فوراً، وتفاصيل موقع العيادة واللوكيشن، وروابط التذكير والمتابعة دون الحاجة لأي تدخل يدوي.', quoteEn: 'Instantly dispatches booking confirmation slips, clinic location on Google Maps, and automated reminders.', stat: '100% Automated' },
+  { nameAr: 'تزامن فوري ومحكم مع التقويم', nameEn: 'Real-Time Calendar Synchronization', roleAr: 'منع التضارب والازدحام', roleEn: 'Zero Double-Booking Conflicts', initials: '📅', quoteAr: 'يتحقق النظام من أوقات دوام الأطباء والغرف الشاغرة لحظياً، ويثبت الموعد في التقويم فور تأكيده مع المريض.', quoteEn: 'Checks doctor schedules and availability in real-time, locking slots accurately and preventing overlaps.', stat: '0 Conflicts' },
+  { nameAr: 'استعادة المواعيد الفائتة تلقائياً', nameEn: 'Smart No-Show Auto-Recovery', roleAr: 'حماية إيرادات العيادة', roleEn: 'Revenue & Flow Protection', initials: '⚡', quoteAr: 'في حال فوات الموعد، يرسل النظام رسالة لطيفة لاقتراح موعد بديل بضغطة زر واحدة لتقليل الغيابات واستعادة المرضى.', quoteEn: 'Automatically reaches out to missed appointments with 1-click rescheduling options to protect clinic revenue.', stat: '−38% No-Shows' },
 ];
 
 const globalStats = [
-  { labelAr: 'عيادة موثوقة', labelEn: 'Trusted Clinics', target: 120, suffix: '+' },
-  { labelAr: 'رضا المرضى', labelEn: 'Patient Satisfaction', target: 98, suffix: '%' },
-  { labelAr: 'تغطية يومية', labelEn: 'Daily Coverage', target: 24, suffix: '/7' },
-  { labelAr: 'مواعيد فائتة أقل', labelEn: 'Fewer No-Shows', target: 38, suffix: '%' },
+  { labelAr: 'تغطية واستقبال آلي', labelEn: 'Automated Coverage', target: 24, suffix: '/7' },
+  { labelAr: 'سرعة الاستجابة', labelEn: 'Instant Response', target: 3, suffix: 's' },
+  { labelAr: 'ربط مباشر بالواتساب', labelEn: 'Direct WhatsApp Sync', target: 100, suffix: '%' },
+  { labelAr: 'انخفاض المواعيد الفائتة', labelEn: 'Fewer No-Shows', target: 38, suffix: '%' },
 ];
 
 function App() {
@@ -699,14 +698,14 @@ function App() {
           </div>
         </section>
 
-        {/* TESTIMONIALS CAROUSEL */}
+        {/* SYSTEM PILLARS (SAUDI & UAE CLINIC OPERATIONS) */}
         <section className="cf-navy py-24 md:py-32">
           <div className="cf-container">
             <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div>
                 <Eyebrow light>{t.testimonial.eyebrow}</Eyebrow>
                 <h2 className="cf-display text-[32px] font-extrabold text-white md:text-[44px]">
-                  {isArabic ? 'قصص نجاح من داخل العيادات' : 'Stories from the Clinic Floor'}
+                  {isArabic ? 'ركائز النظام لبيئة العيادات في السعودية والإمارات' : 'Built for Modern Clinic Operations in Saudi Arabia & UAE'}
                 </h2>
               </div>
               {/* Carousel navigation controls */}
@@ -1028,7 +1027,7 @@ function ProductPreview({
                         <span>{isArabic ? "✓ حجز موعد مؤكد" : "✓ Confirmed Appointment"}</span>
                         <span className="font-mono text-[8px] opacity-80">MRN-90214</span>
                       </div>
-                      <p>{isArabic ? "الخميس، ٤:٣٠ م · د. سارة (عيادة الأسنان)" : "Thursday, 4:30 PM · Dr. Sarah (Dental Clinic)"}</p>
+                      <p>{isArabic ? "الخميس، ٤:٣٠ م · الطبيب المعالج (عيادة الأسنان)" : "Thursday, 4:30 PM · Attending Physician (Dental Clinic)"}</p>
                     </div>
                   )}
                 </div>
@@ -1066,7 +1065,7 @@ function ProductPreview({
   );
 }
 
-/* ENHANCED INTERACTIVE VOICE CALL PLAYGROUND */
+/* ENHANCED INTERACTIVE VOICE CALL PLAYGROUND (SAUDI & GULF DIALECT READY) */
 function VoicePreview({ t, onPlay, isArabic }: { t: Copy; onPlay: () => void; isArabic: boolean }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState(0);
@@ -1074,45 +1073,45 @@ function VoicePreview({ t, onPlay, isArabic }: { t: Copy; onPlay: () => void; is
   const callScenarios = isArabic ? [
     {
       title: "📞 حجز موعد كشف جديد",
-      caller: "مريض يتصل هاتفياً",
-      patientLine: "أهلاً، عندي ألم في الأسنان وأريد أقرب موعد متاح.",
-      agentLine: "أهلاً بك! أقرب موعد متاح غداً الأربعاء ٥:٠٠ م مع د. سارة. هل أقوم بتأكيده وإرسال اللوكيشن لواتسابك؟",
-      followup: "تم حجز الموعد وإرسال رسالة التأكيد والموقع عبر الواتساب فوراً."
+      caller: "مريض يتصل هاتفياً بالعيادة",
+      patientLine: "مرحباً، أحتاج أحجز أقرب موعد كشف متاح عندكم اليوم أو بكرة.",
+      agentLine: "أهلاً وسهلاً بك! أقرب موعد كشف متاح غداً الأربعاء الساعة ٥:٠٠ مساءً مع الطبيب المعالج. هل أثبت لك الحجز وأرسل تفاصيل التأكيد واللوكيشن على الواتساب؟",
+      followup: "تم حجز الموعد وتثبيته في التقويم وإرسال رسالة التأكيد والموقع عبر الواتساب فوراً."
     },
     {
-      title: "🚨 حالة عاجلة ومتابعة",
-      caller: "مراجعة تسأل عن الطوارئ",
-      patientLine: "هل الطبيب متواجد الآن؟ حالة طارئة وتحتاج فحص.",
-      agentLine: "سلامتكِ! تم إشعار الطبيب المناوب فوراً وتثبيت أولوية دخول في الاستقبال عند وصولك.",
-      followup: "تم تنبيه شاشة الاستقبال وتجهيز غرفة الكشف."
+      title: "🚨 حالة عاجلة واستفسار فوري",
+      caller: "مراجع يسأل عن الحالات الطارئة",
+      patientLine: "هل الطبيب متواجد بالعيادة الآن؟ حالة طارئة وتحتاج فحص سريع.",
+      agentLine: "سلامتك وألف لا بأس! تم إشعار الطبيب المناوب فوراً وتثبيت أولوية دخول فور وصولك للعيادة.",
+      followup: "تم تنبيه شاشة الاستقبال وتجهيز غرفة الكشف للطبيب."
     },
     {
       title: "📍 الاستفسار عن الأسعار والموقع",
-      caller: "استفسار عن الخدمات",
-      patientLine: "كم تكلفة تنظيف الأسنان وأين موقع العيادة بالتحديد؟",
-      agentLine: "خدمة التنظيف تبدأ من ٤٥٠ ج.م، وموقعنا في المعادي شارع النصر. أرسلت لك اللوكيشن كاملاً بالواتساب.",
-      followup: "تم إرسال بطاقة الخدمات وتفاصيل الموقع عبر الواتساب."
+      caller: "استفسار عن الخدمات والأسعار",
+      patientLine: "كم سعر جلسة تنظيف وتبييض الأسنان ووين موقع العيادة بالتحديد؟",
+      agentLine: "أهلاً بك! جلسة تنظيف الأسنان تبدأ من ٢٥٠ ريال، وموقعنا على طريق الملك فهد مع توفر مواقف سيارات. أرسلت لك تفاصيل الأسعار ورابط اللوكيشن على الواتساب.",
+      followup: "تم إرسال بطاقة الخدمات والأسعار وتفاصيل الموقع الجغرافي عبر الواتساب."
     }
   ] : [
     {
-      title: "📞 New Patient Booking",
+      title: "📞 New Appointment Booking",
       caller: "Patient calling clinic",
-      patientLine: "Hi, I have a toothache and would like the earliest available slot.",
-      agentLine: "Hello! Earliest opening is tomorrow Wednesday at 5:00 PM with Dr. Sarah. Shall I confirm and send details to your WhatsApp?",
+      patientLine: "Hello, I would like to book the earliest available checkup slot.",
+      agentLine: "Welcome! The earliest opening is tomorrow Wednesday at 5:00 PM with the attending physician. Shall I confirm and send details to your WhatsApp?",
       followup: "Booking confirmed and appointment slip sent to patient phone."
     },
     {
-      title: "🚨 Urgent Dental Care",
-      caller: "Urgent care request",
-      patientLine: "Is the dentist on duty right now for an emergency checkup?",
-      agentLine: "Hope you feel better soon! I alerted the on-duty dentist and prioritized your check-in upon arrival.",
+      title: "🚨 Urgent Care Request",
+      caller: "Urgent care caller",
+      patientLine: "Is the physician available on duty right now for an emergency checkup?",
+      agentLine: "Hope you feel better soon! I alerted the on-duty doctor and prioritized your check-in upon arrival.",
       followup: "Front desk alerted and exam room prepared."
     },
     {
       title: "📍 Prices & Directions",
       caller: "General inquiry",
-      patientLine: "What are your cleaning rates and where is the clinic located?",
-      agentLine: "Teeth cleaning starts at $80. We are located on Main Clinic Ave. I just texted you exact map directions via WhatsApp.",
+      patientLine: "What are your checkup rates and where is the clinic located?",
+      agentLine: "Checkup starts at 150 SAR. We are located on King Fahd Road with dedicated parking. I just texted you exact map directions via WhatsApp.",
       followup: "Directions and price card sent to caller."
     }
   ];
