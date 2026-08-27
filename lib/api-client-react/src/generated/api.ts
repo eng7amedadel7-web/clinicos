@@ -24,6 +24,8 @@ import type {
   DashboardSummary,
   ErrorResponse,
   HealthStatus,
+  InboundMessageInput,
+  InboundMessageResponse,
   LoginInput,
   PasswordRecoveryInput,
   PasswordRecoveryResponse,
@@ -794,4 +796,75 @@ export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDash
 
 
 
+
+export const getReceiveInboundMessageUrl = () => {
+
+
+
+
+  return `/api/inbox/inbound`
+}
+
+/**
+ * @summary Webhook receiver for incoming patient messages from external channels
+ */
+export const receiveInboundMessage = async (inboundMessageInput: InboundMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<InboundMessageResponse> => {
+
+  return customFetch<InboundMessageResponse>(getReceiveInboundMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(inboundMessageInput)
+  }
+);}
+
+
+
+
+
+export const getReceiveInboundMessageMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveInboundMessage>>, TError,{data: BodyType<InboundMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof receiveInboundMessage>>, TError,{data: BodyType<InboundMessageInput>}, TContext> => {
+
+const mutationKey = ['receiveInboundMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof receiveInboundMessage>>, {data: BodyType<InboundMessageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  receiveInboundMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReceiveInboundMessageMutationResult = NonNullable<Awaited<ReturnType<typeof receiveInboundMessage>>>
+    export type ReceiveInboundMessageMutationBody = BodyType<InboundMessageInput>
+    export type ReceiveInboundMessageMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Webhook receiver for incoming patient messages from external channels
+ */
+export const useReceiveInboundMessage = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveInboundMessage>>, TError,{data: BodyType<InboundMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof receiveInboundMessage>>,
+        TError,
+        {data: BodyType<InboundMessageInput>},
+        TContext
+      > => {
+      return useMutation(getReceiveInboundMessageMutationOptions(options));
+    }
 

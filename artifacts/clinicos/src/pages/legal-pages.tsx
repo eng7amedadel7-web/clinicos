@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Clock3, Languages, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import { BrandMark } from '@/components/brand';
 import './meruna-home.css';
 
 type Lang = 'ar' | 'en';
@@ -106,14 +107,14 @@ export default function LegalPage({ kind }: { kind: PageKind }) {
   const page = content(kind, lang);
   useEffect(() => {
     document.documentElement.lang = lang;
-    document.title = `${pageNames[kind][lang]} — MERUNA SYSTEM`;
+    document.title = `${pageNames[kind][lang]} — MERUNA`;
   }, [kind, lang]);
   return <div className="landing-home legal-page cf-section min-h-[100dvh]" dir={ar ? 'rtl' : 'ltr'}>
-    <header className="legal-header"><div className="cf-container flex h-[76px] items-center justify-between gap-4"><a href="/" className="flex items-center gap-3" aria-label="MERUNA SYSTEM home"><img src="/meruna-mark-square.png" alt="" className="meruna-brand-mark" /><strong className="cf-display text-lg">MERUNA <span className="text-[hsl(var(--primary))]">SYSTEM</span></strong></a><div className="flex items-center gap-2"><button type="button" onClick={() => setLang(ar ? 'en' : 'ar')} className="cf-theme-control inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold"><Languages size={15} />{ar ? 'English' : 'العربية'}</button><a href="/" className="cf-button-ghost inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold">{ar ? <ArrowRight size={15} /> : <ArrowLeft size={15} />}{ar ? 'الرئيسية' : 'Home'}</a></div></div></header>
+    <header className="legal-header"><div className="cf-container flex h-[76px] items-center justify-between gap-4"><a href="/" className="flex items-center gap-2.5" aria-label="MERUNA home"><BrandMark size={30} /><strong className="cf-display text-lg tracking-[.14em]">MERUNA</strong></a><div className="flex items-center gap-2"><button type="button" onClick={() => setLang(ar ? 'en' : 'ar')} className="cf-theme-control inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold"><Languages size={15} />{ar ? 'English' : 'العربية'}</button><a href="/" className="cf-button-ghost inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold">{ar ? <ArrowRight size={15} /> : <ArrowLeft size={15} />}{ar ? 'الرئيسية' : 'Home'}</a></div></div></header>
     <main>
       <section className="legal-hero"><div className="cf-container"><span className="meruna-kicker">MERUNA / {kind.toUpperCase()}</span><h1 className="cf-display">{pageNames[kind][lang]}</h1><p>{page.intro}</p><div className="legal-meta"><span><MapPin size={15} />MERUNA — Egypt</span><span><Clock3 size={15} />{ar ? 'آخر تحديث: ' : 'Last updated: '}{updated[lang]}</span></div></div></section>
       <div className="cf-container legal-layout"><aside aria-label={ar ? 'الصفحات القانونية' : 'Legal pages'}>{links.map((link) => <a key={link.kind} href={link.href} className={link.kind === kind ? 'active' : ''}>{pageNames[link.kind][lang]}</a>)}</aside><article className="legal-article">{page.sections.map((section) => <section key={section.title}><h2>{section.title}</h2><div>{section.body}</div></section>)}<div className="legal-contact"><ShieldCheck size={22} /><div><strong>{ar ? 'هل لديك سؤال؟' : 'Have a question?'}</strong><p>{ar ? 'تواصل معنا وسنوضح لك أي جزء من هذه السياسة.' : 'Contact us and we will clarify any part of this policy.'}</p><a href="mailto:meruna.tech@gmail.com"><Mail size={15} />meruna.tech@gmail.com</a></div></div></article></div>
     </main>
-    <footer className="legal-footer"><div className="cf-container"><span>© 2026 MERUNA SYSTEM · Egypt</span><nav>{links.slice(0, 4).map((link) => <a key={link.kind} href={link.href}>{pageNames[link.kind][lang]}</a>)}</nav></div></footer>
+    <footer className="legal-footer"><div className="cf-container"><span>© 2026 MERUNA · Egypt</span><nav>{links.slice(0, 4).map((link) => <a key={link.kind} href={link.href}>{pageNames[link.kind][lang]}</a>)}</nav></div></footer>
   </div>;
 }

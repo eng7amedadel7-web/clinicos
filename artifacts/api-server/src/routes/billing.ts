@@ -102,13 +102,13 @@ async function requireClinic(req: Request, res: Response): Promise<{ session: No
   return { session, profile };
 }
 
-function planFromPrice(priceId?: string) {
+function planFromPrice(priceId?: string): { plan: string; interval: string } | null {
   for (const [plan, intervals] of Object.entries(priceCatalog)) {
     for (const [interval, id] of Object.entries(intervals)) {
       if (id === priceId) return { plan, interval };
     }
   }
-  return { plan: "pro", interval: "month" };
+  return null;
 }
 
 function assertAdminResult(result: { ok: boolean; status: number }, operation: string) {
@@ -160,7 +160,12 @@ function summarizeLifecycle(subscription: StoredSubscription | null) {
 async function syncSubscriptionSnapshot(clinicId: string, stored: StoredSubscription) {
   if (!stored.paddle_subscription_id) return stored;
   const remote = await paddleRequest<PaddleSubscription>(`/subscriptions/${encodeURIComponent(stored.paddle_subscription_id)}`);
-  const selection = planFromPrice(remote.items?.[0]?.price?.id);
+  // An unrecognized price must not silently upgrade the stored plan; keep the
+  // previous plan/interval and only refresh what Paddle actually reports.
+  const selection = planFromPrice(remote.items?.[0]?.price?.id) ?? {
+    plan: stored.plan ?? "starter",
+    interval: stored.billing_interval ?? "month",
+  };
   const write = await supabaseAdminRequest<unknown>("/rest/v1/clinic_subscriptions?on_conflict=clinic_id", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
@@ -280,7 +285,12 @@ router.post("/billing/portal", async (req, res) => {
     return;
   }
   try {
-    const portal = await paddleRequest<{ urls?: { general?: { overview?: string } } }>(`/customers/${encodeURIComponent((await getCustomerId(context.session.clinicId)) ?? "")}/portal-sessions`, { method: "POST", body: "{}" });
+    const customerId = await getCustomerId(context.session.clinicId);
+    if (!customerId) {
+      res.status(404).json({ error: "No billing customer was found for this clinic." });
+      return;
+    }
+    const portal = await paddleRequest<{ urls?: { general?: { overview?: string } } }>(`/customers/${encodeURIComponent(customerId)}/portal-sessions`, { method: "POST", body: "{}" });
     const url = portal.urls?.general?.overview;
     if (!url) throw new Error("Portal URL missing");
     res.json({ url });
@@ -346,6 +356,8 @@ export async function paddleWebhook(req: Request, res: Response) {
     if (event.event_type.startsWith("subscription.")) {
       const priceId = data.items?.[0]?.price?.id;
       const selection = planFromPrice(priceId);
+      // Omit plan/billing_interval for an unrecognized price so the upsert keeps
+      // the previously stored plan instead of defaulting the clinic to "pro".
       const subscriptionWrite = await supabaseAdminRequest("/rest/v1/clinic_subscriptions?on_conflict=clinic_id", {
         method: "POST",
         headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
@@ -353,8 +365,7 @@ export async function paddleWebhook(req: Request, res: Response) {
           clinic_id: clinicId,
           paddle_subscription_id: data.id,
           paddle_price_id: priceId,
-          plan: selection.plan,
-          billing_interval: selection.interval,
+          ...(selection ? { plan: selection.plan, billing_interval: selection.interval } : {}),
           status: data.status === "canceled" ? "canceled" : data.status,
           trial_ends_at: trialEndsAtFor(data),
           current_period_starts_at: data.current_billing_period?.starts_at,

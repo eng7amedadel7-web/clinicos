@@ -11,6 +11,7 @@ import voiceRouter from "./voice";
 import organizationRouter from "./organization";
 import billingRouter from "./billing";
 import queueRouter from "./queue";
+import inboundRouter from "./inbound";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,7 @@ router.use(settingsRouter);
 router.use(patientsRouter);
 router.use(appointmentsRouter);
 router.use(inboxRouter);
+router.use(inboundRouter);
 router.use(operationsRouter);
 router.use(voiceRouter);
 router.use(organizationRouter);

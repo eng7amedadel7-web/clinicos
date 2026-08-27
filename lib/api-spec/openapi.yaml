@@ -14,6 +14,8 @@ tags:
     description: Clinic owner authentication
   - name: dashboard
     description: Clinic operations overview
+  - name: inbox
+    description: Omnichannel inbox and messaging
 paths:
   /healthz:
     get:
@@ -215,6 +217,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /inbox/inbound:
+    post:
+      operationId: receiveInboundMessage
+      tags: [inbox]
+      summary: Webhook receiver for incoming patient messages from external channels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InboundMessageInput"
+      responses:
+        "201":
+          description: Message processed and stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboundMessageResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -372,4 +398,37 @@ components:
           type: string
           enum: [blue, green, amber, violet]
       required: [id, title, description, createdAt, tone]
+    InboundMessageInput:
+      type: object
+      properties:
+        clinicId:
+          type: string
+        channelType:
+          type: string
+          enum: [whatsapp, instagram, messenger, telegram, sms, web]
+        channelId:
+          type: string
+        senderPhone:
+          type: string
+        senderName:
+          type: string
+        content:
+          type: string
+          minLength: 1
+      required: [content]
+    InboundMessageResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        messageId:
+          type: string
+        conversationId:
+          type: string
+        patientId:
+          type: string
+        isHandoff:
+          type: boolean
+      required: [ok, messageId, conversationId]
+
 

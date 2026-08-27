@@ -68,8 +68,14 @@ const recentRefreshes = new Map<string, number>();
 // Refresh token rotation makes parallel refreshes with the same token risky,
 // so throttle per user; the window is short enough for serverless instances.
 export function shouldThrottleRefresh(userId: string): boolean {
+  const now = Date.now();
+  if (recentRefreshes.size > 512) {
+    for (const [key, last] of recentRefreshes) {
+      if (now - last > 60_000) recentRefreshes.delete(key);
+    }
+  }
   const last = recentRefreshes.get(userId) ?? 0;
-  if (Date.now() - last < 30_000) return true;
-  recentRefreshes.set(userId, Date.now());
+  if (now - last < 30_000) return true;
+  recentRefreshes.set(userId, now);
   return false;
 }

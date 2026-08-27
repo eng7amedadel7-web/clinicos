@@ -37,6 +37,8 @@ import {
   UsersRound,
   PhoneCall,
   Menu,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import {
@@ -57,7 +59,9 @@ import {
 } from '@workspace/api-client-react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { CommandPalette, CommandPaletteTrigger, useCommandPalette } from '@/components/command-palette';
+import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
+import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
 import { getOperationsSummary } from '@/lib/operations-api';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, gcTime: 5 * 60_000, refetchOnWindowFocus: false, retry: 0 } } });
@@ -84,20 +88,22 @@ type RegisterValues = { fullName: string; clinicName: string; email: string; pas
 
 function Logo({ dark = false }: { dark?: boolean }) {
   return (
-    <div className="flex items-center gap-2" data-testid="brand-logo">
-      <div className="brand-mark" aria-hidden="true"><span /></div>
-      <div className={`brand-wordmark ${dark ? '!text-[#0b2940]' : ''}`}>MERUNA <span className="brand-system">SYSTEM</span></div>
+    <div className="flex items-center gap-2.5" data-testid="brand-logo">
+      <BrandMark size={32} />
+      <strong className={`text-[1.02rem] font-extrabold tracking-[.16em] ${dark ? 'text-[#0b2940]' : 'text-[#eef6fa]'}`}>MERUNA</strong>
     </div>
   );
 }
 
 function ErrorMessage({ onRetry, compact = false }: { onRetry: () => void; compact?: boolean }) {
+  const { language } = usePreferences();
+  const en = language === 'en';
   return (
     <div className={`surface flex flex-col items-center justify-center text-center ${compact ? 'p-6' : 'min-h-[360px] p-10'}`} data-testid="state-error">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f9e9e7] text-[#ad514a]"><RefreshCw size={20} /></div>
-      <h2 className="text-lg font-bold text-[#18374d]">تعذّر تحميل البيانات</h2>
-      <p className="mt-1 max-w-sm text-sm leading-6 text-[#718591]">حدث خلل مؤقت. حاول مرة أخرى، وسنستأنف من حيث توقفت.</p>
-      <button className="primary-button mt-5" onClick={onRetry} data-testid="button-retry"><RefreshCw size={16} /> إعادة المحاولة</button>
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f9e9e7] text-[#ad514a] dark:bg-[#3d1f1b] dark:text-[#eb9a90]"><RefreshCw size={20} /></div>
+      <h2 className="text-lg font-bold text-[#18374d] dark:text-[#e2ecf1]">{en ? 'Could not load data' : 'تعذّر تحميل البيانات'}</h2>
+      <p className="mt-1 max-w-sm text-sm leading-6 text-[#718591] dark:text-[#7e939e]">{en ? 'Something went wrong temporarily. Try again and we will resume where you left off.' : 'حدث خلل مؤقت. حاول مرة أخرى، وسنستأنف من حيث توقفت.'}</p>
+      <button className="primary-button mt-5" onClick={onRetry} data-testid="button-retry"><RefreshCw size={16} /> {en ? 'Retry' : 'إعادة المحاولة'}</button>
     </div>
   );
 }
@@ -390,12 +396,15 @@ function RegisterPage() {
 function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { clinicName: string; userName: string; mobileOpen?: boolean; onNavigate?: () => void }) {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
+  const { unreadHandoffs, unreadMessages } = useClinicNotifications();
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('meruna-sidebar-collapsed') === 'true');
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = Number(window.localStorage.getItem('meruna-sidebar-width'));
     return Number.isFinite(saved) ? Math.min(360, Math.max(220, saved)) : 248;
   });
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const asideRef = useRef<HTMLElement | null>(null);
+  const [tip, setTip] = useState<{ label: string; y: number; left: number } | null>(null);
   const [clinicMenuOpen, setClinicMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError, loadBranches } = usePreferences();
@@ -418,7 +427,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
       { href: '/settings', label: t('settings'), icon: Settings2 },
     ] },
   ];
-  const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success('تم تسجيل الخروج'); setLocation('/login'); }, onError: () => toast.error('تعذر تسجيل الخروج، حاول مجددًا') });
+  const doLogout = () => logout.mutate(undefined, { onSuccess: () => { queryClient.clear(); toast.success(language === 'ar' ? 'تم تسجيل الخروج' : 'Signed out'); setLocation('/login'); }, onError: () => toast.error(language === 'ar' ? 'تعذر تسجيل الخروج، حاول مجددًا' : 'Could not sign out, try again') });
 
   useEffect(() => {
     window.localStorage.setItem('meruna-sidebar-collapsed', String(collapsed));
@@ -446,22 +455,31 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   }, [collapsed]);
 
   const sidebarStyle = { '--sidebar-width': `${collapsed ? 84 : sidebarWidth}px` } as CSSProperties;
+  const showTip = (label: string) => (event: { currentTarget: EventTarget & HTMLAnchorElement }) => {
+    if (!collapsed || !asideRef.current) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const asideRect = asideRef.current.getBoundingClientRect();
+    const onLeft = asideRect.left + asideRect.width / 2 < window.innerWidth / 2;
+    setTip({ label, y: rect.top + rect.height / 2, left: onLeft ? asideRect.right + 10 : asideRect.left - 10 });
+  };
+  const hideTip = () => setTip(null);
   return (
-    <aside className={`sidebar relative flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[var(--sidebar-width)] md:shrink-0 md:px-5 md:py-7 ${mobileOpen ? 'sidebar-open' : ''}`} style={sidebarStyle} dir="rtl" aria-hidden={undefined}>
-      <button type="button" className="sidebar-close" onClick={onNavigate} aria-label="إغلاق القائمة"><X size={18} /></button>
+    <aside ref={(node) => { asideRef.current = node; }} className={`sidebar relative flex w-full flex-col px-4 py-5 md:sticky md:top-0 md:h-[100dvh] md:w-[var(--sidebar-width)] md:shrink-0 md:px-5 md:py-7 ${mobileOpen ? 'sidebar-open' : ''}`} style={sidebarStyle} dir="rtl" aria-hidden={undefined}>
+      {tip && <span className="sidebar-tip" role="tooltip" style={{ top: tip.y, left: tip.left, transform: `translate(${tip.left > window.innerWidth / 2 ? '-100%' : '0'}, -50%)` }}>{tip.label}</span>}
+      <button type="button" className="sidebar-close" onClick={onNavigate} aria-label={language === 'ar' ? 'إغلاق القائمة' : 'Close menu'}><X size={18} /></button>
       <div className={`brand-lockup mb-10 flex items-center ${collapsed ? 'justify-center gap-2 px-0' : 'justify-between px-2'}`}>
-        {collapsed ? <div className="brand-mark" aria-label="MERUNA SYSTEM"><span /></div> : <Logo />}
+        {collapsed ? <BrandMark size={34} /> : <Logo />}
         <button type="button" onClick={() => setCollapsed((value) => !value)} className="sidebar-tool" aria-label={collapsed ? 'توسيع الشريط الجانبي' : 'طي الشريط الجانبي'} title={collapsed ? 'توسيع الشريط الجانبي' : 'طي الشريط الجانبي'} data-testid="button-toggle-sidebar">
           {collapsed ? <PanelRightOpen size={17} /> : <PanelRightClose size={17} />}
         </button>
       </div>
       <div className="relative mb-7">
-        <button type="button" onClick={() => { loadBranches(); setClinicMenuOpen((value) => !value); }} aria-expanded={clinicMenuOpen} aria-label="تبديل العيادة أو الفرع" title={collapsed ? clinicName : undefined} className={`sidebar-clinic flex w-full items-center rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3 text-right ${collapsed ? 'justify-center gap-0' : 'gap-3'}`} data-testid="button-clinic-switcher">
+        <button type="button" onClick={() => { loadBranches(); setClinicMenuOpen((value) => !value); }} aria-expanded={clinicMenuOpen} aria-label={language === 'ar' ? 'تبديل العيادة أو الفرع' : 'Switch clinic or branch'} title={collapsed ? clinicName : undefined} className={`sidebar-clinic flex w-full items-center rounded-xl border border-[#688b9c]/20 bg-[#143149] p-3 text-right ${collapsed ? 'justify-center gap-0' : 'gap-3'}`} data-testid="button-clinic-switcher">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#8fbaca]/15 text-[#9cc6d3]"><Building2 size={18} /></div>
           <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-clinic">{clinicName}</p><p className="mt-0.5 flex items-center gap-1.5 text-[.68rem] text-[#8ea9b5]"><span className="status-dot" /> {branchesLoading ? t('loadingBranches') : selectedBranchId === 'all' ? t('clinicWide') : branches.find((branch) => branch.id === selectedBranchId)?.name || t('chooseBranch')}</p></div>
           <ChevronDown size={14} className={`mr-auto text-[#7895a2] transition-transform ${clinicMenuOpen ? 'rotate-180' : ''} ${collapsed ? 'md:hidden' : ''}`} />
         </button>
-        {clinicMenuOpen && <div className={`sidebar-popover absolute z-20 mt-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label="اختيار الفرع">
+        {clinicMenuOpen && <div className={`sidebar-popover absolute z-20 mt-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label={language === 'ar' ? 'اختيار الفرع' : 'Choose branch'}>
           <div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">{t('chooseBranchSidebar')}</div>
           <button type="button" onClick={() => { setSelectedBranchId('all'); setClinicMenuOpen(false); }} className={`sidebar-menu-item ${selectedBranchId === 'all' ? 'selected' : ''}`} role="menuitem" data-testid="button-branch-all"><span>{t('allBranches')}</span>{selectedBranchId === 'all' && <Check size={14} />}</button>
           {branches.map((branch) => <button type="button" key={branch.id} onClick={() => { setSelectedBranchId(branch.id); setClinicMenuOpen(false); }} className={`sidebar-menu-item ${selectedBranchId === branch.id ? 'selected' : ''}`} role="menuitem" data-testid={`button-branch-${branch.id}`}><span className="truncate">{branch.name}</span>{selectedBranchId === branch.id && <Check size={14} />}</button>)}
@@ -469,25 +487,40 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
           {!branchesLoading && !branchesError && branches.length === 0 && <p className="px-2 py-2 text-[10px] leading-5 text-[#8ea9b5]">{language === 'ar' ? 'لا توجد فروع نشطة؛ الاختيار الحالي يشمل العيادة كلها.' : 'No active branches; the current selection covers the whole clinic.'}</p>}
         </div>}
       </div>
-      <nav className={`sidebar-nav min-h-0 overflow-y-auto space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label="التنقل الرئيسي">
+      <nav className={`sidebar-nav min-h-0 overflow-y-auto space-y-1 ${collapsed ? 'md:space-y-2' : ''}`} aria-label={language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'}>
         {navGroups.map((group) => <div key={group.id} className="sidebar-group">
           <p className={`sidebar-group-label ${collapsed ? 'md:sr-only' : ''}`}>{group.title}</p>
-          {group.links.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => onNavigate?.()} title={collapsed ? label : undefined} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18} strokeWidth={1.8} /><span className={collapsed ? 'md:sr-only' : ''}>{label}</span>{collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}</Link>)}
+          {group.links.map(({ href, label, icon: Icon }) => {
+            const hasInboxBadge = href === '/inbox' && (unreadHandoffs > 0 || unreadMessages > 0);
+            return (
+              <Link key={href} href={href} onClick={() => { onNavigate?.(); hideTip(); }} onMouseEnter={showTip(label)} onMouseLeave={hideTip} onFocus={showTip(label)} onBlur={hideTip} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}>
+                <Icon size={18} strokeWidth={1.8} />
+                <span className={collapsed ? 'md:sr-only' : ''}>{label}</span>
+                {hasInboxBadge && (
+                  <span className={`ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${unreadHandoffs > 0 ? 'bg-[#c75b54] text-white animate-pulse' : 'bg-[#3d8a72] text-white'} ${collapsed ? 'md:hidden' : ''}`}>
+                    {unreadHandoffs > 0 ? '!' : unreadMessages}
+                  </span>
+                )}
+                {collapsed ? <ChevronRight size={12} className="hidden md:block" aria-hidden="true" /> : null}
+              </Link>
+            );
+          })}
         </div>)}
       </nav>
       <div className={`sidebar-footer mt-auto shrink-0 border-t border-[#688b9c]/15 pt-5 ${collapsed ? 'md:px-0' : ''}`}>
         <div className="relative">
           <button type="button" onClick={() => setProfileMenuOpen((value) => !value)} aria-expanded={profileMenuOpen} aria-label={t('accountMenu')} title={collapsed ? userName : undefined} className={`mb-2 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-right transition hover:bg-white/10 ${collapsed ? 'md:justify-center md:px-0' : ''}`} data-testid="button-profile-menu"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#b2ccd6] text-sm font-bold text-[#15384d]">{userName.slice(0, 1)}</div><div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}><p className="truncate text-xs font-bold text-[#e6f0f2]" data-testid="text-sidebar-user">{userName}</p><p className="text-[.68rem] text-[#8ea9b5]">{t('clinicOwner')}</p></div><ChevronDown size={14} className={`mr-auto text-[#7895a2] transition-transform ${profileMenuOpen ? 'rotate-180' : ''} ${collapsed ? 'md:hidden' : ''}`} /></button>
-          {profileMenuOpen && <div className={`sidebar-popover absolute bottom-full z-20 mb-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label="قائمة الملف الشخصي"><div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">{t('accountMenu')}</div><Link href="/settings" onClick={() => setProfileMenuOpen(false)} className="sidebar-menu-item" role="menuitem" data-testid="link-profile-settings"><Settings2 size={15} /><span>{t('settings')}</span></Link><button type="button" onClick={doLogout} disabled={logout.isPending} className="sidebar-menu-item danger" role="menuitem" data-testid="button-profile-logout"><LogOut size={15} /><span>{logout.isPending ? (language === 'ar' ? 'جارٍ الخروج...' : 'Signing out...') : t('logout')}</span></button></div>}
+          {profileMenuOpen && <div className={`sidebar-popover absolute bottom-full z-20 mb-2 rounded-xl border border-[#688b9c]/20 bg-[#123047] p-2 shadow-xl ${collapsed ? 'md:right-0 md:w-56' : 'inset-x-0'}`} role="menu" aria-label={language === 'ar' ? 'قائمة الملف الشخصي' : 'Profile menu'}><div className="px-2 py-1.5 text-[10px] font-bold text-[#8ea9b5]">{t('accountMenu')}</div><Link href="/settings" onClick={() => setProfileMenuOpen(false)} className="sidebar-menu-item" role="menuitem" data-testid="link-profile-settings"><Settings2 size={15} /><span>{t('settings')}</span></Link><button type="button" onClick={doLogout} disabled={logout.isPending} className="sidebar-menu-item danger" role="menuitem" data-testid="button-profile-logout"><LogOut size={15} /><span>{logout.isPending ? (language === 'ar' ? 'جارٍ الخروج...' : 'Signing out...') : t('logout')}</span></button></div>}
         </div>
       </div>
-      <div className={`sidebar-resizer ${collapsed ? 'hidden' : ''}`} role="separator" aria-orientation="vertical" aria-label="تغيير عرض الشريط الجانبي" tabIndex={0} onPointerDown={(event) => { event.preventDefault(); resizeRef.current = { startX: event.clientX, startWidth: sidebarWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}><GripVertical size={15} /></div>
+      <div className={`sidebar-resizer ${collapsed ? 'hidden' : ''}`} role="separator" aria-orientation="vertical" aria-label={language === 'ar' ? 'تغيير عرض الشريط الجانبي' : 'Resize sidebar'} tabIndex={0} onPointerDown={(event) => { event.preventDefault(); resizeRef.current = { startX: event.clientX, startWidth: sidebarWidth }; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }}><GripVertical size={15} /></div>
     </aside>
   );
 }
 
 function WorkspaceToolbar({ onOpenMenu, onOpenSearch }: { onOpenMenu?: () => void; onOpenSearch?: () => void }) {
   const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId } = usePreferences();
+  const { isMuted, toggleMute, unreadHandoffs, unreadMessages, recentAlerts, markAllAsRead } = useClinicNotifications();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const summaryQuery = useQuery({ queryKey: ['operations', 'summary', 'notifications', selectedBranchId], queryFn: ({ signal }) => getOperationsSummary(signal, selectedBranchId === 'all' ? undefined : selectedBranchId), enabled: notificationsOpen, staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false });
@@ -508,21 +541,41 @@ function WorkspaceToolbar({ onOpenMenu, onOpenSearch }: { onOpenMenu?: () => voi
   }, [notificationsOpen]);
   const stats = summaryQuery.data?.stats;
   const notifications = [
-    { id: 'inbox', label: t('conversationsNeedStaff'), count: stats?.conversationsNeedingStaff ?? 0, href: '/inbox' },
+    { id: 'inbox', label: t('conversationsNeedStaff'), count: (stats?.conversationsNeedingStaff ?? 0) + unreadHandoffs, href: '/inbox' },
     { id: 'follow-ups', label: t('followUpsDue'), count: stats?.openFollowUps ?? 0, href: '/follow-ups' },
     { id: 'no-shows', label: t('noShowsOpen'), count: stats?.openNoShows ?? 0, href: '/no-shows' },
     { id: 'waitlist', label: t('waitlistActive'), count: stats?.activeWaitlist ?? 0, href: '/waitlist' },
   ].filter((item) => item.count > 0);
-  const unreadCount = notifications.length;
+  const unreadCount = notifications.length + (recentAlerts.some((a) => !a.read) ? 1 : 0);
   return <div className="workspace-toolbar flex items-center gap-2 border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-3 backdrop-blur md:px-9" dir="rtl">
-    <button type="button" onClick={onOpenMenu} className="toolbar-button md:hidden" aria-label="فتح القائمة" data-testid="button-open-menu"><Menu size={18} /></button>
-    <div className="min-w-0 flex-1 md:hidden"><p className="truncate text-[11px] font-bold text-[#78909c]">MERUNA SYSTEM</p><p className="truncate text-xs text-[#8a9ba4]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
+    <button type="button" onClick={onOpenMenu} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'فتح القائمة' : 'Open menu'} data-testid="button-open-menu"><Menu size={18} /></button>
+    <div className="min-w-0 flex-1 md:hidden"><p className="truncate text-[11px] font-bold text-[#78909c] dark:text-[#a8bfc9]">MERUNA</p><p className="truncate text-xs text-[#8a9ba4] dark:text-[#7e939e]">{language === 'ar' ? 'مساحة عمل العيادة' : 'Clinic workspace'}</p></div>
     {onOpenSearch ? <div className="hidden min-w-0 flex-1 md:block"><CommandPaletteTrigger onOpen={onOpenSearch} language={language} /></div> : null}
     {onOpenSearch ? <button type="button" onClick={onOpenSearch} className="toolbar-button md:hidden" aria-label={language === 'ar' ? 'بحث' : 'Search'} data-testid="button-open-search-mobile"><Search size={17} /></button> : null}
     <div ref={notificationsRef} className="relative">
-      <button type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-expanded={notificationsOpen} aria-haspopup="dialog" aria-label={t('notifications')} className="toolbar-button" data-testid="button-notifications"><Bell size={17} />{unreadCount > 0 && <span className="toolbar-badge">{unreadCount}</span>}</button>
-      {notificationsOpen && <div className="toolbar-popover absolute right-0 top-full z-30 mt-2 max-h-[min(70vh,28rem)] w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-y-auto rounded-2xl border border-[#dbe5ea] bg-white p-2 text-right shadow-xl" role="dialog" aria-modal="false" aria-label={t('notifications')} data-testid="notifications-popover"><div className="border-b border-[#edf1f3] px-3 py-2"><p className="text-sm font-bold text-[#18374d]">{t('notifications')}</p><p className="mt-0.5 text-[10px] text-[#8496a0]">{t('notificationsSubtitle')}</p></div>{notifications.length ? notifications.map((item) => <Link key={item.id} href={item.href} onClick={() => setNotificationsOpen(false)} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-xs text-[#28495b] transition hover:bg-[#f1f7f7]"><span className="min-w-0 truncate">{item.label}</span><strong className="rounded-md bg-[#dcecf5] px-2 py-1 text-[10px] text-[#22617d]">{item.count}</strong></Link>) : <p className="px-3 py-5 text-center text-xs text-[#8496a0]">{t('noNotifications')}</p>}{summaryQuery.isError && <p className="px-3 pb-2 text-[10px] text-[#a64036]">{language === 'ar' ? 'تعذر تحديث الإشعارات.' : 'Notifications could not be refreshed.'}</p>}</div>}
+      <button type="button" onClick={() => { setNotificationsOpen((value) => !value); if (!notificationsOpen) markAllAsRead(); }} aria-expanded={notificationsOpen} aria-haspopup="dialog" aria-label={t('notifications')} className="toolbar-button" data-testid="button-notifications"><Bell size={17} />{unreadCount > 0 && <span className="toolbar-badge">{unreadCount}</span>}</button>
+      {notificationsOpen && <div className="toolbar-popover absolute right-0 top-full z-30 mt-2 max-h-[min(70vh,28rem)] w-[min(21rem,calc(100vw-2rem))] origin-top-right overflow-y-auto rounded-2xl border border-[#dbe5ea] bg-white p-2 text-right shadow-xl" role="dialog" aria-modal="false" aria-label={t('notifications')} data-testid="notifications-popover">
+        <div className="border-b border-[#edf1f3] px-3 py-2 flex items-center justify-between">
+          <div><p className="text-sm font-bold text-[#18374d]">{t('notifications')}</p><p className="mt-0.5 text-[10px] text-[#8496a0]">{t('notificationsSubtitle')}</p></div>
+          <span className="text-[10px] font-semibold text-[#4d869a]">{recentAlerts.length} {language === 'ar' ? 'تنبيه' : 'alerts'}</span>
+        </div>
+        {recentAlerts.length > 0 && (
+          <div className="border-b border-[#edf1f3] py-1">
+            {recentAlerts.slice(0, 3).map((alert) => (
+              <Link key={alert.id} href={alert.link || '/inbox'} onClick={() => setNotificationsOpen(false)} className="flex flex-col gap-1 rounded-xl p-2 text-xs transition hover:bg-[#f1f7f7]">
+                <div className="flex items-center justify-between">
+                  <span className={`font-bold ${alert.type === 'handoff' ? 'text-[#ad514a]' : 'text-[#28495b]'}`}>{alert.title}</span>
+                  <time className="text-[9px] text-[#8ea9b5]">{alert.time}</time>
+                </div>
+                <p className="line-clamp-1 text-[11px] text-[#718591]">{alert.description}</p>
+              </Link>
+            ))}
+          </div>
+        )}
+        {notifications.length ? notifications.map((item) => <Link key={item.id} href={item.href} onClick={() => setNotificationsOpen(false)} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-xs text-[#28495b] transition hover:bg-[#f1f7f7]"><span className="min-w-0 truncate">{item.label}</span><strong className="rounded-md bg-[#dcecf5] px-2 py-1 text-[10px] text-[#22617d]">{item.count}</strong></Link>) : recentAlerts.length === 0 ? <p className="px-3 py-5 text-center text-xs text-[#8496a0]">{t('noNotifications')}</p> : null}{summaryQuery.isError && <p className="px-3 pb-2 text-[10px] text-[#a64036]">{language === 'ar' ? 'تعذر تحديث الإشعارات.' : 'Notifications could not be refreshed.'}</p>}
+      </div>}
     </div>
+    <button type="button" onClick={toggleMute} aria-label={isMuted ? (language === 'ar' ? 'تفعيل الصوت' : 'Unmute alerts') : (language === 'ar' ? 'كتم الصوت' : 'Mute alerts')} title={isMuted ? (language === 'ar' ? 'تفعيل الصوت' : 'Unmute alerts') : (language === 'ar' ? 'كتم الصوت' : 'Mute alerts')} className={`toolbar-button ${isMuted ? 'text-[#a64036]' : ''}`} data-testid="button-sound-toggle">{isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
     <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? t('lightMode') : t('darkMode')} title={theme === 'dark' ? t('lightMode') : t('darkMode')} className="toolbar-button" data-testid="button-theme-toggle">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
     <button type="button" onClick={toggleLanguage} aria-label={t('switchLanguage')} title={t('switchLanguage')} className="toolbar-language" data-testid="button-language-toggle">{language === 'ar' ? 'EN' : 'ع'}</button>
   </div>;
@@ -558,6 +611,8 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
   const settingsQuery = useGetClinicSettings();
   const updateSettings = useUpdateClinicSettings();
   const [saved, setSaved] = useState(false);
+  const { language } = usePreferences();
+  const en = language === 'en';
   const form = useForm({ defaultValues: { fullName: session.user.fullName, email: session.user.email, clinicName: session.clinic.name, city: session.clinic.city } });
 
   useEffect(() => {
@@ -578,7 +633,7 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
         client.setQueryData(getGetClinicSettingsQueryKey(), data);
         form.reset({ fullName: data.user.fullName, email: data.user.email, clinicName: data.clinic.name, city: data.clinic.city === '—' ? '' : data.clinic.city });
         setSaved(true);
-        toast.success('تم حفظ التغييرات');
+        toast.success(en ? 'Changes saved' : 'تم حفظ التغييرات');
         window.setTimeout(() => setSaved(false), 2200);
       },
     });
@@ -587,7 +642,7 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
   if (settingsQuery.isLoading) return <div className="main-content min-w-0 flex-1 p-9" dir="rtl"><DashboardSkeleton /></div>;
   if (settingsQuery.isError) return <div className="main-content min-w-0 flex-1 p-9" dir="rtl"><ErrorMessage onRetry={() => settingsQuery.refetch()} /></div>;
 
-  return <div className="main-content min-w-0 flex-1" dir="rtl"><header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 md:px-9"><div><p className="text-xs font-semibold text-[#78909c]">مساحتك الخاصة</p><h1 className="ar mt-1 text-xl font-bold text-[#15364b]" data-testid="heading-settings">الإعدادات</h1></div><button className="quiet-button" onClick={() => form.reset()} data-testid="button-reset-settings"><RefreshCw size={17} /> إعادة الضبط</button></header><div className="mx-auto max-w-[1020px] space-y-6 p-5 md:p-9"><div className="animate-rise rounded-2xl bg-[#dcebef] p-6 md:p-8"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f2fafb] text-[#4c8a9b]"><Settings2 size={22} /></div><div><h2 className="ar text-xl font-bold text-[#173f54]">تفاصيل الحساب والعيادة</h2><p className="mt-1 text-sm leading-6 text-[#587785]">حدّث معلوماتك الأساسية لتبقى مساحة العمل دقيقة وواضحة لفريقك.</p></div></div></div>{updateSettings.error ? <div className="surface rounded-xl border-[#edc4c0] bg-[#fff7f6] p-3 text-sm text-[#a54c46]" data-testid="alert-settings-error">تعذر حفظ التغييرات. حاول مرة أخرى.</div> : null}<form onSubmit={form.handleSubmit(save)} className="space-y-6"><section className="surface animate-rise delay-1 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5"><UserRound size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b]">بيانات المسؤول</h2><p className="mt-1 text-xs text-[#8999a1]">بيانات تسجيل الدخول والهوية</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label="الاسم الكامل"><input {...form.register('fullName')} className="input-field" data-testid="input-settings-full-name" /></Field><Field label="البريد الإلكتروني"><input {...form.register('email')} className="input-field text-left bg-[#f3f6f7]" dir="ltr" type="email" readOnly data-testid="input-settings-email" /></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b]"><ShieldCheck size={15} /> صلاحية الحساب: <strong className="text-[#3d7587]">{session.user.role === 'owner' ? 'مالك العيادة' : 'مدير'}</strong></div></section><section className="surface animate-rise delay-2 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5"><Building2 size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b]">معلومات العيادة</h2><p className="mt-1 text-xs text-[#8999a1]">تظهر هذه المعلومات لفريقك</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label="اسم العيادة"><input {...form.register('clinicName')} className="input-field" data-testid="input-settings-clinic-name" /></Field><Field label="المدينة"><div className="relative"><MapPin size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('city')} className="input-field pr-11" data-testid="input-settings-city" /></div></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b]"><span className="status-dot" /> حالة العيادة: <strong className="text-[#3d7587]">{session.clinic.status || 'نشطة'}</strong></div></section><div className="flex items-center justify-end gap-3"><span className={`text-xs font-bold text-[#4d967f] transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} data-testid="text-settings-saved"><Check size={14} className="inline" /> تم الحفظ</span><button type="submit" className="primary-button" disabled={updateSettings.isPending} data-testid="button-save-settings"><Check size={17} /> {updateSettings.isPending ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}</button></div></form></div></div>;
+  return <div className="main-content min-w-0 flex-1" dir="rtl"><header className="flex items-center justify-between border-b border-[#dbe5ea] bg-[#f6f9fa]/90 px-5 py-4 md:px-9 dark:border-[#1e3a4d] dark:bg-[#0b1824]/90"><div><p className="text-xs font-semibold text-[#78909c] dark:text-[#7e939e]">{en ? 'Your personal space' : 'مساحتك الخاصة'}</p><h1 className="ar mt-1 text-xl font-bold text-[#15364b] dark:text-[#e2ecf1]" data-testid="heading-settings">{en ? 'Settings' : 'الإعدادات'}</h1></div><button className="quiet-button" onClick={() => form.reset()} data-testid="button-reset-settings"><RefreshCw size={17} /> {en ? 'Reset' : 'إعادة الضبط'}</button></header><div className="mx-auto max-w-[1020px] space-y-6 p-5 md:p-9"><div className="animate-rise rounded-2xl bg-[#dcebef] p-6 md:p-8 dark:bg-[#143242]"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#f2fafb] text-[#4c8a9b] dark:bg-[#0f2a3a] dark:text-[#8cc3dd]"><Settings2 size={22} /></div><div><h2 className="ar text-xl font-bold text-[#173f54] dark:text-[#e2ecf1]">{en ? 'Account & clinic details' : 'تفاصيل الحساب والعيادة'}</h2><p className="mt-1 text-sm leading-6 text-[#587785] dark:text-[#a8bfc9]">{en ? 'Update your core information so your workspace stays accurate and clear for your team.' : 'حدّث معلوماتك الأساسية لتبقى مساحة العمل دقيقة وواضحة لفريقك.'}</p></div></div></div>{updateSettings.error ? <div className="surface rounded-xl border-[#edc4c0] bg-[#fff7f6] p-3 text-sm text-[#a54c46] dark:border-[#5a2a25] dark:bg-[#3d1f1b] dark:text-[#eb9a90]" data-testid="alert-settings-error">{en ? 'Could not save changes. Try again.' : 'تعذر حفظ التغييرات. حاول مرة أخرى.'}</div> : null}<form onSubmit={form.handleSubmit(save)} className="space-y-6"><section className="surface animate-rise delay-1 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5 dark:border-[#1e3a4d]"><UserRound size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b] dark:text-[#e2ecf1]">{en ? 'Admin information' : 'بيانات المسؤول'}</h2><p className="mt-1 text-xs text-[#8999a1] dark:text-[#7e939e]">{en ? 'Sign-in and identity details' : 'بيانات تسجيل الدخول والهوية'}</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label={en ? 'Full name' : 'الاسم الكامل'}><input {...form.register('fullName')} className="input-field" data-testid="input-settings-full-name" /></Field><Field label={en ? 'Email' : 'البريد الإلكتروني'}><input {...form.register('email')} className="input-field text-left bg-[#f3f6f7] dark:bg-[#10222f]" dir="ltr" type="email" readOnly data-testid="input-settings-email" /></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b] dark:text-[#7e939e]"><ShieldCheck size={15} /> {en ? 'Account role:' : 'صلاحية الحساب:'} <strong className="text-[#3d7587] dark:text-[#8cc3dd]">{session.user.role === 'owner' ? (en ? 'Clinic owner' : 'مالك العيادة') : (en ? 'Manager' : 'مدير')}</strong></div></section><section className="surface animate-rise delay-2 p-6 md:p-7"><div className="mb-6 flex items-center gap-3 border-b border-[#edf1f3] pb-5 dark:border-[#1e3a4d]"><Building2 size={18} className="text-[#578b9d]" /><div><h2 className="font-bold text-[#23475b] dark:text-[#e2ecf1]">{en ? 'Clinic information' : 'معلومات العيادة'}</h2><p className="mt-1 text-xs text-[#8999a1] dark:text-[#7e939e]">{en ? 'This information is visible to your team' : 'تظهر هذه المعلومات لفريقك'}</p></div></div><div className="grid gap-5 md:grid-cols-2"><Field label={en ? 'Clinic name' : 'اسم العيادة'}><input {...form.register('clinicName')} className="input-field" data-testid="input-settings-clinic-name" /></Field><Field label={en ? 'City' : 'المدينة'}><div className="relative"><MapPin size={17} className="absolute right-3.5 top-3.5 text-[#8ca2ad]" /><input {...form.register('city')} className="input-field pr-11" data-testid="input-settings-city" /></div></Field></div><div className="mt-5 flex items-center gap-2 text-xs text-[#72909b] dark:text-[#7e939e]"><span className="status-dot" /> {en ? 'Clinic status:' : 'حالة العيادة:'} <strong className="text-[#3d7587] dark:text-[#8cc3dd]">{session.clinic.status || (en ? 'Active' : 'نشطة')}</strong></div></section><div className="flex items-center justify-end gap-3"><span className={`text-xs font-bold text-[#4d967f] transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} data-testid="text-settings-saved"><Check size={14} className="inline" /> {en ? 'Saved' : 'تم الحفظ'}</span><button type="submit" className="primary-button" disabled={updateSettings.isPending} data-testid="button-save-settings"><Check size={17} /> {updateSettings.isPending ? (en ? 'Saving...' : 'جارٍ الحفظ...') : (en ? 'Save changes' : 'حفظ التغييرات')}</button></div></form></div></div>;
 }
 
 function ShellCommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -619,39 +674,45 @@ function ProtectedShell() {
   if (sessionQuery.isLoading) return <div className="flex min-h-[100dvh] items-center justify-center bg-[#eef3f7]" data-testid="state-session-loading"><div className="w-64 space-y-3"><div className="skeleton h-4 w-24" /><div className="skeleton h-10 w-full" /><div className="skeleton h-24 w-full" /></div></div>;
   if (needsLogin) return null;
   const session = sessionQuery.data;
-  return <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr">
-    <Sidebar clinicName={session.clinic.name} userName={session.user.fullName} mobileOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
-    {menuOpen ? <div className="sidebar-overlay md:hidden" role="presentation" onClick={() => setMenuOpen(false)} /> : null}
-    <div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl">
-      <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
-      <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
-      <div className="workspace-route flex min-h-0 flex-1 flex-col">
-        <Suspense fallback={<RouteLoadingFallback />}>
-          <Switch>
-            <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
-            <Route path="/patients" component={LivePatientsPage} />
-            <Route path="/patients/:id" component={Patient360Page} />
-            <Route path="/appointments" component={LiveAppointmentsPage} />
-            <Route path="/appointments/:id" component={AppointmentJourneyPage} />
-            <Route path="/inbox" component={InboxPage} />
-            <Route path="/waitlist" component={WaitlistPage} />
-            <Route path="/follow-ups" component={FollowUpsPage} />
-            <Route path="/no-shows" component={NoShowsPage} />
-            <Route path="/voice-agent/:view">{() => <LiveVoiceAgentPage />}</Route>
-            <Route path="/voice-agent" component={LiveVoiceAgentPage} />
-            <Route path="/billing" component={BillingPage} />
-            <Route path="/organization" component={OrganizationSettings} />
-            <Route>{() => <LiveDashboard session={session} />}</Route>
-          </Switch>
-        </Suspense>
+  return (
+    <NotificationsProvider>
+      <div className="app-shell flex min-h-[100dvh] md:flex-row" dir="ltr">
+        <Sidebar clinicName={session.clinic.name} userName={session.user.fullName} mobileOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
+        {menuOpen ? <div className="sidebar-overlay md:hidden" role="presentation" onClick={() => setMenuOpen(false)} /> : null}
+        <div className={`main-content flex min-h-0 min-w-0 flex-1 flex-col ${location === '/inbox' ? 'md:h-[100dvh] md:overflow-hidden' : ''}`} dir="rtl">
+          <WorkspaceToolbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
+          <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+          <div className="workspace-route flex min-h-0 flex-1 flex-col">
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Switch>
+                <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
+                <Route path="/patients" component={LivePatientsPage} />
+                <Route path="/patients/:id" component={Patient360Page} />
+                <Route path="/appointments" component={LiveAppointmentsPage} />
+                <Route path="/appointments/:id" component={AppointmentJourneyPage} />
+                <Route path="/inbox" component={InboxPage} />
+                <Route path="/waitlist" component={WaitlistPage} />
+                <Route path="/follow-ups" component={FollowUpsPage} />
+                <Route path="/no-shows" component={NoShowsPage} />
+                <Route path="/voice-agent/:view">{() => <LiveVoiceAgentPage />}</Route>
+                <Route path="/voice-agent" component={LiveVoiceAgentPage} />
+                <Route path="/billing" component={BillingPage} />
+                <Route path="/organization" component={OrganizationSettings} />
+                <Route>{() => <LiveDashboard session={session} />}</Route>
+              </Switch>
+            </Suspense>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>;
+    </NotificationsProvider>
+  );
 }
 
 function NotFound() {
   const [, setLocation] = useLocation();
-  return <main className="noise flex min-h-[100dvh] items-center justify-center bg-[#eef3f7] p-6" dir="rtl"><div className="surface w-full max-w-[520px] rounded-2xl p-8 text-center md:p-12"><div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#dbecef] text-[#528b9b]"><CircleHelp size={29} /></div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#75a0ae]">404 / الصفحة غير موجودة</p><h1 className="ar mt-3 text-2xl font-bold text-[#173c52]">هذه الصفحة أخذت استراحة.</h1><p className="mt-2 text-sm leading-7 text-[#7b8f99]">الرابط الذي تتبعه غير متاح. عد إلى لوحة العيادة لنكمل يومك.</p><button className="primary-button mt-7" onClick={() => setLocation('/dashboard')} data-testid="button-go-dashboard"><ArrowRight size={17} /> العودة إلى الرئيسية</button></div></main>;
+  const { language } = usePreferences();
+  const en = language === 'en';
+  return <main className="noise flex min-h-[100dvh] items-center justify-center bg-[#eef3f7] p-6 dark:bg-[#0b1824]" dir="rtl"><div className="surface w-full max-w-[520px] rounded-2xl p-8 text-center md:p-12"><div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#dbecef] text-[#528b9b] dark:bg-[#143242] dark:text-[#8cc3dd]"><CircleHelp size={29} /></div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#75a0ae]">404 / {en ? 'Page not found' : 'الصفحة غير موجودة'}</p><h1 className="ar mt-3 text-2xl font-bold text-[#173c52] dark:text-[#e2ecf1]">{en ? 'This page took a break.' : 'هذه الصفحة أخذت استراحة.'}</h1><p className="mt-2 text-sm leading-7 text-[#7b8f99] dark:text-[#7e939e]">{en ? 'The link you are following is unavailable. Head back to the clinic dashboard to continue your day.' : 'الرابط الذي تتبعه غير متاح. عد إلى لوحة العيادة لنكمل يومك.'}</p><button className="primary-button mt-7" onClick={() => setLocation('/dashboard')} data-testid="button-go-dashboard"><ArrowRight size={17} /> {en ? 'Back to home' : 'العودة إلى الرئيسية'}</button></div></main>;
 }
 
 function Router() {

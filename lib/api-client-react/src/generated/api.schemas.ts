@@ -131,3 +131,33 @@ export interface DashboardSummary {
   recentActivity: ActivityItem[];
 }
 
+export type InboundMessageInputChannelType = typeof InboundMessageInputChannelType[keyof typeof InboundMessageInputChannelType];
+
+
+export const InboundMessageInputChannelType = {
+  whatsapp: 'whatsapp',
+  instagram: 'instagram',
+  messenger: 'messenger',
+  telegram: 'telegram',
+  sms: 'sms',
+  web: 'web',
+} as const;
+
+export interface InboundMessageInput {
+  clinicId?: string;
+  channelType?: InboundMessageInputChannelType;
+  channelId?: string;
+  senderPhone?: string;
+  senderName?: string;
+  /** @minLength 1 */
+  content: string;
+}
+
+export interface InboundMessageResponse {
+  ok: boolean;
+  messageId: string;
+  conversationId: string;
+  patientId?: string;
+  isHandoff?: boolean;
+}
+

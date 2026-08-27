@@ -2,12 +2,13 @@ import { Router, type Request, type Response } from "express";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 import { dispatchOutbound } from "../lib/outbound";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 type Conversation = { id?: string; patient_id?: string; clinic_id?: string; channel_id?: string; channel_conversation_id?: string; last_patient_message?: string | null; assigned_staff_id?: string | null; ai_status?: string; is_handoff?: boolean; is_archived?: boolean; last_activity_at?: string; status?: string; priority?: string; };
 type Patient = { id?: string; name?: string; first_name?: string; last_name?: string; };
 type Channel = { id?: string; type?: string; provider?: string; status?: string; is_enabled?: boolean; updated_at?: string; config?: Record<string, unknown> };
-type Message = { id?: string; conversation_id?: string; content?: string; direction?: string; sender_type?: string; created_at?: string; message_status?: string; };
+type Message = { id?: string; conversation_id?: string; clinic_id?: string; content?: string | null; direction?: string; sender_type?: string; message_status?: string; created_at?: string };
 
 const headers = (token: string, extra: Record<string, string> = {}) => ({
   Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra,
@@ -156,7 +157,7 @@ router.get("/inbox/stream", async (req: Request, res: Response) => {
   let closed = false;
   let lastFingerprint = "";
 
-  const pushIfChanged = async (reason: "initial" | "changed" | "heartbeat") => {
+  const pushIfChanged = async (reason: "initial" | "changed" | "heartbeat" | string) => {
     if (closed) return;
     const snapshot = await readInboxFingerprint(session, selectedConversationId);
     if (!snapshot.ok) {
@@ -173,12 +174,21 @@ router.get("/inbox/stream", async (req: Request, res: Response) => {
     }
   };
 
+  const unsubscribeEvents = clinicEvents.subscribeClinic(session.clinicId, (event) => {
+    if (closed) return;
+    // Push typed event directly to client
+    sseEvent(res, event.type, event.data);
+    // Also trigger query invalidation immediately
+    void pushIfChanged(event.type);
+  });
+
   await pushIfChanged("initial");
-  const changeInterval = setInterval(() => { void pushIfChanged("changed"); }, 10_000);
+  const changeInterval = setInterval(() => { void pushIfChanged("changed"); }, 15_000);
   const heartbeatInterval = setInterval(() => { void pushIfChanged("heartbeat"); }, 25_000);
 
   req.on("close", () => {
     closed = true;
+    unsubscribeEvents();
     clearInterval(changeInterval);
     clearInterval(heartbeatInterval);
     res.end();
@@ -217,6 +227,7 @@ router.post("/inbox/:id/unsnooze", async (req, res) => {
   try { session = await requireClinicPermission(req, "inbox", "conversations", "update"); res.status(201).json(await insertConversationEvent(session, req.params.id, "conversation.unsnoozed", {})); } catch (error) { if (!res.headersSent) respondToPermissionError(res, error); }
 });
 
+
 router.post("/inbox/:id/outcome", async (req, res) => {
   let session;
   try { session = await requireClinicPermission(req, "inbox", "conversations", "update"); const outcome = typeof req.body?.outcome === "string" ? req.body.outcome.trim().slice(0, 80) : ""; if (!outcome) { res.status(400).json({ error: "نتيجة المحادثة مطلوبة." }); return; } res.status(201).json(await insertConversationEvent(session, req.params.id, "conversation.outcome.recorded", { outcome, note: typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 4000) : null })); } catch (error) { if (!res.headersSent) respondToPermissionError(res, error); }
@@ -235,6 +246,7 @@ router.patch("/inbox/:id/mode", async (req, res) => {
     body: JSON.stringify({ p_conversation_id: req.params.id, p_ai_status: mode === "AI" ? "active" : "paused", p_is_handoff: mode === "Human" }),
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حفظ وضع المحادثة." }); return; }
+  clinicEvents.emitClinicEvent(session.clinicId, "inbox.mode_changed", { conversationId: req.params.id, mode });
   res.json({ mode });
 });
 
@@ -255,6 +267,7 @@ router.post("/inbox/:id/messages", async (req, res) => {
     res.status(statusCode).json({ error: error instanceof Error ? error.message : "تعذر الوصول إلى مسار إرسال الرسائل." });
     return;
   }
+  clinicEvents.emitClinicEvent(session.clinicId, "inbox.message_sent", { conversationId, messageId: queued.data?.message_id, content });
   res.status(201).json({ id: queued.data?.message_id ?? null, conversation_id: conversationId, content, direction: "outgoing", sender_type: "staff", message_status: "queued" });
 });
 

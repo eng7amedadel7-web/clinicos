@@ -121,8 +121,9 @@
 .sidebar { background: #071b2c; color: #cfdae1; overflow: hidden; transition: width .2s cubic-bezier(.23,1,.32,1); }
 .sidebar-tool { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; flex: 0 0 auto; border: 1px solid rgba(145,183,199,.2); border-radius: .65rem; color: #a7c4cf; transition: color .18s ease, background-color .18s ease, transform .18s ease; }
 .sidebar-tool:hover { color: #f0f7fa; background: rgba(151,190,208,.12); transform: translateY(-1px); }
-.sidebar-resizer { position: absolute; inset-inline-end: -.45rem; inset-block: 0; z-index: 4; display: flex; width: .9rem; cursor: col-resize; align-items: center; justify-content: center; color: transparent; touch-action: none; }
-.sidebar-resizer:hover, .sidebar-resizer:focus-visible { color: #8dbbce; }
+.sidebar-resizer { position: absolute; inset-inline-start: 0; inset-block: 0; z-index: 4; display: flex; width: .9rem; cursor: col-resize; align-items: center; justify-content: center; color: transparent; touch-action: none; }
+.sidebar-resizer:hover, .sidebar-resizer:focus-visible { color: #8dbbce; background: linear-gradient(to left, rgba(141,187,206,.14), transparent); }
+.sidebar-tip { position: fixed; z-index: 60; pointer-events: none; white-space: nowrap; padding: .4rem .7rem; border-radius: .6rem; border: 1px solid rgba(145,183,199,.25); background: #10293c; color: #e6f0f2; font-size: .7rem; font-weight: 700; box-shadow: 0 8px 20px rgba(4,20,33,.35); }
 .sidebar-resizer svg { opacity: .75; filter: drop-shadow(0 2px 4px rgba(7,27,44,.3)); }
 .sidebar-popover { min-width: 190px; color: #e6f0f2; }
 .sidebar-menu-item { display: flex; width: 100%; align-items: center; gap: .55rem; border-radius: .65rem; padding: .6rem .55rem; color: #c7d8df; font-size: .72rem; font-weight: 700; text-align: right; transition: color .18s ease, background-color .18s ease; }
@@ -167,6 +168,9 @@
 .dark .input-field { border-color: hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .dark .quiet-button { color: hsl(var(--muted-foreground)); }
 .dark .quiet-button:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.dark .skeleton { background: linear-gradient(90deg, #16324a 25%, #1d3d58 50%, #16324a 75%); background-size: 200% 100%; }
+.dark .primary-button { background: #2a6c8c; color: #eaf6fa; }
+.dark .primary-button:hover { background: #35809f; }
 .sidebar-nav { scrollbar-width: thin; scrollbar-color: rgba(141,187,206,.35) transparent; }
 .sidebar-nav::-webkit-scrollbar { width: 5px; }
 .sidebar-nav::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(141,187,206,.35); }
@@ -493,3 +497,27 @@
 .queue-clinic-name { margin: 0; color: #173d53; font-size: .98rem; font-weight: 900; }
 .queue-user-name { margin: .55rem 0 0; color: #b9dce0; font-size: .85rem; font-weight: 700; }
 .queue-public-footer strong { display: block; margin-top: .28rem; color: #6f969f; font-size: .62rem; font-weight: 900; letter-spacing: .06em; }
+.queue-lang-button { display: inline-flex; align-items: center; gap: .3rem; margin-inline-start: auto; border: 1px solid #cce2e3; border-radius: 999px; background: rgba(255,255,255,.72); padding: .42rem .62rem; color: #3e7a72; font-size: .68rem; font-weight: 800; cursor: pointer; }
+.queue-secure-badge { margin-inline-start: .4rem; }
+
+.dark .queue-public-shell { background: #0b1824; color: #e2ecf1; }
+.dark .queue-metric-card, .dark .queue-progress-card, .dark .queue-notice-card { border-color: #1e3a4d; background: rgba(18,36,52,.9); }
+.dark .queue-metric-card.queue-metric-primary { border-color: #1e3a4d; background: #10293c; }
+.dark .queue-metric-icon { background: #143242; color: #8cc3dd; }
+.dark .queue-metric-card span { color: #7e939e; }
+.dark .queue-metric-card strong { color: #e2ecf1; }
+.dark .queue-metric-card small { color: #7e939e; }
+.dark .queue-progress-card h2, .dark .queue-notice-card h2 { color: #e2ecf1; }
+.dark .queue-section-kicker { color: #7e939e; }
+.dark .queue-live-pill { background: #123528; color: #7fd0b4; }
+.dark .queue-progress-track { background: #16324a; }
+.dark .queue-notice-icon { background: #123528; color: #7fd0b4; }
+.dark .queue-notice-card p { color: #7e939e; }
+.dark .queue-refresh-button { color: #8cc3dd; }
+.dark .queue-support-link { color: #8cc3dd; }
+.dark .queue-public-footer { color: #7e939e; }
+.dark .queue-empty-state h1 { color: #e2ecf1; }
+.dark .queue-empty-state > p:last-child { color: #7e939e; }
+.dark .queue-clinic-name { color: #e2ecf1; }
+.dark .queue-branch-name { color: #7e939e; }
+.dark .queue-secure-badge, .dark .queue-lang-button { border-color: #1e3a4d; background: rgba(18,36,52,.8); color: #7fd0b4; }

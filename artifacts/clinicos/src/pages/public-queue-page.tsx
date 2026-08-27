@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Clock3, Headphones, RefreshCw, ShieldCheck, UsersRound } from "lucide-react";
+import { AlertCircle, Clock3, Headphones, Languages, RefreshCw, ShieldCheck, UsersRound } from "lucide-react";
 import { useLocation } from "wouter";
+import { BrandMark } from "@/components/brand";
 
 // This page intentionally has no clinic or patient identifier in the URL-facing UI.
 // The production endpoint will resolve a short-lived opaque token server-side.
@@ -18,6 +19,12 @@ type QueueProjection = {
   supportAvailable: boolean;
 };
 
+type Lang = "ar" | "en";
+
+function readLang(): Lang {
+  return window.localStorage.getItem("meruna-language") === "en" ? "en" : "ar";
+}
+
 const previewProjection: QueueProjection = {
   clinicName: "عيادة ميرونا",
   branchName: "الفرع الرئيسي",
@@ -30,15 +37,15 @@ const previewProjection: QueueProjection = {
   supportAvailable: true,
 };
 
-function formatRelativeUpdate(updatedAt: number, now: number) {
+function formatRelativeUpdate(updatedAt: number, now: number, en: boolean) {
   const seconds = Math.max(0, Math.floor((now - updatedAt) / 1000));
-  if (seconds < 10) return "تم التحديث الآن";
-  if (seconds < 60) return `تم التحديث منذ ${seconds} ثانية`;
+  if (seconds < 10) return en ? "Updated just now" : "تم التحديث الآن";
+  if (seconds < 60) return en ? `Updated ${seconds}s ago` : `تم التحديث منذ ${seconds} ثانية`;
   const minutes = Math.floor(seconds / 60);
-  return `تم التحديث منذ ${minutes} دقيقة`;
+  return en ? `Updated ${minutes}m ago` : `تم التحديث منذ ${minutes} دقيقة`;
 }
 
-function StatusPanel({ projection }: { projection: QueueProjection }) {
+function StatusPanel({ projection, en }: { projection: QueueProjection; en: boolean }) {
   const [now, setNow] = useState(() => Date.now());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -57,12 +64,12 @@ function StatusPanel({ projection }: { projection: QueueProjection }) {
 
   const progress = projection.peopleAhead === null ? 45 : projection.peopleAhead === 0 ? 100 : Math.max(16, Math.min(88, 100 - projection.peopleAhead * 16));
   const statusCopy = projection.state === "called"
-    ? { label: "حان دورك", description: "من فضلك توجه إلى نقطة الاستقبال الآن.", tone: "success" }
+    ? { label: en ? "It's your turn" : "حان دورك", description: en ? "Please head to the reception point now." : "من فضلك توجه إلى نقطة الاستقبال الآن.", tone: "success" }
     : projection.state === "completed"
-      ? { label: "تم إنهاء الدور", description: "تم تسجيل انتهاء الزيارة لهذا الرقم.", tone: "success" }
+      ? { label: en ? "Turn completed" : "تم إنهاء الدور", description: en ? "The visit for this number has been closed." : "تم تسجيل انتهاء الزيارة لهذا الرقم.", tone: "success" }
       : ["cancelled", "expired", "unavailable"].includes(projection.state)
-        ? { label: "الدور غير متاح", description: "تواصل مع استقبال العيادة للحصول على المساعدة.", tone: "danger" }
-        : { label: "أنت في قائمة الانتظار", description: "سنحدّث حالتك تلقائيًا عندما يقترب دورك.", tone: "waiting" };
+        ? { label: en ? "Turn unavailable" : "الدور غير متاح", description: en ? "Contact the clinic reception for assistance." : "تواصل مع استقبال العيادة للحصول على المساعدة.", tone: "danger" }
+        : { label: en ? "You are in the queue" : "أنت في قائمة الانتظار", description: en ? "We will update your status automatically as your turn approaches." : "سنحدّث حالتك تلقائيًا عندما يقترب دورك.", tone: "waiting" };
 
   return (
     <>
@@ -71,7 +78,7 @@ function StatusPanel({ projection }: { projection: QueueProjection }) {
         <div className="queue-hero-orbit queue-hero-orbit-two" aria-hidden="true" />
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div>
-            <p className="queue-eyebrow">رقم الانتظار</p>
+            <p className="queue-eyebrow">{en ? "Queue number" : "رقم الانتظار"}</p>
             <h1 id="queue-status-title" className="queue-ticket-number" dir="ltr">{projection.ticketLabel}</h1>
             <p className="queue-user-name">{projection.userName}</p>
           </div>
@@ -83,42 +90,42 @@ function StatusPanel({ projection }: { projection: QueueProjection }) {
         </div>
       </section>
 
-      <section className="queue-metrics-grid" aria-label="ملخص الانتظار">
+      <section className="queue-metrics-grid" aria-label={en ? "Waiting summary" : "ملخص الانتظار"}>
         <article className="queue-metric-card queue-metric-primary">
           <div className="queue-metric-icon"><UsersRound size={18} /></div>
-          <span>أمامك الآن</span>
+          <span>{en ? "Ahead of you" : "أمامك الآن"}</span>
           <strong>{projection.peopleAhead ?? "—"}</strong>
-          <small>أشخاص في الدور</small>
+          <small>{en ? "people in line" : "أشخاص في الدور"}</small>
         </article>
         <article className="queue-metric-card">
           <div className="queue-metric-icon"><Clock3 size={18} /></div>
-          <span>الانتظار المتوقع</span>
+          <span>{en ? "Estimated wait" : "الانتظار المتوقع"}</span>
           <strong>{projection.estimatedWaitMinutes ?? "—"}</strong>
-          <small>{projection.estimatedWaitMinutes === null ? "غير متاح حاليًا" : "دقيقة تقريبًا"}</small>
+          <small>{projection.estimatedWaitMinutes === null ? (en ? "Not available right now" : "غير متاح حاليًا") : (en ? "minutes approximately" : "دقيقة تقريبًا")}</small>
         </article>
       </section>
 
       <section className="queue-progress-card" aria-labelledby="queue-progress-title">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="queue-section-kicker">حالة الدور</p>
-            <h2 id="queue-progress-title">مكانك بيتحدث تلقائيًا</h2>
+            <p className="queue-section-kicker">{en ? "Turn status" : "حالة الدور"}</p>
+            <h2 id="queue-progress-title">{en ? "Your place updates automatically" : "مكانك بيتحدث تلقائيًا"}</h2>
           </div>
-          <span className="queue-live-pill"><span /> مباشر</span>
+          <span className="queue-live-pill"><span /> {en ? "Live" : "مباشر"}</span>
         </div>
         <div className="queue-progress-track" aria-hidden="true">
           <div className="queue-progress-fill" style={{ width: `${progress}%` }} />
           <span className="queue-progress-marker" style={{ insetInlineStart: `${progress}%` }} />
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[hsl(var(--muted-foreground))]">
-          <span>بداية الدور</span>
-          <span>دورك الحالي</span>
+          <span>{en ? "Start of line" : "بداية الدور"}</span>
+          <span>{en ? "Your current turn" : "دورك الحالي"}</span>
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#e8eff1] pt-4">
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">{formatRelativeUpdate(projection.updatedAt, now)}</span>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#e8eff1] pt-4 dark:border-[#1e3a4d]">
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">{formatRelativeUpdate(projection.updatedAt, now, en)}</span>
           <button type="button" className="queue-refresh-button" onClick={refreshPreview} disabled={refreshing} data-testid="button-queue-refresh">
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? "جارٍ التحديث..." : "تحديث الحالة"}
+            {refreshing ? (en ? "Updating..." : "جارٍ التحديث...") : (en ? "Refresh status" : "تحديث الحالة")}
           </button>
         </div>
       </section>
@@ -126,25 +133,25 @@ function StatusPanel({ projection }: { projection: QueueProjection }) {
       <section className="queue-notice-card">
         <div className="queue-notice-icon"><ShieldCheck size={18} /></div>
         <div>
-          <h2>خصوصيتك محفوظة</h2>
-          <p>هذه الصفحة تعرض حالة رقم الانتظار فقط، ولا تعرض اسمك أو بياناتك الطبية.</p>
+          <h2>{en ? "Your privacy is protected" : "خصوصيتك محفوظة"}</h2>
+          <p>{en ? "This page only shows the queue number status — never your name or medical data." : "هذه الصفحة تعرض حالة رقم الانتظار فقط، ولا تعرض اسمك أو بياناتك الطبية."}</p>
         </div>
       </section>
-      {projection.supportAvailable ? <a className="queue-support-link" href="tel:" onClick={(event) => event.preventDefault()}><Headphones size={15} /> تحتاج مساعدة؟ تواصل مع الاستقبال</a> : null}
+      {projection.supportAvailable ? <a className="queue-support-link" href="tel:" onClick={(event) => event.preventDefault()}><Headphones size={15} /> {en ? "Need help? Contact reception" : "تحتاج مساعدة؟ تواصل مع الاستقبال"}</a> : null}
     </>
   );
 }
 
-function QueueUnavailable({ reason }: { reason: "missing" | "production" | "error" }) {
+function QueueUnavailable({ reason, en }: { reason: "missing" | "production" | "error"; en: boolean }) {
   return (
     <main className="queue-public-shell" dir="rtl">
       <div className="queue-public-noise" aria-hidden="true" />
       <section className="queue-empty-state" role="status">
         <div className="queue-empty-icon"><AlertCircle size={25} /></div>
-        <p className="queue-eyebrow">MERUNA SYSTEM</p>
-        <h1>{reason === "missing" ? "رابط الانتظار غير مكتمل" : reason === "error" ? "تعذر تحديث حالة الدور" : "الرابط غير متاح حاليًا"}</h1>
-        <p>{reason === "missing" ? "استخدم الرابط المرسل لك من العيادة كاملًا." : reason === "error" ? "حدث عطل مؤقت في الاتصال. حاول تحديث الصفحة بعد قليل." : "لم يتم تفعيل خدمة الكيو لهذا الرابط بعد. اطلب رابطًا جديدًا من الاستقبال."}</p>
-        {reason === "error" ? <button type="button" className="queue-refresh-button mt-5" onClick={() => window.location.reload()}><RefreshCw size={14} /> إعادة المحاولة</button> : null}
+        <p className="queue-eyebrow">MERUNA</p>
+        <h1>{reason === "missing" ? (en ? "Incomplete queue link" : "رابط الانتظار غير مكتمل") : reason === "error" ? (en ? "Could not refresh the turn status" : "تعذر تحديث حالة الدور") : (en ? "This link is not available right now" : "الرابط غير متاح حاليًا")}</h1>
+        <p>{reason === "missing" ? (en ? "Use the full link sent to you by the clinic." : "استخدم الرابط المرسل لك من العيادة كاملًا.") : reason === "error" ? (en ? "A temporary connection issue occurred. Try refreshing the page shortly." : "حدث عطل مؤقت في الاتصال. حاول تحديث الصفحة بعد قليل.") : (en ? "The queue service is not active for this link yet. Request a new link from reception." : "لم يتم تفعيل خدمة الكيو لهذا الرابط بعد. اطلب رابطًا جديدًا من الاستقبال.")}</p>
+        {reason === "error" ? <button type="button" className="queue-refresh-button mt-5" onClick={() => window.location.reload()}><RefreshCw size={14} /> {en ? "Retry" : "إعادة المحاولة"}</button> : null}
       </section>
     </main>
   );
@@ -152,11 +159,19 @@ function QueueUnavailable({ reason }: { reason: "missing" | "production" | "erro
 
 export default function PublicQueuePage() {
   const [location] = useLocation();
+  const [lang, setLang] = useState<Lang>(() => readLang());
+  const en = lang === "en";
   const token = useMemo(() => location.split("/")[2]?.trim() ?? "", [location]);
   const localPreview = import.meta.env.DEV && token === "preview";
   const [projection, setProjection] = useState<QueueProjection | null>(localPreview ? previewProjection : null);
   const [loading, setLoading] = useState(!localPreview);
   const [error, setError] = useState(false);
+
+  const toggleLang = () => {
+    const next: Lang = en ? "ar" : "en";
+    window.localStorage.setItem("meruna-language", next);
+    setLang(next);
+  };
 
   useEffect(() => {
     if (localPreview || !token) return;
@@ -170,7 +185,7 @@ export default function PublicQueuePage() {
         setProjection({
           clinicName: payload.clinicName,
           branchName: payload.branchName ?? null,
-          userName: payload.userName || "المستخدم",
+          userName: payload.userName || (en ? "User" : "المستخدم"),
           ticketLabel: payload.ticketLabel,
           state: payload.state || "unavailable",
           peopleAhead: typeof payload.peopleAhead === "number" ? payload.peopleAhead : null,
@@ -190,25 +205,26 @@ export default function PublicQueuePage() {
     return () => { active = false; window.clearInterval(timer); };
   }, [localPreview, token]);
 
-  if (!token) return <QueueUnavailable reason="missing" />;
-  if (loading) return <main className="queue-public-shell" dir="rtl"><div className="queue-public-container"><div className="queue-empty-state" role="status"><RefreshCw className="animate-spin" size={25} /><p className="queue-eyebrow mt-4">MERUNA SYSTEM</p><h1>جارٍ تحميل حالة الدور</h1><p>نراجع بيانات الحجز الآمنة الآن.</p></div></div></main>;
-  if (error || !projection) return <QueueUnavailable reason={error ? "error" : "production"} />;
+  if (!token) return <QueueUnavailable reason="missing" en={en} />;
+  if (loading) return <main className="queue-public-shell" dir="rtl"><div className="queue-public-container"><div className="queue-empty-state" role="status"><RefreshCw className="animate-spin" size={25} /><p className="queue-eyebrow mt-4">MERUNA</p><h1>{en ? "Loading turn status" : "جارٍ تحميل حالة الدور"}</h1><p>{en ? "Checking the secure booking data now." : "نراجع بيانات الحجز الآمنة الآن."}</p></div></div></main>;
+  if (error || !projection) return <QueueUnavailable reason={error ? "error" : "production"} en={en} />;
 
   return (
     <main className="queue-public-shell" dir="rtl">
       <div className="queue-public-noise" aria-hidden="true" />
       <div className="queue-public-container">
         <header className="queue-public-header">
-          <div className="queue-brand-mark" aria-hidden="true"><span /></div>
+          <BrandMark size={34} />
           <div className="min-w-0">
             <p className="queue-clinic-name">{projection.clinicName}</p>
-            <p className="queue-branch-name">نظام الانتظار{projection.branchName ? ` · ${projection.branchName}` : ""}</p>
+            <p className="queue-branch-name">{en ? "Queue system" : "نظام الانتظار"}{projection.branchName ? ` · ${projection.branchName}` : ""}</p>
           </div>
-          <span className="queue-secure-badge"><ShieldCheck size={13} /> آمن</span>
+          <button type="button" onClick={toggleLang} className="queue-lang-button" aria-label={en ? "Switch language" : "تبديل اللغة"}><Languages size={14} /> {en ? "ع" : "EN"}</button>
+          <span className="queue-secure-badge"><ShieldCheck size={13} /> {en ? "Secure" : "آمن"}</span>
         </header>
-        <div className="queue-preview-banner">معاينة محلية للتصميم — البيانات المعروضة شكلية ولن تظهر في الإنتاج.</div>
-        <StatusPanel projection={projection} />
-        <footer className="queue-public-footer">لا تحتاج إلى إبقاء الصفحة مفتوحة طوال الوقت؛ افتح الرابط مرة أخرى لمراجعة الحالة.<strong>تابع لـ MERUNA SYSTEM</strong></footer>
+        {localPreview ? <div className="queue-preview-banner">{en ? "Local design preview — the data shown is illustrative and will not appear in production." : "معاينة محلية للتصميم — البيانات المعروضة شكلية ولن تظهر في الإنتاج."}</div> : null}
+        <StatusPanel projection={projection} en={en} />
+        <footer className="queue-public-footer">{en ? "You don't need to keep this page open; reopen the link anytime to check your status." : "لا تحتاج إلى إبقاء الصفحة مفتوحة طوال الوقت؛ افتح الرابط مرة أخرى لمراجعة الحالة."}<strong>{en ? "Powered by MERUNA" : "تابع لـ MERUNA"}</strong></footer>
       </div>
     </main>
   );

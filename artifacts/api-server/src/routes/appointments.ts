@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { readSession } from "../lib/session";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
+import { clinicEvents } from "../lib/events";
 
 const router = Router();
 
@@ -15,18 +15,32 @@ type CheckinRow = { status?: string; checked_in_at?: string | null; called_at?: 
 type FollowUpRow = { status?: string; followup_goal?: string | null; next_due_at?: string | null; created_at?: string | null };
 type NoShowRow = { case_status?: string; classification?: string | null; risk_level?: string | null; last_activity_at?: string | null; created_at?: string | null };
 
+async function protect(req: Parameters<typeof requireClinicPermission>[0], res: Parameters<typeof respondToPermissionError>[0], action: "read" | "create" | "update") {
+  try {
+    return await requireClinicPermission(req, "Appointments", "appointments", action);
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return null;
+  }
+}
+
 function appointmentHeaders(accessToken: string, extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...extra };
 }
 
+const validStatuses = new Set(["scheduled", "confirmed", "checked_in", "completed", "cancelled", "no_show", "pending"]);
+const validAppointmentTypes = new Set(["NEW_VISIT", "FOLLOW_UP", "EMERGENCY", "CONSULTATION", "PROCEDURE"]);
+
 function appointmentInput(body: AppointmentInput) {
+  const status = typeof body.status === "string" && body.status.trim() ? body.status.trim() : "scheduled";
+  const appointmentType = typeof body.appointmentType === "string" && body.appointmentType.trim() ? body.appointmentType.trim() : "NEW_VISIT";
   return {
     patientId: typeof body.patientId === "string" ? body.patientId.trim() : "",
     slotId: typeof body.slotId === "string" ? body.slotId.trim() : "",
     scheduledAt: typeof body.scheduledAt === "string" ? body.scheduledAt.trim() : "",
-    status: typeof body.status === "string" && body.status.trim() ? body.status.trim() : "scheduled",
+    status: validStatuses.has(status) ? status : "scheduled",
     notes: typeof body.notes === "string" ? body.notes.trim() : "",
-    appointmentType: typeof body.appointmentType === "string" && body.appointmentType.trim() ? body.appointmentType.trim() : "NEW_VISIT",
+    appointmentType: validAppointmentTypes.has(appointmentType) ? appointmentType : "NEW_VISIT",
   };
 }
 
@@ -35,8 +49,8 @@ function clinicFilter(clinicId: string) {
 }
 
 router.get("/appointments/options", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  const session = await protect(req, res, "read");
+  if (!session) return;
   const filter = clinicFilter(session.clinicId);
   const [patientsResult, doctorsResult, servicesResult, slotsResult] = await Promise.all([
     supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${filter}&status=eq.active&order=created_at.desc&limit=1000`, { headers: { Authorization: `Bearer ${session.accessToken}` } }),
@@ -58,8 +72,8 @@ router.get("/appointments/options", async (req, res) => {
 });
 
 router.get("/appointments", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  const session = await protect(req, res, "read");
+  if (!session) return;
   const branchId = typeof req.query.branchId === "string" ? req.query.branchId.trim() : "";
   const filter = `${clinicFilter(session.clinicId)}${branchId ? `&branch_id=eq.${encodeURIComponent(branchId)}` : ""}`;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
@@ -108,8 +122,8 @@ router.get("/appointments", async (req, res) => {
 });
 
 router.post("/appointments", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  const session = await protect(req, res, "create");
+  if (!session) return;
   const data = appointmentInput(req.body ?? {});
   if (!data.patientId || !data.slotId) { res.status(400).json({ error: "المريض والموعد المتاح مطلوبان." }); return; }
   const headers = { Authorization: `Bearer ${session.accessToken}` };
@@ -127,7 +141,15 @@ router.post("/appointments", async (req, res) => {
     body: JSON.stringify({ clinic_id: session.clinicId, patient_id: data.patientId, doctor_id: slot.doctor_id, service_id: slot.service_id, slot_id: slot.id, scheduled_at: slot.start_time, appointment_status: data.status, booking_source: "staff_portal", appointment_type: data.appointmentType, notes: data.notes || null, created_by: session.userId }),
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حجز الموعد." }); return; }
-  res.status(201).json(result.data?.[0] ?? null);
+  const created = result.data?.[0];
+  if (created) {
+    clinicEvents.emitClinicEvent(session.clinicId, "appointment.booked", {
+      appointmentId: created.id,
+      patientId: data.patientId,
+      scheduledAt: slot.start_time,
+    });
+  }
+  res.status(201).json(created ?? null);
 });
 
 router.get("/appointments/:id/journey", async (req, res) => {
@@ -175,8 +197,8 @@ router.get("/appointments/:id/journey", async (req, res) => {
 });
 
 router.patch("/appointments/:id", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  const session = await protect(req, res, "update");
+  if (!session) return;
   const data = appointmentInput(req.body ?? {});
   const changes: Record<string, string> = {};
   if (data.scheduledAt) changes.scheduled_at = data.scheduledAt;
@@ -191,8 +213,8 @@ router.patch("/appointments/:id", async (req, res) => {
 });
 
 router.post("/appointments/:id/cancel", async (req, res) => {
-  const session = readSession(req);
-  if (!session) { res.status(401).json({ error: "Not authenticated." }); return; }
+  const session = await protect(req, res, "update");
+  if (!session) return;
   const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
   const path = `/rest/v1/appointments?id=eq.${encodeURIComponent(req.params.id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
   const result = await supabaseRequest<AppointmentRow[]>(path, { method: "PATCH", headers: appointmentHeaders(session.accessToken, { Prefer: "return=representation" }), body: JSON.stringify({ appointment_status: "cancelled", cancellation_reason: reason || null, cancelled_at: new Date().toISOString(), updated_by: session.userId }) });

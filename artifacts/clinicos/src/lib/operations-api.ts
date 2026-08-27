@@ -11,6 +11,7 @@ export type OperationsSummary = {
     activeWaitlist: OperationsStatValue;
     connectedChannels: OperationsStatValue;
   };
+  queue?: { nowServing: OperationsStatValue; waiting: OperationsStatValue };
   todayAppointments: Array<Record<string, unknown> & { id?: string; patientName?: string; scheduled_at?: string; appointment_status?: string; booking_number?: string | null }>;
   recentConversations: Array<Record<string, unknown> & { id?: string; patientName?: string; last_activity_at?: string; last_patient_message?: string | null; priority?: string | null; is_handoff?: boolean }>;
   recovery: {

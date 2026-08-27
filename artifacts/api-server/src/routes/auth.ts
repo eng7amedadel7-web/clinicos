@@ -167,6 +167,50 @@ function sessionFor(
   };
 }
 
+async function onboardClinic(user: SupabaseAuthUser, clinicName: string, accessToken: string) {
+  const suffix = user.id.slice(0, 8);
+  const clinicSlug = safeSlug(clinicName, `clinic-${suffix}`);
+  const organizationSlug = safeSlug(`${clinicName}-org`, `organization-${suffix}`);
+  const onboarding = await supabaseRequest<{ clinic_id?: string }>(
+    "/rest/v1/rpc/app_onboard_clinic",
+    {
+      method: "POST",
+      headers: { ...restHeaders(accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p_organization_name: `${clinicName} Organization`,
+        p_organization_slug: `${organizationSlug}-${suffix}`.slice(0, 63),
+        p_clinic_name: clinicName,
+        p_clinic_slug: `${clinicSlug}-${suffix}`.slice(0, 63),
+        p_timezone: "Asia/Riyadh",
+        p_clinic_type: "general",
+        p_channels: [],
+        p_primary_branch_name: "الفرع الرئيسي",
+        p_primary_branch_address: null,
+        p_primary_branch_phone: null,
+        p_founder_id: user.id,
+      }),
+    },
+  );
+  return onboarding.ok && onboarding.data?.clinic_id ? onboarding.data.clinic_id : null;
+}
+
+// Registration can leave a confirmed auth user with no clinic when the
+// app_onboard_clinic RPC fails after signup; without a retry the account stays
+// permanently locked out of the dashboard. Retry only when the user has zero
+// role memberships, so suspended or demoted accounts are never re-onboarded.
+async function recoverOrphanedOnboarding(user: SupabaseAuthUser, accessToken: string) {
+  const membershipResult = await supabaseRequest<MembershipRecord[]>(
+    `/rest/v1/user_roles?select=clinic_id&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+    { headers: restHeaders(accessToken) },
+  );
+  if (!membershipResult.ok || membershipResult.data?.length) return null;
+  const clinicName = user.user_metadata?.clinic_name?.trim();
+  if (!clinicName) return null;
+  const clinicId = await onboardClinic(user, clinicName, accessToken);
+  if (!clinicId) return null;
+  return getProfile(user, accessToken);
+}
+
 function publicAppOrigin() {
   return process.env.PUBLIC_APP_URL?.trim().replace(/\/+$/, "") || "https://clinicos-ashy-one.vercel.app";
 }
@@ -200,7 +244,7 @@ router.post("/forgot-password", async (req, res) => {
   // Keep the response generic so this endpoint cannot be used for account enumeration,
   // but do not claim success when the email provider rejected the request.
   if (!result.ok) {
-    console.error("[Auth] Password recovery provider rejected request", { status: result.status });
+    req.log?.error({ status: result.status }, "[Auth] Password recovery provider rejected request");
     res.status(502).json({ error: "Password recovery email delivery is temporarily unavailable." });
     return;
   }
@@ -242,7 +286,7 @@ router.post("/login", async (req, res) => {
   );
   if (!result.ok || !result.data?.access_token || !result.data.user) {
     if (result.status === 401 || result.status === 403) {
-      console.error("[Auth] Supabase Auth configuration rejected login request", { status: result.status });
+      req.log?.error({ status: result.status }, "[Auth] Supabase Auth configuration rejected login request");
       res.status(503).json({ error: "Authentication service configuration is unavailable." });
       return;
     }
@@ -256,7 +300,18 @@ router.post("/login", async (req, res) => {
 
   const profile = await getProfile(result.data.user, result.data.access_token);
   if (!profile) {
-    res.status(403).json({ error: "This account is not assigned to an active clinic owner or admin role." });
+    const recovered = await recoverOrphanedOnboarding(result.data.user, result.data.access_token);
+    if (!recovered) {
+      res.status(403).json({ error: "This account is not assigned to an active clinic owner or admin role." });
+      return;
+    }
+    const session = sessionFor(result.data, parsed.data.email, recovered.clinic.id);
+    if (!session) {
+      res.status(401).json({ error: "The authenticated session could not be created." });
+      return;
+    }
+    writeSession(res, session);
+    res.json(recovered);
     return;
   }
 
@@ -298,31 +353,8 @@ router.post("/register", async (req, res) => {
     return;
   }
 
-  const suffix = result.data.user.id.slice(0, 8);
-  const clinicSlug = safeSlug(parsed.data.clinicName, `clinic-${suffix}`);
-  const organizationSlug = safeSlug(`${parsed.data.clinicName}-org`, `organization-${suffix}`);
-  const onboarding = await supabaseRequest<{ clinic_id?: string }>(
-    "/rest/v1/rpc/app_onboard_clinic",
-    {
-      method: "POST",
-      headers: { ...restHeaders(result.data.access_token), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        p_organization_name: `${parsed.data.clinicName} Organization`,
-        p_organization_slug: `${organizationSlug}-${suffix}`.slice(0, 63),
-        p_clinic_name: parsed.data.clinicName,
-        p_clinic_slug: `${clinicSlug}-${suffix}`.slice(0, 63),
-        p_timezone: "Asia/Riyadh",
-        p_clinic_type: "general",
-        p_channels: [],
-        p_primary_branch_name: "الفرع الرئيسي",
-        p_primary_branch_address: null,
-        p_primary_branch_phone: null,
-        p_founder_id: result.data.user.id,
-      }),
-    },
-  );
-
-  if (!onboarding.ok || !onboarding.data?.clinic_id) {
+  const clinicId = await onboardClinic(result.data.user, parsed.data.clinicName, result.data.access_token);
+  if (!clinicId) {
     res.status(400).json({ error: "Account created, but the clinic owner profile could not be completed." });
     return;
   }

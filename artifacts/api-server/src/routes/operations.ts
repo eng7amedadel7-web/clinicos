@@ -103,7 +103,7 @@ router.get("/operations/summary", async (req, res) => {
   end.setUTCDate(end.getUTCDate() + 1);
   const auth = { headers: headers(session) };
   const [appointments, patients, conversations, followUps, noShows, waitlist, channels] = await Promise.all([
-    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id,patient_id,scheduled_at,appointment_status,booking_number&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(start.toISOString())}&scheduled_at=lt.${encodeURIComponent(end.toISOString())}&order=scheduled_at.asc&limit=100`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id,patient_id,scheduled_at,appointment_status,booking_number,queue_number&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(start.toISOString())}&scheduled_at=lt.${encodeURIComponent(end.toISOString())}&order=scheduled_at.asc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter}&limit=1000`, auth),
     supabaseRequest<Row[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,status,last_intent,last_patient_message,last_activity_at,assigned_staff_id,priority,is_handoff,is_archived,ai_status&${clinicFilter}&is_archived=eq.false&order=last_activity_at.desc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/follow_up_cases?select=id,patient_id,appointment_id,status,next_due_at,followup_goal,updated_at&${clinicOnly}&status=neq.closed&order=next_due_at.asc.nullslast&limit=100`, auth),
@@ -117,6 +117,18 @@ router.get("/operations/summary", async (req, res) => {
     return patient?.name || [patient?.first_name, patient?.last_name].filter((value) => typeof value === "string" && value.length > 0).join(" ") || "مريض بدون اسم";
   };
   const attention = (conversations.data ?? []).filter((item) => item.is_handoff === true || !item.assigned_staff_id).length;
+  const todayAppointments = appointments.data ?? [];
+  const toNumber = (value: unknown) => (typeof value === "number" ? value : Number.isFinite(Number(value)) && String(value).trim() !== "" ? Number(value) : null);
+  const servedNumbers = todayAppointments
+    .filter((item) => item.appointment_status === "checked_in" || item.appointment_status === "completed")
+    .map((item) => toNumber(item.queue_number))
+    .filter((value): value is number => value !== null);
+  const nowServing = servedNumbers.length ? Math.max(...servedNumbers) : null;
+  const waiting = todayAppointments.filter((item) => {
+    const status = typeof item.appointment_status === "string" ? item.appointment_status : "";
+    const queueNumber = toNumber(item.queue_number);
+    return ["scheduled", "confirmed", "pending"].includes(status) && queueNumber !== null && (nowServing === null || queueNumber > nowServing);
+  }).length;
   const sources = { appointments, patients, conversations, followUps, noShows, waitlist, channels };
   res.json({
     generatedAt: now.toISOString(),
@@ -129,7 +141,11 @@ router.get("/operations/summary", async (req, res) => {
       activeWaitlist: waitlist.ok ? waitlist.data?.length ?? 0 : null,
       connectedChannels: channels.ok ? channels.data?.length ?? 0 : null,
     },
-    todayAppointments: (appointments.data ?? []).slice(0, 6).map((item) => ({ ...item, patientName: patientName(item.patient_id) })),
+    queue: {
+      nowServing,
+      waiting: appointments.ok ? waiting : null,
+    },
+    todayAppointments: todayAppointments.slice(0, 6).map((item) => ({ ...item, patientName: patientName(item.patient_id) })),
     recentConversations: (conversations.data ?? []).slice(0, 6).map((item) => ({ ...item, patientName: patientName(item.patient_id) })),
     recovery: {
       followUps: (followUps.data ?? []).slice(0, 6).map((item) => ({ ...item, patientName: patientName(item.patient_id) })),

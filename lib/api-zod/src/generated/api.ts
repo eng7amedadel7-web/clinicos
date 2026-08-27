@@ -215,3 +215,27 @@ export const GetDashboardSummaryResponse = zod.object({
 })
 
 
+/**
+ * @summary Webhook receiver for incoming patient messages from external channels
+ */
+
+
+
+export const ReceiveInboundMessageBody = zod.object({
+  "clinicId": zod.string().optional(),
+  "channelType": zod.enum(['whatsapp', 'instagram', 'messenger', 'telegram', 'sms', 'web']).optional(),
+  "channelId": zod.string().optional(),
+  "senderPhone": zod.string().optional(),
+  "senderName": zod.string().optional(),
+  "content": zod.string().min(1)
+})
+
+export const ReceiveInboundMessageResponse = zod.object({
+  "ok": zod.boolean(),
+  "messageId": zod.string(),
+  "conversationId": zod.string(),
+  "patientId": zod.string().optional(),
+  "isHandoff": zod.boolean().optional()
+})
+
+
