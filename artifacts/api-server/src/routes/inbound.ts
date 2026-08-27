@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { supabaseAdminRequest, supabaseRequest } from "../lib/supabase";
 import { clinicEvents } from "../lib/events";
@@ -43,7 +44,10 @@ function verifyInboundSecret(req: Request): boolean {
     req.headers["x-webhook-secret"] ||
     req.headers["authorization"]?.replace(/^Bearer\s+/i, "")
   );
-  return typeof provided === "string" && provided.trim() === configuredSecret;
+  if (typeof provided !== "string") return false;
+  const providedBytes = Buffer.from(provided.trim());
+  const configuredBytes = Buffer.from(configuredSecret);
+  return providedBytes.length === configuredBytes.length && timingSafeEqual(providedBytes, configuredBytes);
 }
 
 const HANDOFF_KEYWORDS = [
@@ -79,9 +83,11 @@ async function handleInbound(req: Request, res: Response) {
   }
 
   const body = req.body as InboundPayload;
-  let clinicId = (body.clinicId || body.clinic_id || "").trim();
+  const suppliedClinicId = (body.clinicId || body.clinic_id || "").trim();
   const channelType = (body.channelType || body.channel_type || "whatsapp").toLowerCase();
   let channelId = (body.channelId || body.channel_id || "").trim();
+  let clinicId = "";
+  const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
   const rawPhone = (body.senderPhone || body.phone || body.sender_phone || body.sender_id || "").trim();
   const senderName = (body.senderName || body.name || body.sender_name || body.patient_name || "").trim();
   const content = (body.content || body.message || body.text || "").trim();
@@ -91,20 +97,41 @@ async function handleInbound(req: Request, res: Response) {
     return;
   }
 
-  // If clinicId is not provided in body, try to resolve it from channelId
-  if (!clinicId && channelId) {
+  // In production, the tenant must be resolved from a server-known channel.
+  // A clinicId supplied by an external webhook is only an assertion and never
+  // becomes the tenant boundary by itself.
+  if (channelId) {
     const channelLookup = await supabaseAdminRequest<Row[]>(
-      `/rest/v1/channels?select=id,clinic_id,type&id=eq.${encodeURIComponent(channelId)}&limit=1`,
+      `/rest/v1/channels?select=id,clinic_id,type&id=eq.${encodeURIComponent(channelId)}&deleted_at=is.null&limit=1`,
     );
-    if (channelLookup.ok && channelLookup.data?.length) {
-      clinicId = String(channelLookup.data[0].clinic_id);
+    if (!channelLookup.ok) {
+      res.status(502).json({ error: "Unable to resolve the inbound channel." });
+      return;
     }
+    if (!channelLookup.data?.length || !channelLookup.data[0].clinic_id) {
+      res.status(404).json({ error: "Inbound channel is not registered." });
+      return;
+    }
+    const resolvedClinicId = String(channelLookup.data[0].clinic_id);
+    const registeredChannelType = String(channelLookup.data[0].type || "").toLowerCase();
+    if (suppliedClinicId && suppliedClinicId !== resolvedClinicId) {
+      logger.warn({ channelId }, "[Inbound] Rejected clinic mismatch for channel");
+      res.status(403).json({ error: "Inbound channel does not belong to the requested clinic." });
+      return;
+    }
+    if (registeredChannelType && registeredChannelType !== channelType) {
+      res.status(400).json({ error: "Inbound channel type does not match its registered channel." });
+      return;
+    }
+    clinicId = resolvedClinicId;
+  } else if (!isProduction && suppliedClinicId) {
+    // Development-only compatibility for local fixtures. Production callers
+    // must always provide a registered channelId.
+    clinicId = suppliedClinicId;
   }
 
   if (!clinicId) {
-    // Never fall back to an arbitrary clinic: a webhook without a resolvable
-    // clinic target must be rejected to avoid cross-tenant data leakage.
-    res.status(400).json({ error: "clinic_id is required or could not be determined." });
+    res.status(400).json({ error: "A registered channel_id is required to resolve the clinic." });
     return;
   }
 
