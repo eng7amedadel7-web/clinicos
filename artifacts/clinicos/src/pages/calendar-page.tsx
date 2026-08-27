@@ -116,15 +116,25 @@ export default function CalendarPage() {
     mutationFn: async (form: { patientId: string; slotId: string; notes: string }) => {
       const res = await fetch("/api/appointments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
         credentials: "include",
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error("تعذر حجز الموعد");
       return res.json();
     },
-    onSuccess: () => {
-      toast.success(en ? "Appointment booked successfully" : "تم حجز الموعد بنجاح");
+    onSuccess: async (created: { queuePath?: string }) => {
+      if (created.queuePath) {
+        const queueUrl = new URL(created.queuePath, window.location.origin).toString();
+        try {
+          await navigator.clipboard?.writeText(queueUrl);
+          toast.success(en ? "Appointment booked; queue link copied" : "تم حجز الموعد ونسخ رابط الكيو");
+        } catch {
+          toast.success(en ? "Appointment booked; queue link is ready" : "تم حجز الموعد ورابط الكيو جاهز");
+        }
+      } else {
+        toast.success(en ? "Appointment booked successfully" : "تم حجز الموعد بنجاح");
+      }
       setBookingOpen(false);
       setBookingForm({ patientId: "", slotId: "", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["calendar-appointments"] });

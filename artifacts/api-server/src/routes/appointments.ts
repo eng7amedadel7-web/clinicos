@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { Router } from "express";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
@@ -6,6 +7,7 @@ import { clinicEvents } from "../lib/events";
 const router = Router();
 
 type AppointmentRow = { id?: string; public_id?: string; clinic_id?: string; patient_id?: string; branch_id?: string; doctor_id?: string; service_id?: string; slot_id?: string; appointment_status?: string; scheduled_at?: string; booking_number?: string | null; queue_number?: number | null; notes?: string | null; created_at?: string | null; updated_at?: string | null; confirmed_at?: string | null; completed_at?: string | null; cancelled_at?: string | null; cancellation_reason?: string | null };
+type CreatedAppointmentRow = { appointment_id?: string; booking_id?: string; booking_number?: string | null; queue_number?: number | null; queue_path?: string | null; queue_expires_at?: string | null };
 type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string };
 type DoctorRow = { id?: string; name?: string; specialization?: string | null };
 type ServiceRow = { id?: string; name?: string; duration_minutes?: number };
@@ -126,30 +128,49 @@ router.post("/appointments", async (req, res) => {
   if (!session) return;
   const data = appointmentInput(req.body ?? {});
   if (!data.patientId || !data.slotId) { res.status(400).json({ error: "المريض والموعد المتاح مطلوبان." }); return; }
-  const headers = { Authorization: `Bearer ${session.accessToken}` };
-  const [patientCheck, slotCheck] = await Promise.all([
-    supabaseRequest<{ id?: string }[]>(`/rest/v1/patients?select=id&id=eq.${encodeURIComponent(data.patientId)}&${clinicFilter(session.clinicId)}&status=eq.active&limit=1`, { headers }),
-    supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(data.slotId)}&slot_status=eq.available&limit=1`, { headers }),
-  ]);
-  if (!patientCheck.ok || !slotCheck.ok) { res.status(502).json({ error: "تعذر التحقق من المريض والموعد." }); return; }
-  if (!patientCheck.data?.length) { res.status(404).json({ error: "المريض غير موجود في هذه العيادة." }); return; }
-  const slot = slotCheck.data?.[0];
-  if (!slot?.id || !slot.doctor_id || !slot.service_id || !slot.start_time) { res.status(409).json({ error: "هذا الموعد لم يعد متاحًا." }); return; }
-  const result = await supabaseRequest<AppointmentRow[]>("/rest/v1/appointments", {
+
+  const idempotencyKey = (req.get("Idempotency-Key") || randomBytes(32).toString("hex")).trim();
+  const queueToken = createHash("sha256")
+    .update(`meruna-queue:${session.clinicId}:${idempotencyKey}`, "utf8")
+    .digest("base64url");
+  const result = await supabaseRequest<CreatedAppointmentRow[]>("/rest/v1/rpc/create_appointment_with_queue_link", {
     method: "POST",
-    headers: appointmentHeaders(session.accessToken, { Prefer: "return=representation" }),
-    body: JSON.stringify({ clinic_id: session.clinicId, patient_id: data.patientId, doctor_id: slot.doctor_id, service_id: slot.service_id, slot_id: slot.id, scheduled_at: slot.start_time, appointment_status: data.status, booking_source: "staff_portal", appointment_type: data.appointmentType, notes: data.notes || null, created_by: session.userId }),
+    headers: appointmentHeaders(session.accessToken),
+    body: JSON.stringify({
+      p_clinic_id: session.clinicId,
+      p_patient_id: data.patientId,
+      p_slot_id: data.slotId,
+      p_appointment_status: data.status,
+      p_notes: data.notes || null,
+      p_appointment_type: data.appointmentType,
+      p_create_idempotency_key: idempotencyKey,
+      p_queue_token: queueToken,
+    }),
   });
-  if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حجز الموعد." }); return; }
-  const created = result.data?.[0];
-  if (created) {
-    clinicEvents.emitClinicEvent(session.clinicId, "appointment.booked", {
-      appointmentId: created.id,
-      patientId: data.patientId,
-      scheduledAt: slot.start_time,
-    });
+  if (!result.ok) {
+    const status = result.status === 409 || result.status === 400 ? 409 : (result.status || 502);
+    res.status(status).json({ error: status === 409 ? "هذا الـslot لم يعد متاحًا أو تم تنفيذ الطلب مسبقًا." : "تعذر حجز الموعد." });
+    return;
   }
-  res.status(201).json(created ?? null);
+
+  const created = result.data?.[0];
+  if (!created?.appointment_id || !created.booking_id || !created.queue_path) {
+    res.status(502).json({ error: "تعذر إكمال رابط الكيو للحجز." });
+    return;
+  }
+  clinicEvents.emitClinicEvent(session.clinicId, "appointment.booked", {
+    appointmentId: created.appointment_id,
+    queueNumber: created.queue_number ?? null,
+    scheduledAt: data.scheduledAt || null,
+  });
+  res.status(201).json({
+    id: created.appointment_id,
+    bookingId: created.booking_id,
+    bookingNumber: created.booking_number ?? null,
+    queueNumber: created.queue_number ?? null,
+    queuePath: created.queue_path,
+    queueExpiresAt: created.queue_expires_at ?? null,
+  });
 });
 
 router.get("/appointments/:id/journey", async (req, res) => {
