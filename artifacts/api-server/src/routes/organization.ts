@@ -47,9 +47,17 @@ router.patch("/organization/branches/:id", async (req, res) => {
   if (sendFailure(res, current, "تعذر التحقق من الفرع.")) return;
   if (!current.data?.length) { res.status(404).json({ error: "الفرع غير موجود في هذه العيادة." }); return; }
   const { isActive, ...fields } = parsed.data;
-  const result = await supabaseRequest<Row[]>(`/rest/v1/branches?id=eq.${encodeURIComponent(req.params.id)}&clinic_id=eq.${clinic(session)}&deleted_at=is.null`, { method: "PATCH", headers: headers(session, { Prefer: "return=representation" }), body: JSON.stringify({ ...fields, ...(isActive === undefined ? {} : { is_active: isActive }) }) });
+  const result = await supabaseRequest<Row[]>(`/rest/v1/branches?id=eq.${encodeURIComponent(req.params.id)}&clinic_id=eq.${clinic(session)}&deleted_at=is.null`, { method: "PATCH", headers: headers(session, { Prefer: "return=representation" }), body: JSON.stringify({ ...fields, ...(isActive === undefined ? {} : { is_active: isActive }), updated_at: new Date().toISOString() }) });
   if (sendFailure(res, result, "تعذر تحديث الفرع.")) return;
   res.json(result.data?.[0] ?? null);
+});
+
+router.delete("/organization/branches/:id", async (req, res) => {
+  const session = await protect(req, res, "Settings", "clinic_settings", "manage");
+  if (!session) return;
+  const result = await supabaseRequest<Row[]>(`/rest/v1/branches?id=eq.${encodeURIComponent(req.params.id)}&clinic_id=eq.${clinic(session)}&deleted_at=is.null`, { method: "PATCH", headers: headers(session), body: JSON.stringify({ deleted_at: new Date().toISOString(), is_active: false }) });
+  if (sendFailure(res, result, "تعذر حذف الفرع.")) return;
+  res.json({ success: true, message: "تم حذف الفرع بنجاح." });
 });
 
 router.get("/organization/staff", async (req, res) => {

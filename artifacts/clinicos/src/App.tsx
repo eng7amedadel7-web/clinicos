@@ -61,8 +61,8 @@ import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
 import { RealtimeStatusContext, useRealtimeSync } from '@/lib/realtime';
-import { getOperationsSummary } from '@/lib/operations-api';
 import { ChannelConnectionsManager } from '@/components/channel-connections-manager';
+import { BranchManager } from '@/components/branch-manager';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -333,7 +333,7 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
   const settingsQuery = useGetClinicSettings();
   const updateSettings = useUpdateClinicSettings();
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'account' | 'channels'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'branches' | 'channels'>('account');
   const { language } = usePreferences();
   const en = language === 'en';
   const form = useForm({ defaultValues: { fullName: session.user.fullName, email: session.user.email, clinicName: session.clinic.name, city: session.clinic.city } });
@@ -384,6 +384,15 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
           >
             <Settings2 size={15} />
             {en ? 'Account & Clinic' : 'الحساب والعيادة'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('branches')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3.5 text-xs font-bold transition-colors ${activeTab === 'branches' ? 'border-[#3c7e93] text-[#3c7e93] dark:border-[#8cc3dd] dark:text-[#8cc3dd]' : 'border-transparent text-[#8999a1] hover:text-[#3c7e93] dark:text-[#7e939e]'}`}
+            data-testid="tab-settings-branches"
+          >
+            <Building2 size={15} />
+            {en ? 'Branches' : 'إدارة الفروع'}
           </button>
           <button
             type="button"
@@ -445,6 +454,13 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
               <button type="submit" className="primary-button" disabled={updateSettings.isPending} data-testid="button-save-settings"><Check size={17} /> {updateSettings.isPending ? (en ? 'Saving...' : 'جارٍ الحفظ...') : (en ? 'Save changes' : 'حفظ التغييرات')}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Tab: Branches */}
+      {activeTab === 'branches' && (
+        <div className="mx-auto max-w-[1100px] p-5 md:p-9">
+          <BranchManager />
         </div>
       )}
 
