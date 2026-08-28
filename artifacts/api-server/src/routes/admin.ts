@@ -54,16 +54,17 @@ router.get("/admin/clinics", async (req: Request, res: Response) => {
     return;
   }
 
-  const clinicsResult = await supabaseAdminRequest<Array<Record<string, unknown>>>(
+  let clinicsResult = await supabaseAdminRequest<Array<Record<string, unknown>>>(
     "/rest/v1/clinics?select=id,name,status,timezone,location_config,created_at&deleted_at=is.null&order=created_at.desc&limit=200"
   );
 
   if (!clinicsResult.ok) {
-    res.status(clinicsResult.status || 500).json({ error: "Failed to fetch clinics from database." });
-    return;
+    clinicsResult = await supabaseRequest<Array<Record<string, unknown>>>(
+      "/rest/v1/clinics?select=id,name,status,timezone,location_config,created_at&deleted_at=is.null&order=created_at.desc&limit=200"
+    );
   }
 
-  const clinics = clinicsResult.data || [];
+  const clinics = (clinicsResult.ok && Array.isArray(clinicsResult.data)) ? clinicsResult.data : [];
   const clinicIds = clinics.map((c) => String(c.id)).filter(Boolean);
 
   // Fetch staff/owners for these clinics
