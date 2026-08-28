@@ -287,7 +287,7 @@
   0%   { transform: translateX(-130%) skewX(-12deg); opacity: 0; }
   15%  { opacity: 1; }
   60%  { opacity: 1; }
-  100% { transform: translateX(340%) skewX(-12deg); opacity: 0; }
+  100% { transform: translateX(620%) skewX(-12deg); opacity: 0; }
 }
 .auth-sheen { animation: auth-sheen-sweep 12s ease-in-out infinite; will-change: transform, opacity; }
 .auth-sheen-soft { animation-duration: 18s; }

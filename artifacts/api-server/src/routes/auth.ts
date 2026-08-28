@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getSupabasePublicConfig, supabaseAuthRequest, supabaseRequest } from "../lib/supabase";
+import { getSupabasePublicConfig, supabaseAdminRequest, supabaseAuthRequest, supabaseRequest } from "../lib/supabase";
 import {
   clearSession,
   readSession,
@@ -341,49 +341,116 @@ router.post("/register", async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
-      error: "Use a full name, clinic name, valid email, and password of 8+ characters.",
+      error: "يرجى إدخال اسم كامل، واسم للعيادة، وبريد إلكتروني صحيح، وكلمة مرور 8 أحرف على الأقل.",
     });
     return;
   }
 
-  const result = await supabaseAuthRequest<SupabaseAuthResult>(
-    "/auth/v1/signup",
+  req.log?.info({ email: parsed.data.email }, "[Auth] Initiating clinic registration");
+
+  // 1. First attempt: Create pre-confirmed user via Supabase Admin API (Service Role)
+  let userId: string | null = null;
+  let adminCreated = false;
+
+  const adminCreateResult = await supabaseAdminRequest<{ id?: string; email?: string; error?: string; msg?: string; message?: string }>(
+    "/auth/v1/admin/users",
     {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      data: { full_name: parsed.data.fullName, clinic_name: parsed.data.clinicName },
-    },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        email_confirm: true,
+        user_metadata: { full_name: parsed.data.fullName, clinic_name: parsed.data.clinicName },
+      }),
+    }
   );
-  if (!result.ok || !result.data?.user) {
-    res.status(400).json({ error: "We couldn't create this account. The email may already be registered." });
-    return;
+
+  if (adminCreateResult.ok && adminCreateResult.data?.id) {
+    userId = adminCreateResult.data.id;
+    adminCreated = true;
+    req.log?.info({ userId, email: parsed.data.email }, "[Auth] User created via Supabase Admin API");
+  } else {
+    // Check if error is specifically that user already exists
+    const adminErrorText = String(
+      adminCreateResult.data?.error ||
+      adminCreateResult.data?.msg ||
+      adminCreateResult.data?.message ||
+      ""
+    );
+    if (/already\s+registered|already\s+exists|duplicate/i.test(adminErrorText)) {
+      res.status(400).json({ error: "هذا البريد الإلكتروني مسجل مسبقاً في النظام. يرجى تسجيل الدخول أو استخدام بريد آخر." });
+      return;
+    }
+
+    req.log?.warn({ adminErrorText, status: adminCreateResult.status }, "[Auth] Admin user creation fallback to public signup");
+
+    // Fallback: Public signup
+    const signupResult = await supabaseAuthRequest<SupabaseAuthResult>(
+      "/auth/v1/signup",
+      {
+        email: parsed.data.email,
+        password: parsed.data.password,
+        data: { full_name: parsed.data.fullName, clinic_name: parsed.data.clinicName },
+      },
+    );
+
+    if (!signupResult.ok || !signupResult.data?.user) {
+      const publicErrorText = String(
+        (signupResult.data as Record<string, unknown>)?.msg ||
+        (signupResult.data as Record<string, unknown>)?.error_description ||
+        (signupResult.data as Record<string, unknown>)?.message ||
+        "تعذر إنشاء الحساب"
+      );
+      req.log?.error({ status: signupResult.status, publicErrorText }, "[Auth] Supabase public signup rejected");
+      res.status(400).json({
+        error: /already\s+registered|already\s+exists/i.test(publicErrorText)
+          ? "هذا البريد الإلكتروني مسجل مسبقاً في النظام. يرجى تسجيل الدخول أو استخدام بريد آخر."
+          : `تعذر إنشاء الحساب: ${publicErrorText}`,
+      });
+      return;
+    }
+
+    userId = signupResult.data.user.id;
   }
 
-  if (!result.data.access_token) {
+  // 2. Sign in to retrieve access token
+  const tokenResult = await supabaseAuthRequest<SupabaseAuthResult>(
+    "/auth/v1/token?grant_type=password",
+    { email: parsed.data.email, password: parsed.data.password },
+  );
+
+  if (!tokenResult.ok || !tokenResult.data?.access_token || !tokenResult.data.user) {
+    req.log?.error({ status: tokenResult.status }, "[Auth] Failed to acquire token immediately after user creation");
     res.status(400).json({
-      error: "Account created. Check your email to confirm it, then sign in.",
+      error: "تم إنشاء الحساب، ولكن يلزم تأكيد البريد الإلكتروني أو تسجيل الدخول يدوياً.",
     });
     return;
   }
 
-  const clinicId = await onboardClinic(result.data.user, parsed.data.clinicName, result.data.access_token);
+  // 3. Run onboarding RPC to provision organization, clinic, and role
+  const clinicId = await onboardClinic(tokenResult.data.user, parsed.data.clinicName, tokenResult.data.access_token);
   if (!clinicId) {
-    res.status(400).json({ error: "Account created, but the clinic owner profile could not be completed." });
+    req.log?.error({ userId: tokenResult.data.user.id }, "[Auth] Onboard clinic RPC failed during registration");
+    res.status(400).json({ error: "تم إنشاء الحساب، ولكن تعذر إعداد منشأة العيادة تلقائياً. يرجى المحاولة لاحقاً." });
     return;
   }
 
-  const profile = await getProfile(result.data.user, result.data.access_token);
+  const profile = await getProfile(tokenResult.data.user, tokenResult.data.access_token);
   if (!profile) {
-    res.status(400).json({ error: "Account created, but the clinic owner profile could not be loaded." });
+    req.log?.error({ userId: tokenResult.data.user.id }, "[Auth] Profile failed to load after onboarding");
+    res.status(400).json({ error: "تم إنشاء الحساب وإعداد العيادة، يرجى التوجه لصفحة تسجيل الدخول." });
     return;
   }
 
-  const session = sessionFor(result.data, parsed.data.email, profile.clinic.id);
+  const session = sessionFor(tokenResult.data, parsed.data.email, profile.clinic.id);
   if (!session) {
-    res.status(401).json({ error: "The authenticated session could not be created." });
+    res.status(401).json({ error: "تعذر إنشاء جلسة الدخول." });
     return;
   }
+
   writeSession(res, session);
+  req.log?.info({ clinicId: profile.clinic.id, email: parsed.data.email }, "[Auth] Registration completed successfully");
   res.status(201).json(profile);
 });
 
