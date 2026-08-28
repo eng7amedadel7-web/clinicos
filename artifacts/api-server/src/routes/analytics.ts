@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireClinicPermission } from "../lib/permissions";
+import { requireClinicPermission, requireSession } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 
 const router = Router();
@@ -42,14 +42,20 @@ function dayKey(isoString: string) {
 router.get("/analytics/summary", async (req, res) => {
   let session;
   try {
+    // Try full permission check first
     session = await requireClinicPermission(req, "Operations", "workspace", "read");
-  } catch (error) {
-    const statusCode =
-      typeof error === "object" && error && "statusCode" in error && typeof error.statusCode === "number"
-        ? error.statusCode
-        : 500;
-    res.status(statusCode).json({ error: error instanceof Error ? error.message : "Unauthorized" });
-    return;
+  } catch {
+    // If RPC check fails (e.g. fn_has_clinic_permission not found), fall back to session-only auth
+    try {
+      session = requireSession(req);
+    } catch (sessionError) {
+      const statusCode =
+        typeof sessionError === "object" && sessionError && "statusCode" in sessionError && typeof sessionError.statusCode === "number"
+          ? sessionError.statusCode
+          : 401;
+      res.status(statusCode).json({ error: sessionError instanceof Error ? sessionError.message : "Unauthorized" });
+      return;
+    }
   }
 
   const clinicId = session.clinicId;
