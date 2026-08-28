@@ -17,6 +17,7 @@ import templatesRouter from "./templates";
 import adminRouter from "./admin";
 import importRouter from "./import";
 import integrationsRouter from "./integrations";
+import channelsRouter from "./channels";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(templatesRouter);
 router.use(adminRouter);
 router.use(importRouter);
 router.use(integrationsRouter);
+router.use(channelsRouter);
 
 export default router;

@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import {
-  ShieldCheck,
   Sparkles,
   Building2,
   PhoneCall,
@@ -30,6 +29,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand';
+import { AuthShell, FIELD_INPUT_CLASS, SUBMIT_BUTTON_CLASS } from '@/components/auth-shell';
 
 interface Webhooks {
   whatsapp: string;
@@ -308,28 +308,31 @@ export default function AdminPanelPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#081624] text-slate-100 flex items-center justify-center p-4" dir="rtl">
-        <div className="w-full max-w-md bg-[#0d2134] border border-[#1e3a4d] rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center justify-center mb-6">
-            <div className="p-3 bg-sky-500/10 border border-sky-500/20 rounded-2xl">
-              <ShieldCheck className="size-10 text-sky-400" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-center text-white mb-2">لوحة المشرف العام — SaaS Provisioning</h1>
-          <p className="text-xs text-center text-slate-400 mb-6">
+      <AuthShell languageToggle={false}>
+        <div>
+          <p className="text-xs font-bold text-sky-700">MERUNA — SaaS Provisioning</p>
+          <h1 className="mt-1.5 text-2xl font-black text-[#0b2437]" data-testid="heading-admin-gate">
+            لوحة المشرف العام
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
             أدخل مفتاح الأمان (Platform Admin Secret) للوصول إلى أدوات تهيئة العيادات والأتمتة الفورية.
           </p>
 
-          <form onSubmit={handleKeySubmit} className="space-y-4">
+          <form onSubmit={handleKeySubmit} className="mt-6 space-y-4">
             {authError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-xs flex items-center gap-2">
-                <AlertCircle className="size-4 text-red-400 shrink-0" />
+              <div
+                className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700"
+                role="alert"
+                data-testid="alert-admin-error"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
                 <span>{authError}</span>
               </div>
             )}
-            <div>
-              <label className="block text-xs font-semibold text-sky-300 mb-1.5">مفتاح المشرف السري</label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-slate-600">مفتاح المشرف السري</span>
               <div className="relative">
+                <Key size={16} className="pointer-events-none absolute right-3.5 top-3.5 text-slate-400" />
                 <input
                   type="password"
                   value={keyInput}
@@ -338,23 +341,26 @@ export default function AdminPanelPage() {
                     setAuthError(null);
                   }}
                   placeholder="Secret Key"
-                  className="w-full bg-[#081624] border border-[#1e3a4d] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-sky-500 transition-colors"
+                  dir="ltr"
+                  autoFocus
+                  className={`${FIELD_INPUT_CLASS} pr-10 pl-4`}
+                  data-testid="input-admin-key"
                 />
-                <Key className="absolute left-3.5 top-3.5 size-4 text-slate-500" />
               </div>
-            </div>
+            </label>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              className={SUBMIT_BUTTON_CLASS}
+              data-testid="button-admin-enter"
             >
               {loading ? <RefreshCw className="size-4 animate-spin" /> : <Lock className="size-4" />}
               <span>دخول إلى لوحة المشرف</span>
             </button>
           </form>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 

@@ -12,7 +12,12 @@ export type AuthErrorKey =
   | 'tooManyRecovery'
   | 'recoveryUnavailable'
   | 'invalidRecoveryLink'
-  | 'sessionExpired';
+  | 'sessionExpired'
+  | 'emailExists'
+  | 'invalidRegisterDetails'
+  | 'confirmEmail'
+  | 'onboardingFailed'
+  | 'networkError';
 
 export type ApiErrorParts = {
   status?: number;
@@ -53,6 +58,11 @@ const MESSAGE_MATCHERS: Array<[RegExp, AuthErrorKey]> = [
   [/recovery email delivery/i, 'recoveryUnavailable'],
   [/recovery link is invalid or expired|valid recovery link and a password/i, 'invalidRecoveryLink'],
   [/session has expired|not authenticated/i, 'sessionExpired'],
+  [/already registered|already exists|user already/i, 'emailExists'],
+  [/full name, clinic name, valid email/i, 'invalidRegisterDetails'],
+  [/check your email to confirm/i, 'confirmEmail'],
+  [/owner profile could not be/i, 'onboardingFailed'],
+  [/network|offline|failed to fetch/i, 'networkError'],
 ];
 
 // Maps a failed auth call to a message key. `status === 401` maps to invalid

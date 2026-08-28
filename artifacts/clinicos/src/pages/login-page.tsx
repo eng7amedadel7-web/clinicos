@@ -1,22 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Eye,
-  EyeOff,
-  Globe,
-  Mail,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  X,
-} from 'lucide-react';
-import { BrandMark } from '@/components/brand';
+import { ArrowLeft, Eye, EyeOff, Mail, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   getGetAuthSessionQueryKey,
   getHealthCheckQueryKey,
@@ -26,27 +13,21 @@ import {
   useResetPassword,
 } from '@workspace/api-client-react';
 import { matchAuthErrorKey } from '@/lib/api-errors';
+import {
+  AuthLocaleProvider,
+  AuthShell,
+  ErrorAlert,
+  FieldError,
+  FIELD_INPUT_CLASS,
+  fieldClasses,
+  getGreetingKey,
+  SuccessAlert,
+  SUBMIT_BUTTON_CLASS,
+  useAuthLocale,
+} from '@/components/auth-shell';
 
-type AuthLanguage = 'ar' | 'en';
-
-const authCopy = {
+const pageCopy = {
   ar: {
-    language: 'English',
-    home: 'الرئيسية',
-    greetings: { morning: 'صباح الخير', afternoon: 'مساء الخير', evening: 'مساء الخير' },
-    brand: {
-      badge: 'منصة موثوقة لعيادتك',
-      headline: 'كل ما تحتاجه عيادتك، في مكان واحد.',
-      sub: 'MERUNA يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، وتجربة أفضل لكل مريض.',
-      privacy: 'خصوصيتك أولًا',
-      copyright: 'Meruna Clinicos',
-    },
-    footer: {
-      status: 'النظام يعمل بكفاءة 24/7',
-      healthy: 'الخادم يعمل بكفاءة',
-      degraded: 'الخدمة تواجه بطئًا مؤقتًا',
-      secure: 'اتصال آمن ومشفّر 256-bit',
-    },
     login: {
       title: 'تسجيل الدخول',
       subtitle: 'أدخل بيانات حسابك للوصول إلى مساحة عمل عيادتك',
@@ -100,37 +81,8 @@ const authCopy = {
       requiredConfirm: 'يرجى تأكيد كلمة المرور',
       mismatch: 'كلمتا المرور غير متطابقتين',
     },
-    errors: {
-      invalidCredentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-      notAssigned: 'هذا الحساب غير مرتبط بعيادة نشطة بصلاحية مالك أو مدير. تواصل مع الدعم إذا كان هذا خطأ.',
-      sessionSetup: 'تعذر إنشاء الجلسة بنجاح. حاول مرة أخرى.',
-      authUnavailable: 'خدمة الدخول غير متاحة مؤقتًا. حاول مرة أخرى بعد قليل.',
-      rateLimited: 'خدمة الدخول تواجه ضغطًا مؤقتًا. انتظر قليلًا ثم حاول مجددًا.',
-      tooManyAttempts: 'محاولات كثيرة جدًا. انتظر بضع دقائق ثم حاول مجددًا.',
-      tooManyRecovery: 'طلبات استعادة كثيرة جدًا. حاول مرة أخرى لاحقًا.',
-      recoveryUnavailable: 'تعذر إرسال بريد الاستعادة مؤقتًا. حاول مرة أخرى.',
-      invalidRecoveryLink: 'رابط الاستعادة غير صالح أو منتهي الصلاحية. اطلب رابطًا جديدًا.',
-      sessionExpired: 'انتهت صلاحية جلستك. سجّل الدخول من جديد.',
-      generic: 'تعذر الاتصال بخدمة الدخول مؤقتًا. يرجى المحاولة مرة أخرى.',
-    },
   },
   en: {
-    language: 'العربية',
-    home: 'Home',
-    greetings: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
-    brand: {
-      badge: 'A trusted platform for your clinic',
-      headline: 'Everything your clinic needs, in one place.',
-      sub: 'MERUNA gives clinic owners clearer visibility, faster decisions, and a better experience for every patient.',
-      privacy: 'Your privacy comes first',
-      copyright: 'Meruna Clinicos',
-    },
-    footer: {
-      status: 'System operational 24/7',
-      healthy: 'All systems operational',
-      degraded: 'Service is temporarily degraded',
-      secure: 'Secure 256-bit encrypted connection',
-    },
     login: {
       title: 'Sign In',
       subtitle: 'Enter your credentials to access your clinic workspace',
@@ -184,81 +136,14 @@ const authCopy = {
       requiredConfirm: 'Please confirm password',
       mismatch: 'Passwords do not match',
     },
-    errors: {
-      invalidCredentials: 'Invalid email or password',
-      notAssigned: 'This account is not assigned to an active clinic owner or admin role. Contact support if this is a mistake.',
-      sessionSetup: 'The session could not be created. Please try again.',
-      authUnavailable: 'The sign-in service is temporarily unavailable. Try again shortly.',
-      rateLimited: 'The sign-in service is under heavy load. Wait a moment and try again.',
-      tooManyAttempts: 'Too many attempts. Wait a few minutes and try again.',
-      tooManyRecovery: 'Too many recovery requests. Try again later.',
-      recoveryUnavailable: 'The recovery email could not be sent. Please try again.',
-      invalidRecoveryLink: 'This recovery link is invalid or expired. Request a new one.',
-      sessionExpired: 'Your session has expired. Please sign in again.',
-      generic: 'The sign-in service is temporarily unreachable. Please try again.',
-    },
   },
-};
+} as const;
 
-const SUBMIT_BUTTON_CLASS =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d2436] py-3.5 text-sm font-extrabold text-white shadow-lg shadow-[#0d2436]/20 transition-all hover:bg-[#143350] active:scale-[0.99] disabled:opacity-60';
-
-const FIELD_INPUT_CLASS =
-  'w-full rounded-xl border border-slate-200 bg-white py-3 text-sm text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15';
-
-// Icons sit on the reading-start edge and the password toggle on the end edge;
-// logical positions flip between RTL and LTR.
-function fieldClasses(en: boolean) {
-  return {
-    startIcon: en ? 'left-3.5' : 'right-3.5',
-    endIcon: en ? 'right-3.5' : 'left-3.5',
-    emailPad: en ? 'pl-10 pr-4' : 'pr-10 pl-4',
-    passwordPad: 'px-10',
-  };
-}
-
-type GreetingKey = 'morning' | 'afternoon' | 'evening';
-
-function getGreetingKey(date = new Date()): GreetingKey {
-  const hour = date.getHours();
-  if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 17) return 'afternoon';
-  return 'evening';
-}
-
-const AuthLocaleContext = createContext<{
-  lang: AuthLanguage;
-  text: typeof authCopy['ar'];
-  toggleLanguage: () => void;
-} | null>(null);
-
-function useAuthLocale() {
-  const locale = useContext(AuthLocaleContext);
-  if (!locale) {
-    return {
-      lang: 'ar' as AuthLanguage,
-      text: authCopy['ar'],
-      toggleLanguage: () => {},
-    };
-  }
-  return locale;
-}
-
-function AuthLocaleProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<AuthLanguage>('ar');
-  useEffect(() => {
-    const saved = window.localStorage.getItem('meruna-language');
-    if (saved === 'en' || saved === 'ar') setLang(saved);
-  }, []);
-  useEffect(() => {
-    window.localStorage.setItem('meruna-language', lang);
-  }, [lang]);
-  const value = {
-    lang,
-    text: authCopy[lang],
-    toggleLanguage: () => setLang((curr) => (curr === 'ar' ? 'en' : 'ar')),
-  };
-  return <AuthLocaleContext.Provider value={value}>{children}</AuthLocaleContext.Provider>;
+function useLocalizedApiError(error: unknown): string | undefined {
+  const { text } = useAuthLocale();
+  if (!error) return undefined;
+  const key = matchAuthErrorKey(error);
+  return text.errors[key ?? 'generic'];
 }
 
 function useRecoveryAccessToken(): [string | null, () => void] {
@@ -282,161 +167,6 @@ function useRecoveryAccessToken(): [string | null, () => void] {
   return [token, () => setToken(null)];
 }
 
-function ErrorAlert({ message, testid }: { message: string; testid: string }) {
-  return (
-    <div
-      className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700"
-      data-testid={testid}
-      role="alert"
-    >
-      <X size={15} className="mt-0.5 shrink-0 text-red-400" />
-      <span>{message}</span>
-    </div>
-  );
-}
-
-function SuccessAlert({ message, testid }: { message: string; testid: string }) {
-  return (
-    <div
-      className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs leading-5 text-emerald-700"
-      data-testid={testid}
-      role="status"
-    >
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-700">
-        <Check size={12} strokeWidth={3} />
-      </span>
-      <span>{message}</span>
-    </div>
-  );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <span className="mt-1 block text-xs font-semibold text-red-600" data-testid="text-field-error">
-      {message}
-    </span>
-  );
-}
-
-function BrandPanel() {
-  const { text } = useAuthLocale();
-
-  return (
-    <aside
-      dir="ltr"
-      className="relative hidden w-full flex-1 flex-col justify-between overflow-hidden bg-[linear-gradient(165deg,#0e2f4c_0%,#0a2033_48%,#06121f_100%)] p-10 text-slate-100 lg:flex xl:p-14"
-    >
-      {/* Ambient motion: drifting orbs, breathing rings, a slow diagonal sheen */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="auth-orb absolute -right-24 -top-24 size-[420px] rounded-full bg-sky-500/15 blur-3xl" />
-        <div className="auth-orb auth-orb-slow absolute -bottom-32 -left-20 size-[460px] rounded-full bg-indigo-500/15 blur-3xl" />
-        <div className="auth-glow absolute left-1/2 top-1/3 size-[340px] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[100px]" />
-        <div className="auth-ring absolute -bottom-24 -right-16 size-80 rounded-full border border-white/10" />
-        <div className="auth-ring absolute -bottom-10 -right-2 size-48 rounded-full border border-white/10" style={{ animationDelay: '-4s' }} />
-        <div className="auth-sheen absolute -top-1/2 h-[200%] w-40 bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
-        <div
-          className="auth-sheen auth-sheen-soft absolute -top-1/2 h-[200%] w-24 bg-gradient-to-r from-transparent via-sky-300/10 to-transparent"
-          style={{ animationDelay: '-6s' }}
-        />
-      </div>
-
-      <header className="relative z-10 flex items-center gap-3">
-        <BrandMark size={40} />
-        <div>
-          <span className="block text-base font-extrabold tracking-[0.18em] text-white">MERUNA</span>
-          <span className="-mt-1 block text-[10px] font-semibold uppercase tracking-widest text-sky-400">Clinic System</span>
-        </div>
-      </header>
-
-      <div className="relative z-10 flex flex-col items-center px-6 text-center">
-        <span className="auth-badge inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-1.5 text-xs font-bold text-sky-300">
-          <ShieldCheck className="size-3.5" />
-          {text.brand.badge}
-        </span>
-        <h2 className="auth-float mt-7 max-w-[600px] text-4xl font-black leading-[1.3] text-white xl:text-[2.9rem] xl:leading-[1.25]">
-          <span className="auth-shimmer">{text.brand.headline}</span>
-        </h2>
-        <p className="mt-5 max-w-md text-sm leading-8 text-slate-300">{text.brand.sub}</p>
-      </div>
-
-      <footer className="relative z-10 flex items-center justify-between text-[11px] text-slate-400">
-        <span>{text.brand.privacy}</span>
-        <span>© {text.brand.copyright}</span>
-      </footer>
-    </aside>
-  );
-}
-
-function AuthShell({ children }: { children: ReactNode }) {
-  const { lang, text, toggleLanguage } = useAuthLocale();
-  const en = lang === 'en';
-
-  // The split layout is pinned: brand panel on the left, form on the right,
-  // in both languages — only text direction flips inside the form column.
-  return (
-    <div
-      className="flex min-h-[100dvh] w-full flex-row bg-[#f2f6f9] text-slate-800"
-      dir="ltr"
-      data-testid="auth-layout"
-    >
-      <BrandPanel />
-
-      {/* Form side */}
-      <div
-        dir={en ? 'ltr' : 'rtl'}
-        className="relative flex w-full flex-col lg:w-[54%] xl:w-[56%] 2xl:w-[58%]"
-      >
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="auth-orb absolute -right-24 -top-24 size-80 rounded-full bg-sky-200/60 blur-3xl" />
-          <div className="auth-orb auth-orb-slow absolute -bottom-24 -left-24 size-80 rounded-full bg-indigo-200/50 blur-3xl" />
-        </div>
-
-        <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-          <div className="flex items-center gap-2.5 lg:hidden" dir="ltr">
-            <BrandMark size={30} />
-            <span className="text-sm font-extrabold tracking-[0.16em] text-[#0b2437]">MERUNA</span>
-          </div>
-          <span className="hidden lg:block" />
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
-            >
-              <ArrowRight className={`size-3.5 ${en ? 'rotate-180' : ''}`} />
-              <span>{text.home}</span>
-            </Link>
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
-              data-testid="button-auth-language"
-            >
-              <Globe className="size-3.5 text-sky-600" />
-              <span>{text.language}</span>
-            </button>
-          </div>
-        </header>
-
-        <main className="relative z-10 flex flex-1 items-center justify-center px-6 pb-8 sm:px-10">
-          <div className="auth-stagger w-full max-w-[430px] py-4">{children}</div>
-        </main>
-
-        <footer className="relative z-10 flex items-center justify-between px-6 py-5 text-[11px] text-slate-500 sm:px-10">
-          <span className="flex items-center gap-1.5">
-            <span className="live-pulse-dot inline-block size-1.5 rounded-full bg-emerald-500" />
-            <span>{text.footer.status}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <ShieldCheck size={13} className="text-slate-400" />
-            <span>{text.footer.secure}</span>
-          </span>
-        </footer>
-      </div>
-    </div>
-  );
-}
-
 type RecoveryValues = { email: string };
 type ResetValues = { password: string; confirmPassword: string };
 type LoginValues = { email: string; password: string; remember: boolean };
@@ -446,10 +176,9 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
   const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
   const { lang, text } = useAuthLocale();
   const en = lang === 'en';
-  const copy = text.recovery;
+  const copy = pageCopy[lang].recovery;
   const field = fieldClasses(en);
-  const errorKey = matchAuthErrorKey(recovery.error);
-  const apiError = recovery.error ? (errorKey ? text.errors[errorKey] : text.errors.generic) : undefined;
+  const apiError = useLocalizedApiError(recovery.error);
 
   const submit = (values: RecoveryValues) => {
     recovery.mutate({ data: { email: values.email.trim() } });
@@ -459,7 +188,9 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
     <div>
       <div>
         <p className="text-xs font-bold text-sky-700">{copy.eyebrow}</p>
-        <h2 className="mt-1.5 text-2xl font-black text-[#0b2437]">{copy.title}</h2>
+        <h2 className="mt-1.5 text-2xl font-black text-[#0b2437]" data-testid="heading-recovery">
+          {copy.title}
+        </h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">{copy.subtitle}</p>
       </div>
 
@@ -521,11 +252,10 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
 function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDone: () => void }) {
   const reset = useResetPassword();
   const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
-  const { lang, text } = useAuthLocale();
+  const { lang } = useAuthLocale();
   const en = lang === 'en';
-  const copy = text.reset;
-  const errorKey = matchAuthErrorKey(reset.error);
-  const apiError = reset.error ? (errorKey ? text.errors[errorKey] : text.errors.generic) : undefined;
+  const copy = pageCopy[lang].reset;
+  const apiError = useLocalizedApiError(reset.error);
 
   const submit = (values: ResetValues) => {
     reset.mutate({ data: { accessToken, password: values.password } });
@@ -605,7 +335,7 @@ export function LoginPageInner() {
   const form = useForm<LoginValues>({ defaultValues: { email: '', password: '', remember: true }, mode: 'onTouched' });
   const { lang, text } = useAuthLocale();
   const en = lang === 'en';
-  const copy = text.login;
+  const copy = pageCopy[lang].login;
   const field = fieldClasses(en);
   const isDev = import.meta.env.DEV;
 
@@ -622,8 +352,7 @@ export function LoginPageInner() {
     );
   };
 
-  const errorKey = matchAuthErrorKey(login.error);
-  const displayApiError = login.error ? (errorKey ? text.errors[errorKey] : text.errors.generic) : undefined;
+  const apiError = useLocalizedApiError(login.error);
 
   if (recoveryToken) {
     return (
@@ -660,9 +389,9 @@ export function LoginPageInner() {
           <p className="mt-2 text-sm leading-6 text-slate-500">{copy.subtitle}</p>
         </div>
 
-        {displayApiError ? (
+        {apiError ? (
           <div className="mt-5">
-            <ErrorAlert testid="alert-login-error" message={displayApiError} />
+            <ErrorAlert testid="alert-login-error" message={apiError} />
           </div>
         ) : null}
 
