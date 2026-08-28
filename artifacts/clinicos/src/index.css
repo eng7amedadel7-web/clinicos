@@ -250,6 +250,68 @@
   animation: pulse-live 2s ease-in-out infinite;
 }
 
+/* ============================================================
+   AUTH SPLIT SCREEN — BRAND PANEL & AMBIENT MOTION
+   ============================================================ */
+
+.auth-stagger > * {
+  animation: auth-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.auth-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.auth-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.auth-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.auth-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.auth-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.auth-stagger > *:nth-child(7) { animation-delay: 360ms; }
+
+@keyframes auth-orb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(34px, -26px, 0) scale(1.1); }
+}
+.auth-orb { animation: auth-orb-drift 14s ease-in-out infinite; will-change: transform; }
+.auth-orb-slow { animation-duration: 22s; animation-direction: reverse; }
+
+@keyframes auth-bubble-rise {
+  0%   { transform: translate3d(0, 0, 0) scale(0.55); opacity: 0; }
+  10%  { opacity: var(--bubble-opacity, 0.4); }
+  85%  { opacity: var(--bubble-opacity, 0.4); }
+  100% { transform: translate3d(var(--bubble-drift, 36px), -115vh, 0) scale(1.15); opacity: 0; }
+}
+.auth-bubble {
+  position: absolute;
+  bottom: -14vh;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 32% 30%, rgba(125, 211, 252, 0.30), rgba(56, 189, 248, 0.05) 62%, transparent 74%);
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  animation: auth-bubble-rise linear infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+@keyframes auth-chip-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--chip-rot, 0deg)); }
+  50%      { transform: translate3d(0, -14px, 0) rotate(var(--chip-rot, 0deg)); }
+}
+.auth-chip { animation: auth-chip-float 7s ease-in-out infinite; will-change: transform; }
+
+@keyframes auth-ring-pulse {
+  0%, 100% { opacity: 0.30; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.05); }
+}
+.auth-ring { animation: auth-ring-pulse 9s ease-in-out infinite; }
+
+@keyframes auth-glow-shift {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.9; }
+}
+.auth-glow { animation: auth-glow-shift 8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-orb, .auth-chip, .auth-ring, .auth-glow { animation: none; }
+  .auth-bubble { display: none; }
+  .auth-stagger > * { animation-duration: 0.01ms; animation-delay: 0ms; }
+}
+
 
 .channel-shortcut {
   display: inline-flex;

@@ -16,6 +16,7 @@ import analyticsRouter from "./analytics";
 import templatesRouter from "./templates";
 import adminRouter from "./admin";
 import importRouter from "./import";
+import integrationsRouter from "./integrations";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use("/analytics", analyticsRouter);
 router.use(templatesRouter);
 router.use(adminRouter);
 router.use(importRouter);
+router.use(integrationsRouter);
 
 export default router;

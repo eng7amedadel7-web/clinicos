@@ -144,26 +144,6 @@ function Field({ label, error, children, hint }: { label: string; error?: string
   );
 }
 
-function getApiErrorMessage(error: unknown, language: 'ar' | 'en' = 'ar'): string | undefined {
-  if (!error || typeof error !== 'object') return undefined;
-  const candidate = error as { data?: unknown; error?: unknown; message?: unknown; status?: unknown };
-  const fallback = language === 'ar'
-    ? 'تعذر الاتصال بخدمة الدخول مؤقتًا. استخدم رابط Production الرسمي وحاول مرة أخرى.'
-    : 'The sign-in service is temporarily unavailable. Use the official Production link and try again.';
-  const status = typeof candidate.status === 'number' ? candidate.status : undefined;
-  const data = candidate.data;
-  if (data && typeof data === 'object') {
-    const nestedError = (data as { error?: unknown }).error;
-    if (typeof nestedError === 'string' && nestedError.trim()) return nestedError;
-  }
-  if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error;
-  if (typeof candidate.message === 'string' && candidate.message.trim()) {
-    const message = candidate.message.trim();
-    if (status !== undefined && status >= 500 || /<(!doctype|html)|internal server error/i.test(message)) return fallback;
-    return message;
-  }
-  return status !== undefined && status >= 500 ? fallback : undefined;
-}
 function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { clinicName: string; userName: string; mobileOpen?: boolean; onNavigate?: () => void }) {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
