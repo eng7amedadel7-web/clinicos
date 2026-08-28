@@ -145,13 +145,14 @@ export const SUBMIT_BUTTON_CLASS =
 export const FIELD_INPUT_CLASS =
   'w-full rounded-xl border border-slate-200 bg-white py-3 text-sm text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15';
 
-// Icons sit on the reading-start edge and the password toggle on the end edge;
-// logical positions flip between RTL and LTR.
-export function fieldClasses(en: boolean) {
+// Icons sit on the right edge and the password toggle on the left edge — the
+// geometry is pinned to the Arabic layout; switching language changes words
+// only and never moves or flips anything.
+export function fieldClasses() {
   return {
-    startIcon: en ? 'left-3.5' : 'right-3.5',
-    endIcon: en ? 'right-3.5' : 'left-3.5',
-    emailPad: en ? 'pl-10 pr-4' : 'pr-10 pl-4',
+    startIcon: 'right-3.5',
+    endIcon: 'left-3.5',
+    emailPad: 'pr-10 pl-4',
     passwordPad: 'px-10',
   };
 }
@@ -243,11 +244,11 @@ function BrandPanel() {
 }
 
 export function AuthShell({ children, languageToggle = true }: { children: ReactNode; languageToggle?: boolean }) {
-  const { lang, text, toggleLanguage } = useAuthLocale();
-  const en = lang === 'en';
+  const { text, toggleLanguage } = useAuthLocale();
 
   // The split layout is pinned: brand panel on the left, form on the right,
-  // in both languages — only text direction flips inside the form column.
+  // and the whole form column keeps its RTL geometry in both languages —
+  // switching language changes words only.
   return (
     <div
       className="flex min-h-[100dvh] w-full flex-row bg-[#f2f6f9] text-slate-800"
@@ -258,7 +259,7 @@ export function AuthShell({ children, languageToggle = true }: { children: React
 
       {/* Form side */}
       <div
-        dir={en ? 'ltr' : 'rtl'}
+        dir="rtl"
         className="relative flex w-full flex-col lg:w-[54%] xl:w-[56%] 2xl:w-[58%]"
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -277,7 +278,7 @@ export function AuthShell({ children, languageToggle = true }: { children: React
               href="/"
               className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
             >
-              <ArrowRight className={`size-3.5 ${en ? 'rotate-180' : ''}`} />
+              <ArrowRight className="size-3.5" />
               <span>{text.home}</span>
             </Link>
             {languageToggle ? (

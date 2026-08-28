@@ -174,10 +174,9 @@ type LoginValues = { email: string; password: string; remember: boolean };
 function RecoveryView({ onBack }: { onBack: () => void }) {
   const recovery = useRecoverPassword();
   const form = useForm<RecoveryValues>({ defaultValues: { email: '' }, mode: 'onTouched' });
-  const { lang, text } = useAuthLocale();
-  const en = lang === 'en';
+  const { lang } = useAuthLocale();
   const copy = pageCopy[lang].recovery;
-  const field = fieldClasses(en);
+  const field = fieldClasses();
   const apiError = useLocalizedApiError(recovery.error);
 
   const submit = (values: RecoveryValues) => {
@@ -231,7 +230,7 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
             {recovery.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.sending}</span></>
             ) : (
-              <><span>{copy.send}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
+              <><span>{copy.send}</span><ArrowLeft className="size-4" /></>
             )}
           </button>
         </form>
@@ -253,7 +252,6 @@ function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDon
   const reset = useResetPassword();
   const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
   const { lang } = useAuthLocale();
-  const en = lang === 'en';
   const copy = pageCopy[lang].reset;
   const apiError = useLocalizedApiError(reset.error);
 
@@ -280,7 +278,7 @@ function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDon
           <SuccessAlert testid="alert-reset-success" message={copy.success} />
           <button type="button" className={SUBMIT_BUTTON_CLASS} onClick={onDone} data-testid="button-reset-done">
             <span>{copy.back}</span>
-            <ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} />
+            <ArrowLeft className="size-4" />
           </button>
         </div>
       ) : (
@@ -315,7 +313,7 @@ function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDon
             {reset.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.updating}</span></>
             ) : (
-              <><span>{copy.update}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
+              <><span>{copy.update}</span><ArrowLeft className="size-4" /></>
             )}
           </button>
         </form>
@@ -336,7 +334,7 @@ export function LoginPageInner() {
   const { lang, text } = useAuthLocale();
   const en = lang === 'en';
   const copy = pageCopy[lang].login;
-  const field = fieldClasses(en);
+  const field = fieldClasses();
   const isDev = import.meta.env.DEV;
 
   const onSubmit = (values: LoginValues) => {
@@ -493,7 +491,7 @@ export function LoginPageInner() {
             {login.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.loading}</span></>
             ) : (
-              <><span>{copy.submit}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
+              <><span>{copy.submit}</span><ArrowLeft className="size-4" /></>
             )}
           </button>
         </form>

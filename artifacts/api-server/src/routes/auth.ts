@@ -279,47 +279,47 @@ router.post("/reset-password", async (req, res) => {
 router.post("/login", async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Please enter a valid email and password." });
+    res.status(400).json({ error: "يرجى إدخال بريد إلكتروني وكلمة مرور صحيحة." });
     return;
   }
+
+  req.log?.info({ email: parsed.data.email }, "[Auth] User login attempt");
 
   const result = await supabaseAuthRequest<SupabaseAuthResult>(
     "/auth/v1/token?grant_type=password",
     { email: parsed.data.email, password: parsed.data.password },
   );
+
   if (!result.ok || !result.data?.access_token || !result.data.user) {
-    if (result.status === 401 || result.status === 403) {
-      req.log?.error({ status: result.status }, "[Auth] Supabase Auth configuration rejected login request");
-      res.status(503).json({ error: "Authentication service configuration is unavailable." });
+    const rawError = String(
+      (result.data as Record<string, unknown>)?.error_description ||
+      (result.data as Record<string, unknown>)?.msg ||
+      (result.data as Record<string, unknown>)?.message ||
+      (result.data as Record<string, unknown>)?.error ||
+      ""
+    );
+    req.log?.warn({ email: parsed.data.email, status: result.status, rawError }, "[Auth] Supabase login rejected");
+
+    if (/confirm|not.*confirmed/i.test(rawError)) {
+      res.status(400).json({ error: "البريد الإلكتروني غير مؤكد بعد في سوبابيز. يرجى تأكيده أو التواصل مع الدعم." });
       return;
     }
     if (result.status === 429) {
-      res.status(503).json({ error: "Authentication service is temporarily rate-limited. Try again shortly." });
+      res.status(503).json({ error: "تم تجاوز عدد محاولات الدخول، يرجى الانتظار دقيقة." });
       return;
     }
-    res.status(400).json({ error: "The email or password is incorrect." });
+    res.status(400).json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة." });
     return;
   }
 
-  const profile = await getProfile(result.data.user, result.data.access_token);
+  let profile = await getProfile(result.data.user, result.data.access_token);
   if (!profile) {
-    const recovered = await recoverOrphanedOnboarding(result.data.user, result.data.access_token);
-    if (!recovered) {
-      res.status(403).json({ error: "This account is not assigned to an active clinic owner or admin role." });
-      return;
-    }
-    const session = sessionFor(
-      result.data,
-      parsed.data.email,
-      recovered.clinic.id,
-      parsed.data.rememberDevice !== false,
-    );
-    if (!session) {
-      res.status(401).json({ error: "The authenticated session could not be created." });
-      return;
-    }
-    writeSession(res, session);
-    res.json(recovered);
+    req.log?.info({ userId: result.data.user.id }, "[Auth] User has no active clinic, triggering auto-recovery");
+    profile = await recoverOrphanedOnboarding(result.data.user, result.data.access_token);
+  }
+
+  if (!profile) {
+    res.status(403).json({ error: "هذا الحساب غير مرتبط بعيادة نشطة. تواصل مع الدعم." });
     return;
   }
 
@@ -330,10 +330,11 @@ router.post("/login", async (req, res) => {
     parsed.data.rememberDevice !== false,
   );
   if (!session) {
-    res.status(401).json({ error: "The authenticated session could not be created." });
+    res.status(401).json({ error: "تعذر إنشاء جلسة الدخول المعتمدة." });
     return;
   }
   writeSession(res, session);
+  req.log?.info({ clinicId: profile.clinic.id, email: parsed.data.email }, "[Auth] User logged in successfully");
   res.json(profile);
 });
 

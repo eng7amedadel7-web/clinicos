@@ -94,9 +94,8 @@ export function RegisterPageInner() {
     mode: 'onTouched',
   });
   const { lang, text } = useAuthLocale();
-  const en = lang === 'en';
   const copy = pageCopy[lang];
-  const field = fieldClasses(en);
+  const field = fieldClasses();
   const apiError = register.error ? text.errors[matchAuthErrorKey(register.error) ?? 'generic'] : undefined;
 
   const onSubmit = (values: RegisterValues) =>
@@ -225,7 +224,7 @@ export function RegisterPageInner() {
             {register.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.loading}</span></>
             ) : (
-              <><span>{copy.submit}</span><ArrowLeft className={`size-4 ${en ? 'rotate-180' : ''}`} /></>
+              <><span>{copy.submit}</span><ArrowLeft className="size-4" /></>
             )}
           </button>
         </form>
