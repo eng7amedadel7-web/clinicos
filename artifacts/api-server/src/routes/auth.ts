@@ -12,7 +12,8 @@ const router = Router();
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(8),
+  rememberDevice: z.boolean().optional(),
 });
 
 const passwordRecoverySchema = z.object({
@@ -156,6 +157,7 @@ function sessionFor(
   auth: SupabaseAuthResult,
   email: string,
   clinicId: string,
+  rememberDevice = true,
 ): SessionPayload | null {
   if (!auth.access_token || !auth.user?.id) return null;
   return {
@@ -164,6 +166,7 @@ function sessionFor(
     userId: auth.user.id,
     email: auth.user.email ?? email,
     clinicId,
+    remember: rememberDevice,
   };
 }
 
@@ -282,7 +285,7 @@ router.post("/login", async (req, res) => {
 
   const result = await supabaseAuthRequest<SupabaseAuthResult>(
     "/auth/v1/token?grant_type=password",
-    parsed.data,
+    { email: parsed.data.email, password: parsed.data.password },
   );
   if (!result.ok || !result.data?.access_token || !result.data.user) {
     if (result.status === 401 || result.status === 403) {
@@ -305,7 +308,12 @@ router.post("/login", async (req, res) => {
       res.status(403).json({ error: "This account is not assigned to an active clinic owner or admin role." });
       return;
     }
-    const session = sessionFor(result.data, parsed.data.email, recovered.clinic.id);
+    const session = sessionFor(
+      result.data,
+      parsed.data.email,
+      recovered.clinic.id,
+      parsed.data.rememberDevice !== false,
+    );
     if (!session) {
       res.status(401).json({ error: "The authenticated session could not be created." });
       return;
@@ -315,7 +323,12 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  const session = sessionFor(result.data, parsed.data.email, profile.clinic.id);
+  const session = sessionFor(
+    result.data,
+    parsed.data.email,
+    profile.clinic.id,
+    parsed.data.rememberDevice !== false,
+  );
   if (!session) {
     res.status(401).json({ error: "The authenticated session could not be created." });
     return;

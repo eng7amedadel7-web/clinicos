@@ -39,13 +39,14 @@ export const GetAuthSessionResponse = zod.object({
 /**
  * @summary Sign in a clinic owner or admin
  */
-export const loginBodyPasswordMin = 6;
+export const loginBodyPasswordMin = 8;
 
-
+export const loginBodyRememberDeviceDefault = true;
 
 export const LoginBody = zod.object({
   "email": zod.string(),
-  "password": zod.string().min(loginBodyPasswordMin)
+  "password": zod.string().min(loginBodyPasswordMin),
+  "rememberDevice": zod.boolean().default(loginBodyRememberDeviceDefault).describe('Keep the session for a week; when false the session ends when the browser closes.')
 })
 
 export const LoginResponse = zod.object({

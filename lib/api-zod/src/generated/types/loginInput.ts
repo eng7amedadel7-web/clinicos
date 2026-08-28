@@ -8,6 +8,8 @@
 
 export interface LoginInput {
   email: string;
-  /** @minLength 6 */
+  /** @minLength 8 */
   password: string;
+  /** Keep the session for a week; when false the session ends when the browser closes. */
+  rememberDevice?: boolean;
 }

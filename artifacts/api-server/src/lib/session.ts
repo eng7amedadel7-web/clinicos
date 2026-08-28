@@ -8,6 +8,9 @@ export type SessionPayload = {
   userId: string;
   email: string;
   clinicId: string;
+  // Persisted in the cookie so the transparent token refresh below can rewrite
+  // it without silently turning a browser-session cookie into a 7-day one.
+  remember?: boolean;
 };
 
 export function readSession(req: Request): SessionPayload | null {
@@ -29,13 +32,15 @@ export function readSession(req: Request): SessionPayload | null {
   }
 }
 
+// Remembered devices get a 7-day cookie; otherwise the cookie is a browser-
+// session cookie that disappears when the last tab closes.
 export function writeSession(res: Response, session: SessionPayload) {
   res.cookie(SESSION_COOKIE, JSON.stringify(session), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     signed: true,
-    maxAge: 1000 * 60 * 60 * 24 * 7,
+    ...(session.remember === false ? {} : { maxAge: 1000 * 60 * 60 * 24 * 7 }),
   });
 }
 

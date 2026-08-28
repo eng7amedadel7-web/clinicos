@@ -15,6 +15,7 @@ import inboundRouter from "./inbound";
 import analyticsRouter from "./analytics";
 import templatesRouter from "./templates";
 import adminRouter from "./admin";
+import importRouter from "./import";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(queueRouter);
 router.use("/analytics", analyticsRouter);
 router.use(templatesRouter);
 router.use(adminRouter);
+router.use(importRouter);
 
 export default router;
