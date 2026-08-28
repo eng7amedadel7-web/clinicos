@@ -89,12 +89,43 @@ const authCopy = {
 function getApiErrorMessage(error: unknown, language: 'ar' | 'en' = 'ar'): string | undefined {
   if (!error || typeof error !== 'object') return undefined;
   const candidate = error as { data?: unknown; error?: unknown; message?: unknown; status?: unknown };
-  const fallback = language === 'ar'
-    ? 'تعذر الاتصال بخدمة التسجيل مؤقتًا. يرجى المحاولة مرة أخرى.'
-    : 'The registration service is temporarily unavailable. Please try again.';
-  if (typeof candidate.message === 'string' && candidate.message.trim()) return candidate.message;
-  if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error;
-  return fallback;
+  
+  const raw = String(
+    (candidate.data && typeof candidate.data === 'object' && (candidate.data as { error?: string }).error) ||
+    candidate.error ||
+    candidate.message ||
+    ''
+  ).toLowerCase();
+
+  const isAr = language === 'ar';
+
+  if (/already\s+registered|already\s+exists|user\s+already/i.test(raw)) {
+    return isAr
+      ? 'هذا البريد الإلكتروني مسجل مسبقاً في النظام. يرجى تسجيل الدخول أو استخدام بريد آخر.'
+      : 'This email is already registered. Please log in or use a different email.';
+  }
+
+  if (/password.*(short|weak|8)/i.test(raw)) {
+    return isAr
+      ? 'كلمة المرور يجب أن لا تقل عن 8 أحرف.'
+      : 'Password must be at least 8 characters.';
+  }
+
+  if (/rate.*limit|too many/i.test(raw)) {
+    return isAr
+      ? 'تم تجاوز عدد المحاولات المسموح بها، يرجى الانتظار دقيقة والمحاولة مجدداً.'
+      : 'Too many attempts. Please wait a minute and try again.';
+  }
+
+  if (/network|offline|failed to fetch/i.test(raw)) {
+    return isAr
+      ? 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت.'
+      : 'Could not connect to server. Please check your internet connection.';
+  }
+
+  return isAr
+    ? 'تعذر إتمام تسجيل الحساب حالياً. يرجى التأكد من البيانات والمحاولة مرة أخرى.'
+    : 'We could not complete your registration. Please verify your details and try again.';
 }
 
 const AuthLocaleContext = createContext<{

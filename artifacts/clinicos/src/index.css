@@ -271,29 +271,6 @@
 .auth-orb { animation: auth-orb-drift 14s ease-in-out infinite; will-change: transform; }
 .auth-orb-slow { animation-duration: 22s; animation-direction: reverse; }
 
-@keyframes auth-bubble-rise {
-  0%   { transform: translate3d(0, 0, 0) scale(0.55); opacity: 0; }
-  10%  { opacity: var(--bubble-opacity, 0.4); }
-  85%  { opacity: var(--bubble-opacity, 0.4); }
-  100% { transform: translate3d(var(--bubble-drift, 36px), -115vh, 0) scale(1.15); opacity: 0; }
-}
-.auth-bubble {
-  position: absolute;
-  bottom: -14vh;
-  border-radius: 9999px;
-  background: radial-gradient(circle at 32% 30%, rgba(125, 211, 252, 0.30), rgba(56, 189, 248, 0.05) 62%, transparent 74%);
-  border: 1px solid rgba(125, 211, 252, 0.16);
-  animation: auth-bubble-rise linear infinite;
-  will-change: transform, opacity;
-  pointer-events: none;
-}
-
-@keyframes auth-chip-float {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--chip-rot, 0deg)); }
-  50%      { transform: translate3d(0, -14px, 0) rotate(var(--chip-rot, 0deg)); }
-}
-.auth-chip { animation: auth-chip-float 7s ease-in-out infinite; will-change: transform; }
-
 @keyframes auth-ring-pulse {
   0%, 100% { opacity: 0.30; transform: scale(1); }
   50%      { opacity: 0.55; transform: scale(1.05); }
@@ -306,9 +283,43 @@
 }
 .auth-glow { animation: auth-glow-shift 8s ease-in-out infinite; }
 
+@keyframes auth-sheen-sweep {
+  0%   { transform: translateX(-130%) skewX(-12deg); opacity: 0; }
+  15%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translateX(340%) skewX(-12deg); opacity: 0; }
+}
+.auth-sheen { animation: auth-sheen-sweep 12s ease-in-out infinite; will-change: transform, opacity; }
+.auth-sheen-soft { animation-duration: 18s; }
+
+@keyframes auth-float-y {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.auth-float { animation: auth-float-y 9s ease-in-out infinite; will-change: transform; }
+
+@keyframes auth-shimmer-move {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.auth-shimmer {
+  background: linear-gradient(100deg, #ffffff 32%, #7dd3fc 50%, #ffffff 68%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: auth-shimmer-move 8s ease-in-out infinite;
+}
+
+@keyframes auth-badge-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+  50%      { box-shadow: 0 0 26px 2px rgba(56, 189, 248, 0.22); }
+}
+.auth-badge { animation: auth-badge-glow 5.5s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .auth-orb, .auth-chip, .auth-ring, .auth-glow { animation: none; }
-  .auth-bubble { display: none; }
+  .auth-orb, .auth-ring, .auth-glow, .auth-sheen, .auth-float, .auth-badge { animation: none; }
+  .auth-shimmer { animation: none; }
   .auth-stagger > * { animation-duration: 0.01ms; animation-delay: 0ms; }
 }
 

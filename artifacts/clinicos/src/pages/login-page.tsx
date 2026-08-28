@@ -1,13 +1,11 @@
-import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  Activity,
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
   Check,
   Eye,
   EyeOff,
@@ -16,7 +14,6 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  UsersRound,
   X,
 } from 'lucide-react';
 import { BrandMark } from '@/components/brand';
@@ -43,11 +40,6 @@ const authCopy = {
       sub: 'MERUNA يمنح أصحاب العيادات رؤية أوضح، وقرارات أسرع، وتجربة أفضل لكل مريض.',
       privacy: 'خصوصيتك أولًا',
       copyright: 'Meruna Clinicos',
-      chips: [
-        { title: 'جدول المواعيد', sub: 'محدّث لحظيًا' },
-        { title: 'ملف المريض', sub: 'نظرة 360° كاملة' },
-        { title: 'تقارير مباشرة', sub: 'مؤشرات الأداء اليوم' },
-      ],
     },
     footer: {
       status: 'النظام يعمل بكفاءة 24/7',
@@ -132,11 +124,6 @@ const authCopy = {
       sub: 'MERUNA gives clinic owners clearer visibility, faster decisions, and a better experience for every patient.',
       privacy: 'Your privacy comes first',
       copyright: 'Meruna Clinicos',
-      chips: [
-        { title: 'Appointment schedule', sub: 'Updated in real time' },
-        { title: 'Patient record', sub: 'Full 360° view' },
-        { title: 'Live reports', sub: "Today's performance" },
-      ],
     },
     footer: {
       status: 'System operational 24/7',
@@ -212,30 +199,6 @@ const authCopy = {
     },
   },
 };
-
-type BrandChip = { title: string; sub: string };
-
-// Deterministic bubble field: varied sizes/depths so the rise feels organic
-// without Math.random (which would differ between renders).
-const BUBBLES = [
-  { left: '4%', size: 84, duration: 18, delay: -4, drift: 48, opacity: 0.3 },
-  { left: '12%', size: 36, duration: 13, delay: -9, drift: -30, opacity: 0.42 },
-  { left: '21%', size: 120, duration: 24, delay: -14, drift: 60, opacity: 0.22 },
-  { left: '31%', size: 26, duration: 11, delay: -2, drift: 24, opacity: 0.46 },
-  { left: '43%', size: 64, duration: 16, delay: -7, drift: -44, opacity: 0.32 },
-  { left: '55%', size: 44, duration: 14, delay: -11, drift: 36, opacity: 0.4 },
-  { left: '66%', size: 96, duration: 21, delay: -5, drift: -52, opacity: 0.24 },
-  { left: '76%', size: 30, duration: 12, delay: -15, drift: 28, opacity: 0.44 },
-  { left: '86%', size: 72, duration: 19, delay: -8, drift: -38, opacity: 0.3 },
-  { left: '94%', size: 40, duration: 15, delay: -12, drift: 42, opacity: 0.38 },
-];
-
-const CHIP_ICONS = [CalendarDays, UsersRound, Activity];
-// Full class strings so Tailwind's JIT can see every variant.
-const CHIP_POSITIONS_AR = ['top-[16%] left-[6%]', 'top-[45%] left-[10%]', 'bottom-[16%] left-[15%]'];
-const CHIP_POSITIONS_EN = ['top-[16%] right-[6%]', 'top-[45%] right-[10%]', 'bottom-[16%] right-[15%]'];
-const CHIP_ROTATIONS = ['-2deg', '2deg', '-1.5deg'];
-const CHIP_DELAYS = ['-1s', '-3.5s', '-2.2s'];
 
 const SUBMIT_BUTTON_CLASS =
   'flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d2436] py-3.5 text-sm font-extrabold text-white shadow-lg shadow-[#0d2436]/20 transition-all hover:bg-[#143350] active:scale-[0.99] disabled:opacity-60';
@@ -357,59 +320,26 @@ function FieldError({ message }: { message?: string }) {
 }
 
 function BrandPanel() {
-  const { lang, text } = useAuthLocale();
-  const chipPositions = lang === 'en' ? CHIP_POSITIONS_EN : CHIP_POSITIONS_AR;
+  const { text } = useAuthLocale();
 
   return (
-    <aside className="relative hidden w-full flex-1 flex-col justify-between overflow-hidden p-10 text-slate-100 lg:flex xl:p-14 bg-[linear-gradient(165deg,#0e2f4c_0%,#0a2033_48%,#06121f_100%)]">
-      {/* Ambient layers: drifting orbs, pulsing rings, rising bubbles */}
+    <aside
+      dir="ltr"
+      className="relative hidden w-full flex-1 flex-col justify-between overflow-hidden bg-[linear-gradient(165deg,#0e2f4c_0%,#0a2033_48%,#06121f_100%)] p-10 text-slate-100 lg:flex xl:p-14"
+    >
+      {/* Ambient motion: drifting orbs, breathing rings, a slow diagonal sheen */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="auth-orb absolute -right-24 -top-24 size-[420px] rounded-full bg-sky-500/15 blur-3xl" />
         <div className="auth-orb auth-orb-slow absolute -bottom-32 -left-20 size-[460px] rounded-full bg-indigo-500/15 blur-3xl" />
-        <div className="auth-glow absolute left-1/4 top-1/3 size-[300px] rounded-full bg-cyan-400/10 blur-[100px]" />
+        <div className="auth-glow absolute left-1/2 top-1/3 size-[340px] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[100px]" />
         <div className="auth-ring absolute -bottom-24 -right-16 size-80 rounded-full border border-white/10" />
         <div className="auth-ring absolute -bottom-10 -right-2 size-48 rounded-full border border-white/10" style={{ animationDelay: '-4s' }} />
-        {BUBBLES.map((bubble, index) => (
-          <span
-            key={index}
-            className="auth-bubble"
-            style={
-              {
-                left: bubble.left,
-                width: bubble.size,
-                height: bubble.size,
-                animationDuration: `${bubble.duration}s`,
-                animationDelay: `${bubble.delay}s`,
-                '--bubble-drift': `${bubble.drift}px`,
-                '--bubble-opacity': bubble.opacity,
-              } as CSSProperties
-            }
-          />
-        ))}
+        <div className="auth-sheen absolute -top-1/2 h-[200%] w-40 bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+        <div
+          className="auth-sheen auth-sheen-soft absolute -top-1/2 h-[200%] w-24 bg-gradient-to-r from-transparent via-sky-300/10 to-transparent"
+          style={{ animationDelay: '-6s' }}
+        />
       </div>
-
-      {/* Floating feature chips */}
-      {text.brand.chips.map((chip: BrandChip, index: number) => {
-        const Icon = CHIP_ICONS[index];
-        return (
-          <div
-            key={chip.title}
-            className={`auth-chip absolute z-10 hidden xl:block ${chipPositions[index]}`}
-            style={{ '--chip-rot': CHIP_ROTATIONS[index], animationDelay: CHIP_DELAYS[index] } as CSSProperties}
-            aria-hidden="true"
-          >
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-md">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300">
-                <Icon size={18} />
-              </span>
-              <span>
-                <span className="block text-xs font-bold text-white">{chip.title}</span>
-                <span className="block text-[10px] text-slate-400">{chip.sub}</span>
-              </span>
-            </div>
-          </div>
-        );
-      })}
 
       <header className="relative z-10 flex items-center gap-3">
         <BrandMark size={40} />
@@ -419,13 +349,13 @@ function BrandPanel() {
         </div>
       </header>
 
-      <div className="relative z-10 max-w-xl">
-        <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-1.5 text-xs font-bold text-sky-300">
+      <div className="relative z-10 flex flex-col items-center px-6 text-center">
+        <span className="auth-badge inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-1.5 text-xs font-bold text-sky-300">
           <ShieldCheck className="size-3.5" />
           {text.brand.badge}
         </span>
-        <h2 className="mt-6 text-4xl font-black leading-[1.3] text-white xl:text-[2.9rem] xl:leading-[1.25]">
-          {text.brand.headline}
+        <h2 className="auth-float mt-7 max-w-[600px] text-4xl font-black leading-[1.3] text-white xl:text-[2.9rem] xl:leading-[1.25]">
+          <span className="auth-shimmer">{text.brand.headline}</span>
         </h2>
         <p className="mt-5 max-w-md text-sm leading-8 text-slate-300">{text.brand.sub}</p>
       </div>
@@ -442,24 +372,32 @@ function AuthShell({ children }: { children: ReactNode }) {
   const { lang, text, toggleLanguage } = useAuthLocale();
   const en = lang === 'en';
 
+  // The split layout is pinned: brand panel on the left, form on the right,
+  // in both languages — only text direction flips inside the form column.
   return (
     <div
-      className="flex min-h-[100dvh] w-full flex-col bg-[#f2f6f9] text-slate-800 lg:flex-row"
-      dir={en ? 'ltr' : 'rtl'}
+      className="flex min-h-[100dvh] w-full flex-row bg-[#f2f6f9] text-slate-800"
+      dir="ltr"
       data-testid="auth-layout"
     >
-      {/* Form side — reading start (right in Arabic, left in English) */}
-      <div className="relative flex w-full flex-col lg:w-[46%] xl:w-[44%]">
+      <BrandPanel />
+
+      {/* Form side */}
+      <div
+        dir={en ? 'ltr' : 'rtl'}
+        className="relative flex w-full flex-col lg:w-[54%] xl:w-[56%] 2xl:w-[58%]"
+      >
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="absolute -left-24 -top-24 size-72 rounded-full bg-sky-200/50 blur-3xl" />
-          <div className="absolute -bottom-24 -right-24 size-72 rounded-full bg-indigo-200/50 blur-3xl" />
+          <div className="auth-orb absolute -right-24 -top-24 size-80 rounded-full bg-sky-200/60 blur-3xl" />
+          <div className="auth-orb auth-orb-slow absolute -bottom-24 -left-24 size-80 rounded-full bg-indigo-200/50 blur-3xl" />
         </div>
 
         <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-          <div className="flex items-center gap-2.5 lg:hidden">
+          <div className="flex items-center gap-2.5 lg:hidden" dir="ltr">
             <BrandMark size={30} />
             <span className="text-sm font-extrabold tracking-[0.16em] text-[#0b2437]">MERUNA</span>
           </div>
+          <span className="hidden lg:block" />
           <div className="flex items-center gap-2">
             <Link
               href="/"
@@ -481,7 +419,7 @@ function AuthShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="relative z-10 flex flex-1 items-center justify-center px-6 pb-8 sm:px-10">
-          <div className="auth-stagger w-full max-w-[400px] py-4">{children}</div>
+          <div className="auth-stagger w-full max-w-[430px] py-4">{children}</div>
         </main>
 
         <footer className="relative z-10 flex items-center justify-between px-6 py-5 text-[11px] text-slate-500 sm:px-10">
@@ -495,8 +433,6 @@ function AuthShell({ children }: { children: ReactNode }) {
           </span>
         </footer>
       </div>
-
-      <BrandPanel />
     </div>
   );
 }
