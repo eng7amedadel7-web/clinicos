@@ -367,7 +367,208 @@ async function handleInbound(req: Request, res: Response) {
   });
 }
 
+async function handleWasapFlowWebhook(req: Request, res: Response) {
+  // Always respond 200 OK promptly as required by WasapFlow Bridge
+  const body = req.body || {};
+  const event = String(body.event || "").toLowerCase();
+  const wabaId = String(body.waba_id || "").trim();
+  const phoneNumberId = String(body.phone_number_id || "").trim();
+  const data = body.data || {};
+
+  if (!wabaId && !phoneNumberId) {
+    res.status(200).send("OK");
+    return;
+  }
+
+  // Respond immediately so WasapFlow doesn't timeout / retry
+  res.status(200).send("OK");
+
+  try {
+    // 1. Resolve clinic from WABA ID in channels table
+    const channelLookup = await supabaseAdminRequest<Row[]>(
+      `/rest/v1/channels?select=id,clinic_id,config&type=eq.whatsapp&deleted_at=is.null&limit=20`
+    );
+
+    let matchedChannel = channelLookup.data?.find((ch) => {
+      const cfg = (ch.config && typeof ch.config === "object" ? ch.config : {}) as Record<string, any>;
+      return (
+        String(cfg.waba_id || "").trim() === wabaId ||
+        String(cfg.phoneNumberId || "").trim() === phoneNumberId ||
+        String(ch.phone_number_id || "").trim() === phoneNumberId
+      );
+    });
+
+    if (!matchedChannel || !matchedChannel.clinic_id) {
+      logger.warn({ wabaId, phoneNumberId, event }, "[WasapFlow Webhook] No matching clinic channel found");
+      return;
+    }
+
+    const clinicId = String(matchedChannel.clinic_id);
+    const channelId = String(matchedChannel.id);
+
+    // 2. Handle Inbound Message from Patient
+    if (event === "message.received") {
+      const fromPhone = String(data.from || "").trim();
+      const senderPhone = normalizePhone(fromPhone.startsWith("+") ? fromPhone : `+${fromPhone}`);
+      const senderName = String(data.contact_name || "").trim() || "مريض واتساب";
+      const content = String(data.text || (data.type && data.type !== "text" ? `[${data.type}]` : "")).trim();
+      const externalMessageId = String(data.message_id || "").trim();
+
+      if (!content || !senderPhone) return;
+
+      // Resolve/Create Patient
+      let patientId = "";
+      const patientFind = await supabaseAdminRequest<Row[]>(
+        `/rest/v1/patients?select=id,name&clinic_id=eq.${encodeURIComponent(clinicId)}&phone=eq.${encodeURIComponent(senderPhone)}&deleted_at=is.null&limit=1`
+      );
+
+      if (patientFind.ok && patientFind.data?.length) {
+        patientId = String(patientFind.data[0].id);
+      } else {
+        const patientCreate = await supabaseAdminRequest<Row[]>("/rest/v1/patients", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            clinic_id: clinicId,
+            name: senderName,
+            phone: senderPhone,
+          }),
+        });
+        if (patientCreate.ok && patientCreate.data?.length) {
+          patientId = String(patientCreate.data[0].id);
+        }
+      }
+
+      if (!patientId) return;
+
+      const handoffDetected = shouldTriggerHandoff(content);
+
+      // Resolve/Create Conversation
+      let conversationId = "";
+      const convFind = await supabaseAdminRequest<Row[]>(
+        `/rest/v1/conversations?select=id,is_handoff&clinic_id=eq.${encodeURIComponent(clinicId)}&patient_id=eq.${encodeURIComponent(patientId)}&is_archived=eq.false&order=last_activity_at.desc.nullslast&limit=1`
+      );
+
+      if (convFind.ok && convFind.data?.length) {
+        conversationId = String(convFind.data[0].id);
+      } else {
+        const convCreate = await supabaseAdminRequest<Row[]>("/rest/v1/conversations", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            clinic_id: clinicId,
+            patient_id: patientId,
+            channel_id: channelId,
+            channel_conversation_id: fromPhone,
+            ai_status: handoffDetected ? "paused" : "active",
+            is_handoff: handoffDetected,
+            status: "open",
+            priority: handoffDetected ? "high" : "medium",
+            last_patient_message: content,
+            last_activity_at: new Date().toISOString(),
+          }),
+        });
+        if (convCreate.ok && convCreate.data?.length) {
+          conversationId = String(convCreate.data[0].id);
+        }
+      }
+
+      if (!conversationId) return;
+
+      // Insert Message
+      const messageInsert = await supabaseAdminRequest<Row[]>("/rest/v1/messages", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          clinic_id: clinicId,
+          conversation_id: conversationId,
+          content,
+          direction: "inbound",
+          sender_type: "patient",
+          message_status: "delivered",
+        }),
+      });
+
+      // Update Conversation
+      await supabaseAdminRequest(`/rest/v1/conversations?id=eq.${encodeURIComponent(conversationId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          last_patient_message: content,
+          last_activity_at: new Date().toISOString(),
+          ...(handoffDetected ? { ai_status: "paused", priority: "high", is_handoff: true } : {}),
+        }),
+      });
+
+      // Emit Realtime Event
+      const savedMessageId = messageInsert.data?.[0]?.id || "";
+      clinicEvents.emitClinicEvent(
+        clinicId,
+        handoffDetected ? "inbox.handoff_requested" : "inbox.message_received",
+        {
+          conversationId,
+          messageId: savedMessageId,
+          patientId,
+          patientName: senderName,
+          phone: senderPhone,
+          content,
+          channelType: "whatsapp",
+          isHandoff: handoffDetected,
+          createdAt: new Date().toISOString(),
+        }
+      );
+
+      logger.info({ clinicId, conversationId, from: senderPhone }, "[WasapFlow Webhook] Inbound message received and synced");
+    }
+
+    // 3. Handle Coexistence Message Echo (Sent from Doctor's Phone WhatsApp Business App)
+    else if (event === "message.echo") {
+      const recipientPhone = normalizePhone(String(data.recipient || "").trim());
+      const content = String(data.text || "").trim();
+      if (!recipientPhone || !content) return;
+
+      const patientFind = await supabaseAdminRequest<Row[]>(
+        `/rest/v1/patients?select=id&clinic_id=eq.${encodeURIComponent(clinicId)}&phone=eq.${encodeURIComponent(recipientPhone)}&deleted_at=is.null&limit=1`
+      );
+      if (!patientFind.data?.length) return;
+      const patientId = String(patientFind.data[0].id);
+
+      const convFind = await supabaseAdminRequest<Row[]>(
+        `/rest/v1/conversations?select=id&clinic_id=eq.${encodeURIComponent(clinicId)}&patient_id=eq.${encodeURIComponent(patientId)}&is_archived=eq.false&order=last_activity_at.desc.nullslast&limit=1`
+      );
+      if (!convFind.data?.length) return;
+      const conversationId = String(convFind.data[0].id);
+
+      const msgInsert = await supabaseAdminRequest<Row[]>("/rest/v1/messages", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          clinic_id: clinicId,
+          conversation_id: conversationId,
+          content,
+          direction: "outgoing",
+          sender_type: "clinic",
+          message_status: "delivered",
+        }),
+      });
+
+      const messageId = msgInsert.data?.[0]?.id || "";
+      clinicEvents.emitClinicEvent(clinicId, "inbox.message_sent", {
+        conversationId,
+        messageId,
+        content,
+      });
+
+      logger.info({ clinicId, conversationId }, "[WasapFlow Webhook] Synced WhatsApp Business App echo message");
+    }
+  } catch (err) {
+    logger.error({ err, event }, "[WasapFlow Webhook] Error processing event");
+  }
+}
+
 router.post("/inbox/inbound", handleInbound);
 router.post("/inbox/webhook", handleInbound);
+router.post("/api/inbound/wasapflow", handleWasapFlowWebhook);
+router.post("/inbox/wasapflow", handleWasapFlowWebhook);
 
 export default router;
+

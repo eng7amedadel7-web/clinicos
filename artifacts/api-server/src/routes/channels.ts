@@ -4,6 +4,7 @@ import { requireClinicPermission, respondToPermissionError } from "../lib/permis
 import { supabaseRequest, supabaseAdminRequest } from "../lib/supabase";
 import { clinicEvents } from "../lib/events";
 import { logger } from "../lib/logger";
+import { createWasapFlowConnectSession } from "../lib/wasapflow";
 
 const router = Router();
 
@@ -16,6 +17,52 @@ function headers(session: Session, extra: Record<string, string> = {}) {
     Prefer: "return=representation",
     ...extra,
   };
+}
+
+async function syncChannelsTable(
+  clinicId: string,
+  type: string,
+  provider: string,
+  status: "connected" | "disconnected",
+  isEnabled: boolean,
+  config: Record<string, any>,
+  phoneNumberId?: string | null
+) {
+  try {
+    const existing = await supabaseAdminRequest<Array<{ id: string }>>(
+      `/rest/v1/channels?select=id&clinic_id=eq.${encodeURIComponent(clinicId)}&type=eq.${encodeURIComponent(type)}&deleted_at=is.null&limit=1`
+    );
+
+    if (existing.ok && existing.data?.length) {
+      const channelId = existing.data[0].id;
+      await supabaseAdminRequest(`/rest/v1/channels?id=eq.${encodeURIComponent(channelId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          provider,
+          status,
+          is_enabled: isEnabled,
+          phone_number_id: phoneNumberId || null,
+          config,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else if (isEnabled) {
+      await supabaseAdminRequest("/rest/v1/channels", {
+        method: "POST",
+        body: JSON.stringify({
+          clinic_id: clinicId,
+          type,
+          provider,
+          status,
+          is_enabled: isEnabled,
+          phone_number_id: phoneNumberId || null,
+          config,
+        }),
+      });
+    }
+  } catch (err) {
+    logger.warn({ err, clinicId, type }, "[Channels] Failed to sync channels table");
+  }
 }
 
 function publicAppOrigin(req: Request): string {
@@ -38,8 +85,8 @@ router.get("/api/settings/channels", async (req: Request, res: Response) => {
   }
   if (!session) return;
 
-  const clinicRes = await supabaseRequest<Array<{ id: string; location_config?: Record<string, any> }>>(
-    `/rest/v1/clinics?select=id,location_config&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
+  const clinicRes = await supabaseRequest<Array<{ id: string; name?: string; location_config?: Record<string, any> }>>(
+    `/rest/v1/clinics?select=id,name,location_config&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
     { headers: headers(session) }
   );
 
@@ -51,14 +98,16 @@ router.get("/api/settings/channels", async (req: Request, res: Response) => {
 
   res.json({
     whatsapp: {
-      connected: Boolean(channels.whatsapp?.connected || (channels.whatsapp?.phoneNumber && (channels.whatsapp?.accessToken || channels.whatsapp?.verifiedAt))),
+      connected: Boolean(channels.whatsapp?.connected || (channels.whatsapp?.phoneNumber && (channels.whatsapp?.wabaId || channels.whatsapp?.verifiedAt))),
       phoneNumber: channels.whatsapp?.phoneNumber || "",
       phoneNumberId: channels.whatsapp?.phoneNumberId || "",
       wabaId: channels.whatsapp?.wabaId || "",
+      connectionMode: channels.whatsapp?.connectionMode || "coexistence",
+      provider: channels.whatsapp?.provider || "wasapflow",
       accessToken: channels.whatsapp?.accessToken ? "••••••••••••••••" : "",
       verifiedAt: channels.whatsapp?.verifiedAt || null,
       verifyToken: channels.whatsapp?.verifyToken || `mrn_wa_${session.clinicId.slice(0, 8)}`,
-      webhookUrl: `${origin}/api/inbound?clinic_id=${session.clinicId}&channel=whatsapp${secretParam}`,
+      webhookUrl: `${origin}/api/inbound/wasapflow`,
     },
     telegram: {
       connected: Boolean(channels.telegram?.botToken),
@@ -82,6 +131,120 @@ router.get("/api/settings/channels", async (req: Request, res: Response) => {
       verifyToken: channels.messenger?.verifyToken || `mrn_fb_${session.clinicId.slice(0, 8)}`,
       webhookUrl: `${origin}/api/inbound?clinic_id=${session.clinicId}&channel=messenger${secretParam}`,
     },
+  });
+});
+
+// 1.0 POST /api/settings/channels/whatsapp/connect-session - WasapFlow Embedded Signup Session
+router.post("/api/settings/channels/whatsapp/connect-session", async (req: Request, res: Response) => {
+  let session: Session | null = null;
+  try {
+    session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return;
+  }
+  if (!session) return;
+
+  const clinicRes = await supabaseRequest<Array<{ id: string; name?: string }>>(
+    `/rest/v1/clinics?select=id,name&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
+    { headers: headers(session) }
+  );
+
+  const clinicName = clinicRes.data?.[0]?.name || "Clinicos Clinic";
+
+  try {
+    const connectSession = await createWasapFlowConnectSession(session.clinicId, clinicName);
+    res.json({
+      success: true,
+      connectUrl: connectSession.connectUrl,
+      token: connectSession.token,
+      expiresIn: connectSession.expiresIn,
+    });
+  } catch (err) {
+    res.status(502).json({
+      error: err instanceof Error ? err.message : "Failed to create WasapFlow connect session",
+    });
+  }
+});
+
+// 1.01 POST /api/settings/channels/whatsapp/connect-complete - WasapFlow Onboarding Completed
+router.post("/api/settings/channels/whatsapp/connect-complete", async (req: Request, res: Response) => {
+  let session: Session | null = null;
+  try {
+    session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return;
+  }
+  if (!session) return;
+
+  const { waba_id, phone_number_id, display_name, connection_mode, phone_number } = req.body;
+  if (!waba_id) {
+    res.status(400).json({ error: "Missing required waba_id." });
+    return;
+  }
+
+  const clinicRes = await supabaseRequest<Array<{ location_config?: Record<string, any> }>>(
+    `/rest/v1/clinics?select=location_config&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
+    { headers: headers(session) }
+  );
+  const currentLocConfig = clinicRes.data?.[0]?.location_config || {};
+  const currentChannels = currentLocConfig.channels || {};
+  const origin = publicAppOrigin(req);
+
+  const updatedWhatsAppConfig = {
+    connected: true,
+    wabaId: String(waba_id),
+    phoneNumberId: phone_number_id ? String(phone_number_id) : "",
+    phoneNumber: phone_number || currentChannels.whatsapp?.phoneNumber || "",
+    displayName: display_name || "",
+    connectionMode: connection_mode || "coexistence",
+    provider: "wasapflow",
+    verifiedAt: new Date().toISOString(),
+    webhookUrl: `${origin}/api/inbound/wasapflow`,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await supabaseRequest(`/rest/v1/clinics?id=eq.${encodeURIComponent(session.clinicId)}`, {
+    method: "PATCH",
+    headers: headers(session),
+    body: JSON.stringify({
+      ...(phone_number ? { phone: phone_number } : {}),
+      location_config: {
+        ...currentLocConfig,
+        channels: {
+          ...currentChannels,
+          whatsapp: updatedWhatsAppConfig,
+        },
+      },
+    }),
+  });
+
+  // Sync with Supabase channels table for n8n & multi-tenant resolution
+  await syncChannelsTable(
+    session.clinicId,
+    "whatsapp",
+    "wasapflow",
+    "connected",
+    true,
+    {
+      waba_id: String(waba_id),
+      phone_number_id: phone_number_id ? String(phone_number_id) : null,
+      phone_number: phone_number || null,
+      display_name: display_name || null,
+      connection_mode: connection_mode || "coexistence",
+      provider: "wasapflow",
+      connected_at: new Date().toISOString(),
+    },
+    phone_number_id ? String(phone_number_id) : null
+  );
+
+  clinicEvents.emitClinicEvent(session.clinicId, "settings.updated", { channel: "whatsapp" });
+
+  res.json({
+    success: true,
+    message: "تم ربط واتساب العيادة بـ WasapFlow بنجاح! 🚀",
+    whatsapp: updatedWhatsAppConfig,
   });
 });
 
@@ -279,6 +442,15 @@ router.post("/api/settings/channels/whatsapp/disconnect", async (req: Request, r
     }
   );
 
+  await syncChannelsTable(
+    session.clinicId,
+    "whatsapp",
+    "wasapflow",
+    "disconnected",
+    false,
+    {}
+  );
+
   clinicEvents.emitClinicEvent(session.clinicId, "settings.updated", { channel: "whatsapp" });
   res.json({ success: true, message: "تم إلغاء ربط رقم الواتساب بنجاح." });
 });
@@ -345,6 +517,16 @@ router.post("/api/settings/channels/:channel", async (req: Request, res: Respons
     res.status(502).json({ error: "تعذر حفظ بيانات القناة في قاعدة البيانات." });
     return;
   }
+
+  const provider = channel === "telegram" ? "telegram_direct" : (channel === "whatsapp" ? "wasapflow" : "superchat");
+  await syncChannelsTable(
+    session.clinicId,
+    channel,
+    provider,
+    "connected",
+    true,
+    channelData
+  );
 
   clinicEvents.emitClinicEvent(session.clinicId, "settings.updated", { channel });
   res.json({ success: true, message: `تم تحديث وربط قناة ${channel} بنجاح!` });

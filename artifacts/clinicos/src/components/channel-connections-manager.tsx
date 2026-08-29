@@ -54,6 +54,7 @@ export function ChannelConnectionsManager() {
   const [loading, setLoading] = useState(true);
   const [savingChannel, setSavingChannel] = useState<string | null>(null);
   const [autoLinkingTelegram, setAutoLinkingTelegram] = useState(false);
+  const [connectingWasapFlow, setConnectingWasapFlow] = useState(false);
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
 
   // WhatsApp OTP Verification States
@@ -90,6 +91,77 @@ export function ChannelConnectionsManager() {
     setCopiedLabel(label);
     toast.success(isArabic ? `تم نسخ ${label} بنجاح` : `${label} copied to clipboard`);
     setTimeout(() => setCopiedLabel(null), 2500);
+  };
+
+  const handleStartWasapFlowConnect = async () => {
+    setConnectingWasapFlow(true);
+    try {
+      const res = await fetch('/api/settings/channels/whatsapp/connect-session', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.connectUrl) {
+        throw new Error(data.error || 'Failed to start connection session');
+      }
+
+      // Open official popup
+      const width = 600;
+      const height = 750;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(
+        data.connectUrl,
+        'WasapFlowConnect',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      );
+
+      // Listen for result postMessage from WasapFlow
+      const handleMessage = async (e: MessageEvent) => {
+        if (e.origin !== 'https://officialapi.wasapflow.com') return;
+
+        if (e.data?.type === 'WASAPFLOW_CONNECT_SUCCESS') {
+          try {
+            const { waba_id, phone_number_id, display_name, connection_mode, phone_number } = e.data;
+            const completeRes = await fetch('/api/settings/channels/whatsapp/connect-complete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                waba_id,
+                phone_number_id,
+                display_name,
+                connection_mode,
+                phone_number,
+              }),
+            });
+            const completeData = await completeRes.json();
+            if (!completeRes.ok) throw new Error(completeData.error || 'Failed to finalize connection');
+
+            toast.success(isArabic ? 'تم ربط رقم واتساب العيادة بـ WasapFlow بنجاح! 🚀' : 'WhatsApp linked successfully!');
+            await loadChannels();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to save connection');
+          } finally {
+            window.removeEventListener('message', handleMessage);
+            setConnectingWasapFlow(false);
+          }
+        } else if (e.data?.type === 'WASAPFLOW_CONNECT_CANCEL') {
+          toast.info(isArabic ? 'تم إلغاء عملية ربط الواتساب' : 'Connection cancelled');
+          setConnectingWasapFlow(false);
+          window.removeEventListener('message', handleMessage);
+        } else if (e.data?.type === 'WASAPFLOW_CONNECT_ERROR') {
+          toast.error(isArabic ? `فشل الربط: ${e.data.message || ''}` : 'Connection failed');
+          setConnectingWasapFlow(false);
+          window.removeEventListener('message', handleMessage);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error launching WhatsApp connection');
+      setConnectingWasapFlow(false);
+    }
   };
 
   const loadChannels = async () => {
@@ -313,17 +385,22 @@ export function ChannelConnectionsManager() {
                       {config.whatsapp.phoneNumber || waPhone || (isArabic ? 'رقم الواتساب المسجل' : 'Registered Number')}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    {isArabic
-                      ? 'الرقم متصل بنظام الذكاء الاصطناعي لـ MERUNA ويستقبل رسائل المرضى ويحجز المواعيد آلياً.'
-                      : 'Active and connected to Meruna AI reception.'}
-                  </p>
+                  {config.whatsapp.wabaId && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">WABA ID:</span>
+                      <span className="font-mono text-slate-300">{config.whatsapp.wabaId}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 pt-1 text-[11px] text-emerald-400 font-semibold">
+                    <CheckCircle2 className="size-3.5" />
+                    <span>{isArabic ? 'وضع التزامن الحي (Coexistence Mode) مفعل وجاهز للرد الآلي 24/7' : 'Coexistence Mode active & ready for 24/7 AI'}</span>
+                  </div>
                 </div>
 
                 {config.whatsapp.webhookUrl && (
                   <div className="bg-[#081624] p-3 rounded-xl border border-[#1e3a4d] space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Webhook URL:</span>
+                      <span className="text-slate-400">Webhook URL (لوحة WasapFlow):</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(config.whatsapp.webhookUrl, 'رابط ويب هوك واتساب')}
@@ -352,30 +429,53 @@ export function ChannelConnectionsManager() {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setWaStep('phone');
-                      setShowAdvancedWa(false);
-                      toast.info(isArabic ? 'أدخل الرقم الجديد لإرسال كود التحقق' : 'Enter new number');
-                    }}
-                    className="px-4 py-2 bg-[#0f2a3f] hover:bg-[#183e5c] text-sky-300 rounded-xl font-semibold border border-sky-500/30 transition-all"
+                    onClick={handleStartWasapFlowConnect}
+                    disabled={connectingWasapFlow}
+                    className="px-4 py-2 bg-[#0f2a3f] hover:bg-[#183e5c] text-sky-300 rounded-xl font-semibold border border-sky-500/30 transition-all flex items-center gap-1.5"
                   >
-                    {isArabic ? 'تغيير الرقم' : 'Change Number'}
+                    {connectingWasapFlow ? <RefreshCw className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                    <span>{isArabic ? 'إعادة ربط الحساب' : 'Reconnect'}</span>
                   </button>
                 </div>
               </div>
             ) : (
-              /* Automated OTP Verification Wizard */
+              /* Connect Experience */
               <div className="space-y-4">
-                {waStep === 'phone' ? (
-                  <form onSubmit={handleRequestWaOtp} className="space-y-3.5">
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1.5">
-                        {isArabic ? 'رقم هاتف واتساب العيادة (مع كود الدولة):' : 'Clinic WhatsApp Phone (with country code):'}
-                      </label>
+                {/* 1-Click WasapFlow Bridge Connect Button */}
+                <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/5 border border-emerald-500/30 rounded-2xl space-y-3">
+                  <div>
+                    <h5 className="font-bold text-white text-xs flex items-center gap-1.5">
+                      <Sparkles className="size-4 text-emerald-400" />
+                      <span>{isArabic ? 'الربط الرسمي بضغطة واحدة (WasapFlow Bridge)' : '1-Click Official WasapFlow Connect'}</span>
+                    </h5>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-5">
+                      {isArabic
+                        ? 'اربط رقم واتساب أعمال العيادة الحالي مباشرة، مع استمرار استقبال والرد على الرسائل من تطبيق هاتفك دون أي انقطاع.'
+                        : 'Link your clinic WhatsApp Business number with live phone coexistence.'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleStartWasapFlowConnect}
+                    disabled={connectingWasapFlow}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 disabled:opacity-50"
+                  >
+                    {connectingWasapFlow ? <RefreshCw className="size-4 animate-spin" /> : <Smartphone className="size-4" />}
+                    <span>{isArabic ? 'ربط واتساب العيادة الآن 🚀' : 'Connect Clinic WhatsApp Now'}</span>
+                  </button>
+                </div>
+
+                {/* Option 2: Fallback Phone OTP Verification */}
+                <div className="pt-2">
+                  {waStep === 'phone' ? (
+                    <form onSubmit={handleRequestWaOtp} className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400 font-semibold">{isArabic ? 'أو أدخل الرقم يدوياً للتحقق برمز OTP:' : 'Or enter phone for OTP verification:'}</span>
+                      </div>
                       <div className="relative">
                         <input
                           type="text"
-                          required
                           value={waPhone}
                           onChange={(e) => setWaPhone(e.target.value)}
                           placeholder="+966501234567 أو +201012345678"
@@ -384,53 +484,37 @@ export function ChannelConnectionsManager() {
                         />
                         <Smartphone className="absolute left-3.5 top-3 size-4 text-slate-500" />
                       </div>
-                    </div>
 
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-[11px] leading-5">
-                      📲 <strong>الربط الآلي بالتحقق الفوري:</strong> اكتب رقم واتساب العيادة، واضغط "إرسال كود التحقق"، وسيصلك رمز من 6 أرقام لتأكيد وربط الرقم مباشرة بالعيادة!
-                    </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={sendingWaOtp || !waPhone.trim()}
+                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold transition-all text-xs disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {sendingWaOtp ? <RefreshCw className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                          <span>{isArabic ? 'إرسال رمز OTP' : 'Send OTP'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    /* Step 2: Enter 6-digit OTP */
+                    <form onSubmit={handleVerifyWaOtp} className="space-y-3">
+                      <div className="flex items-center justify-between p-2.5 bg-[#081624] border border-[#1e3a4d] rounded-xl text-xs">
+                        <span className="text-slate-400">{isArabic ? 'الرقم المستلم:' : 'Target Phone:'}</span>
+                        <span className="font-mono text-emerald-300 font-bold" dir="ltr">{waPhone}</span>
+                        <button
+                          type="button"
+                          onClick={() => setWaStep('phone')}
+                          className="text-[11px] text-sky-400 hover:text-sky-300 underline"
+                        >
+                          {isArabic ? 'تعديل الرقم' : 'Edit'}
+                        </button>
+                      </div>
 
-                    <div className="pt-2 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setShowAdvancedWa(!showAdvancedWa)}
-                        className="text-slate-400 hover:text-sky-300 text-[11px] underline"
-                      >
-                        {showAdvancedWa
-                          ? isArabic ? 'إخفاء الإعدادات اليدوية' : 'Hide manual setup'
-                          : isArabic ? 'إعداد يدوي متقدم (Meta Token)' : 'Manual Meta Token Setup'}
-                      </button>
-
-                      <button
-                        type="submit"
-                        disabled={sendingWaOtp || !waPhone.trim()}
-                        className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
-                      >
-                        {sendingWaOtp ? <RefreshCw className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-                        <span>{isArabic ? 'إرسال كود التحقق 📲' : 'Send Verification Code'}</span>
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  /* Step 2: Enter 6-digit OTP */
-                  <form onSubmit={handleVerifyWaOtp} className="space-y-4">
-                    <div className="flex items-center justify-between p-2.5 bg-[#081624] border border-[#1e3a4d] rounded-xl text-xs">
-                      <span className="text-slate-400">{isArabic ? 'الرقم المستلم:' : 'Target Phone:'}</span>
-                      <span className="font-mono text-emerald-300 font-bold" dir="ltr">{waPhone}</span>
-                      <button
-                        type="button"
-                        onClick={() => setWaStep('phone')}
-                        className="text-[11px] text-sky-400 hover:text-sky-300 underline"
-                      >
-                        {isArabic ? 'تعديل الرقم' : 'Edit'}
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1.5">
-                        {isArabic ? 'أدخل رمز التحقق (6 أرقام):' : 'Enter 6-Digit Verification Code:'}
-                      </label>
-                      <div className="relative">
+                      <div>
+                        <label className="block text-slate-300 font-semibold mb-1">
+                          {isArabic ? 'أدخل رمز التحقق (6 أرقام):' : 'Enter 6-Digit Code:'}
+                        </label>
                         <input
                           type="text"
                           required
@@ -440,47 +524,32 @@ export function ChannelConnectionsManager() {
                           placeholder="••••••"
                           dir="ltr"
                           autoFocus
-                          className="w-full bg-[#081624] border border-[#1e3a4d] rounded-xl px-4 py-3 text-center text-lg font-mono font-bold tracking-[0.5em] text-white focus:outline-none focus:border-emerald-500"
+                          className="w-full bg-[#081624] border border-[#1e3a4d] rounded-xl px-4 py-2.5 text-center text-base font-mono font-bold tracking-[0.4em] text-white focus:outline-none focus:border-emerald-500"
                         />
-                        <KeyRound className="absolute left-3.5 top-3.5 size-4 text-slate-500" />
                       </div>
-                    </div>
 
-                    {/* Test Code Helper Box */}
-                    {waDevOtp && (
-                      <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl text-sky-300 text-[11px] flex items-center justify-between">
-                        <span>💡 كود التحقق التجريبي الفوري: <strong className="font-mono font-bold text-white tracking-widest">{waDevOtp}</strong></span>
+                      <div className="flex items-center justify-between">
                         <button
                           type="button"
-                          onClick={() => setWaOtp(waDevOtp)}
-                          className="px-2 py-1 bg-sky-500/20 hover:bg-sky-500/30 rounded text-[10px] font-bold text-white"
+                          onClick={() => handleRequestWaOtp()}
+                          disabled={sendingWaOtp}
+                          className="text-slate-400 hover:text-sky-300 text-[11px]"
                         >
-                          تعبئة تلقائية
+                          {isArabic ? 'إعادة إرسال الرمز' : 'Resend code'}
+                        </button>
+
+                        <button
+                          type="submit"
+                          disabled={verifyingWaOtp || waOtp.length !== 6}
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all text-xs flex items-center gap-1.5"
+                        >
+                          {verifyingWaOtp ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+                          <span>{isArabic ? 'تأكيد وربط الرقم 🚀' : 'Verify & Link'}</span>
                         </button>
                       </div>
-                    )}
-
-                    <div className="pt-2 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => handleRequestWaOtp()}
-                        disabled={sendingWaOtp}
-                        className="text-slate-400 hover:text-sky-300 text-[11px]"
-                      >
-                        {isArabic ? 'إعادة إرسال الرمز' : 'Resend code'}
-                      </button>
-
-                      <button
-                        type="submit"
-                        disabled={verifyingWaOtp || waOtp.length !== 6}
-                        className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
-                      >
-                        {verifyingWaOtp ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
-                        <span>{isArabic ? 'تأكيد وربط الرقم بالعيادة 🚀' : 'Verify & Link'}</span>
-                      </button>
-                    </div>
-                  </form>
-                )}
+                    </form>
+                  )}
+                </div>
 
                 {/* Advanced Manual Meta Form (Collapsible) */}
                 {showAdvancedWa && (
