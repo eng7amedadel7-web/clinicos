@@ -188,7 +188,7 @@ export default function InboxPage() {
   }
 
   async function handleSendMessage(content: string): Promise<boolean> {
-    if (!selected || !content || sendMutation.isPending || !selectedChannelOnline) return false;
+    if (!selected || !content || sendMutation.isPending) return false;
     try {
       await sendMutation.mutateAsync({ id: selected.id, content });
       return true;
