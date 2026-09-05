@@ -8,15 +8,26 @@ export interface WasapFlowConfig {
 }
 
 export function resolveWasapFlowConfig(): WasapFlowConfig {
-  const partnerKey = process.env.WF_PARTNER_KEY?.trim() || "wf_live_9192772d69d0bd88cc3c43fba49ce30f285996031e54f98d";
-  const webhookSecret = process.env.WF_WEBHOOK_SECRET?.trim() || "whsec_1c2802fa153ac44cca81a2f92b439753974f0ef65eeeed1d";
+  const partnerKey = process.env.WF_PARTNER_KEY?.trim() ?? "";
+  const webhookSecret = process.env.WF_WEBHOOK_SECRET?.trim() ?? "";
   const baseUrl = (process.env.WF_BASE_URL?.trim() || "https://officialapi.wasapflow.com/bridge/v1").replace(/\/+$/, "");
 
   return { partnerKey, webhookSecret, baseUrl };
 }
 
+function requirePartnerKey(config: WasapFlowConfig): string {
+  if (!config.partnerKey) {
+    throw Object.assign(
+      new Error("WasapFlow integration is not configured. Set the WF_PARTNER_KEY environment variable."),
+      { statusCode: 503 }
+    );
+  }
+  return config.partnerKey;
+}
+
 export async function createWasapFlowConnectSession(clinicId: string, displayName?: string) {
   const config = resolveWasapFlowConfig();
+  const partnerKey = requirePartnerKey(config);
   const url = `${config.baseUrl}/connect/session`;
 
   const payload = {
@@ -28,7 +39,7 @@ export async function createWasapFlowConnectSession(clinicId: string, displayNam
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        "x-partner-key": config.partnerKey,
+        "x-partner-key": partnerKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -63,6 +74,7 @@ export async function createWasapFlowConnectSession(clinicId: string, displayNam
 
 export async function sendWasapFlowMessage(wabaId: string, to: string, text: string) {
   const config = resolveWasapFlowConfig();
+  const partnerKey = requirePartnerKey(config);
   const url = `${config.baseUrl}/messages/send`;
 
   // Format to standard international digits without '+'
@@ -72,7 +84,7 @@ export async function sendWasapFlowMessage(wabaId: string, to: string, text: str
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        "x-partner-key": config.partnerKey,
+        "x-partner-key": partnerKey,
         "x-waba-id": wabaId,
         "Content-Type": "application/json",
       },

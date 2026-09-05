@@ -8,11 +8,12 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 function getAdminSecret(): string {
-  return process.env.PLATFORM_ADMIN_SECRET?.trim() || "meruna-saas-admin-secret-2026";
+  return process.env.PLATFORM_ADMIN_SECRET?.trim() ?? "";
 }
 
 function verifyAdminAccess(req: Request): boolean {
   const configured = getAdminSecret();
+  if (!configured) return false;
   const provided = (
     req.headers["x-admin-key"] ||
     req.headers["x-admin-secret"] ||

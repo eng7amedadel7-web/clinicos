@@ -51,6 +51,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+          paddle: ['@paddle/paddle-js'],
+          charts: ['recharts'],
+        },
+      },
+    },
   },
   server: {
     port,

@@ -61,8 +61,13 @@ import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
 import { RealtimeStatusContext, useRealtimeSync } from '@/lib/realtime';
-import { ChannelConnectionsManager } from '@/components/channel-connections-manager';
-import { BranchManager } from '@/components/branch-manager';
+
+const ChannelConnectionsManager = lazy(() =>
+  import('@/components/channel-connections-manager').then((module) => ({ default: module.ChannelConnectionsManager })),
+);
+const BranchManager = lazy(() =>
+  import('@/components/branch-manager').then((module) => ({ default: module.BranchManager })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,8 +91,6 @@ const AiReceptionPage = lazy(() => import('@/pages/ai-reception-page'));
 const TasksPage = lazy(() => import('@/pages/tasks-page'));
 const TemplatesPage = lazy(() => import('@/pages/templates-page'));
 const MerunaHome = lazy(() => import('@/pages/meruna-home'));
-const CurrentMerunaHome = lazy(() => import('@/pages/meruna-home-current'));
-const MergedMerunaHome = lazy(() => import('@/pages/meruna-home-merged'));
 const LegalPage = lazy(() => import('@/pages/legal-pages'));
 const OrganizationSettings = lazy(() => import('@/pages/organization-settings'));
 const LivePatientsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.LivePatientsPage })));
@@ -576,8 +579,8 @@ function NotFound() {
 function Router() {
   const [location] = useLocation();
   const legalRoutes = ['/refund-policy', '/privacy-policy', '/terms', '/cookie-policy', '/contact'];
-  const publicRoute = location === '/' || location === '/current-home' || location === '/merged-home' || location === '/login' || location === '/register' || location === '/admin' || location === '/forgot-password' || location === '/reset-password' || location.startsWith('/queue/') || legalRoutes.includes(location);
-  return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<RouteLoadingFallback fullHeight />}>{location.startsWith('/queue/') ? <PublicQueuePage /> : <Switch><Route path="/" component={MerunaHome} /><Route path="/current-home" component={CurrentMerunaHome} /><Route path="/merged-home" component={MergedMerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/admin" component={AdminPanelPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch>}</Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/calendar" component={ProtectedShell} /><Route path="/tasks" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/ai-reception" component={ProtectedShell} /><Route path="/templates" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent/:view" component={ProtectedShell} />
+  const publicRoute = location === '/' || location === '/login' || location === '/register' || location === '/admin' || location === '/forgot-password' || location === '/reset-password' || location.startsWith('/queue/') || legalRoutes.includes(location);
+  return <ErrorBoundary resetKey={location}>{publicRoute ? <Suspense fallback={<RouteLoadingFallback fullHeight />}>{location.startsWith('/queue/') ? <PublicQueuePage /> : <Switch><Route path="/" component={MerunaHome} /><Route path="/refund-policy">{() => <LegalPage kind="refund" />}</Route><Route path="/privacy-policy">{() => <LegalPage kind="privacy" />}</Route><Route path="/terms">{() => <LegalPage kind="terms" />}</Route><Route path="/cookie-policy">{() => <LegalPage kind="cookies" />}</Route><Route path="/contact">{() => <LegalPage kind="contact" />}</Route><Route path="/login" component={LoginPage} /><Route path="/register" component={RegisterPage} /><Route path="/admin" component={AdminPanelPage} /><Route path="/forgot-password" component={LoginPage} /><Route path="/reset-password" component={LoginPage} /></Switch>}</Suspense> : <PreferencesProvider><Switch><Route path="/dashboard" component={ProtectedShell} /><Route path="/settings" component={ProtectedShell} /><Route path="/patients" component={ProtectedShell} /><Route path="/patients/:id" component={ProtectedShell} /><Route path="/appointments" component={ProtectedShell} /><Route path="/appointments/:id" component={ProtectedShell} /><Route path="/calendar" component={ProtectedShell} /><Route path="/tasks" component={ProtectedShell} /><Route path="/inbox" component={ProtectedShell} /><Route path="/ai-reception" component={ProtectedShell} /><Route path="/templates" component={ProtectedShell} /><Route path="/waitlist" component={ProtectedShell} /><Route path="/follow-ups" component={ProtectedShell} /><Route path="/no-shows" component={ProtectedShell} /><Route path="/voice-agent/:view" component={ProtectedShell} />
       <Route path="/voice-agent" component={ProtectedShell} /><Route path="/billing" component={ProtectedShell} /><Route path="/organization" component={ProtectedShell} /><Route path="/analytics" component={ProtectedShell} /><Route component={NotFound} /></Switch></PreferencesProvider>}</ErrorBoundary>;
 }
 
