@@ -146,6 +146,43 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
       }
     }
 
+    // Delivery 2b: Thikaa Telegram — heritage channels keep their provider
+    // token in channel_secrets (get_channel_secret_db), same source the n8n
+    // Telegram sender uses. This is what actually delivers staff replies for
+    // clinics whose Telegram runs through the Thikaa bridge.
+    if (channel?.type === "telegram" && tgChatId && channel?.id) {
+      try {
+        const secretRes = await supabaseAdminRequest<Array<{ api_token?: string }>>("/rest/v1/rpc/get_channel_secret_db", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ p_channel_id: channel.id }),
+        });
+        const thikaaToken = secretRes.ok ? (secretRes.data?.[0]?.api_token ?? "").trim() : "";
+        if (thikaaToken) {
+          const thikaaBase = process.env.THIKAA_API_BASE?.trim() || "https://thikaa.com/thik_tenant_hamedadel";
+          const tkRes = await fetch(`${thikaaBase}/api/messaging/?action=send`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${thikaaToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ channel: "tg", to: tgChatId, message: msg.content }),
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (tkRes.ok) {
+            await supabaseAdminRequest(`/rest/v1/messages?id=eq.${encodeURIComponent(msg.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({ message_status: "delivered" }),
+            });
+            logger.info({ conversationId, messageId: msg.id }, "[Outbound] Message delivered via Thikaa Telegram");
+            return { delivered: true };
+          }
+          logger.warn({ conversationId, providerStatus: tkRes.status }, "[Outbound] Thikaa Telegram send rejected");
+        } else {
+          logger.warn({ conversationId }, "[Outbound] Thikaa Telegram token missing for channel");
+        }
+      } catch (tkErr) {
+        logger.warn({ tkErr, conversationId }, "[Outbound] Thikaa Telegram send failed, trying fallbacks");
+      }
+    }
+
     // Delivery 3: Meta Messenger / Instagram Direct
     const pageToken = channel?.config?.access_token || channel?.config?.accessToken || clinicChannelsConfig?.messenger?.accessToken || clinicChannelsConfig?.instagram?.accessToken;
     const isMeta = (channel?.type === "messenger" || channel?.type === "instagram") && Boolean(pageToken);
