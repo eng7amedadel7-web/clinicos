@@ -75,7 +75,7 @@ function publicAppOrigin(req: Request): string {
 }
 
 // 1. GET /api/settings/channels - Retrieve all 4 channel connections
-router.get("/api/settings/channels", async (req: Request, res: Response) => {
+router.get("/settings/channels", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "read");
@@ -107,7 +107,7 @@ router.get("/api/settings/channels", async (req: Request, res: Response) => {
       accessToken: channels.whatsapp?.accessToken ? "••••••••••••••••" : "",
       verifiedAt: channels.whatsapp?.verifiedAt || null,
       verifyToken: channels.whatsapp?.verifyToken || `mrn_wa_${session.clinicId.slice(0, 8)}`,
-      webhookUrl: `${origin}/api/inbound/wasapflow`,
+      webhookUrl: `${origin}/api/inbox/wasapflow`,
     },
     telegram: {
       connected: Boolean(channels.telegram?.botToken),
@@ -135,7 +135,7 @@ router.get("/api/settings/channels", async (req: Request, res: Response) => {
 });
 
 // 1.0 POST /api/settings/channels/whatsapp/connect-session - WasapFlow Embedded Signup Session
-router.post("/api/settings/channels/whatsapp/connect-session", async (req: Request, res: Response) => {
+router.post("/settings/channels/whatsapp/connect-session", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -168,7 +168,7 @@ router.post("/api/settings/channels/whatsapp/connect-session", async (req: Reque
 });
 
 // 1.01 POST /api/settings/channels/whatsapp/connect-complete - WasapFlow Onboarding Completed
-router.post("/api/settings/channels/whatsapp/connect-complete", async (req: Request, res: Response) => {
+router.post("/settings/channels/whatsapp/connect-complete", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -201,7 +201,7 @@ router.post("/api/settings/channels/whatsapp/connect-complete", async (req: Requ
     connectionMode: connection_mode || "coexistence",
     provider: "wasapflow",
     verifiedAt: new Date().toISOString(),
-    webhookUrl: `${origin}/api/inbound/wasapflow`,
+    webhookUrl: `${origin}/api/inbox/wasapflow`,
     updatedAt: new Date().toISOString(),
   };
 
@@ -249,7 +249,7 @@ router.post("/api/settings/channels/whatsapp/connect-complete", async (req: Requ
 });
 
 // 1.1 POST /api/settings/channels/whatsapp/request-otp - Send OTP verification code to phone
-router.post("/api/settings/channels/whatsapp/request-otp", async (req: Request, res: Response) => {
+router.post("/settings/channels/whatsapp/request-otp", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -297,20 +297,18 @@ router.post("/api/settings/channels/whatsapp/request-otp", async (req: Request, 
     }
   );
 
-  logger.info({ clinicId: session.clinicId, phone: cleanPhone, otp }, "[WhatsApp OTP] Verification code generated");
+  logger.info({ clinicId: session.clinicId, phone: cleanPhone }, "[WhatsApp OTP] Verification code generated");
 
   res.json({
     success: true,
     message: `تم إرسال رمز التحقق (OTP) إلى الرقم ${cleanPhone}`,
     phoneNumber: cleanPhone,
     expiresAt,
-    // Always provide preview code for instant test ease
-    devOtp: otp,
   });
 });
 
 // 1.2 POST /api/settings/channels/whatsapp/verify-otp - Verify OTP and link WhatsApp directly to clinic
-router.post("/api/settings/channels/whatsapp/verify-otp", async (req: Request, res: Response) => {
+router.post("/settings/channels/whatsapp/verify-otp", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -398,7 +396,7 @@ router.post("/api/settings/channels/whatsapp/verify-otp", async (req: Request, r
 });
 
 // 1.3 POST /api/settings/channels/whatsapp/disconnect - Disconnect WhatsApp
-router.post("/api/settings/channels/whatsapp/disconnect", async (req: Request, res: Response) => {
+router.post("/settings/channels/whatsapp/disconnect", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -456,7 +454,7 @@ router.post("/api/settings/channels/whatsapp/disconnect", async (req: Request, r
 });
 
 // 2. POST /api/settings/channels/:channel - Save channel credentials
-router.post("/api/settings/channels/:channel", async (req: Request, res: Response) => {
+router.post("/settings/channels/:channel", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -533,7 +531,7 @@ router.post("/api/settings/channels/:channel", async (req: Request, res: Respons
 });
 
 // 3. POST /api/settings/channels/telegram/auto-link - Automatically set Telegram Webhook via Bot API
-router.post("/api/settings/channels/telegram/auto-link", async (req: Request, res: Response) => {
+router.post("/settings/channels/telegram/auto-link", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");

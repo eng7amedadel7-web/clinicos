@@ -7,6 +7,16 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/trial-expiry",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

@@ -146,7 +146,36 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
       }
     }
 
-    // Delivery 3: n8n / Custom Webhook Dispatcher
+    // Delivery 3: Meta Messenger / Instagram Direct
+    const pageToken = channel?.config?.access_token || channel?.config?.accessToken || clinicChannelsConfig?.messenger?.accessToken || clinicChannelsConfig?.instagram?.accessToken;
+    const isMeta = (channel?.type === "messenger" || channel?.type === "instagram") && Boolean(pageToken);
+    const recipientId = conv.channel_conversation_id || recipientPhone;
+    if (isMeta && pageToken && recipientId) {
+      try {
+        const metaRes = await fetch("https://graph.facebook.com/v20.0/me/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: { text: msg.content },
+            access_token: pageToken,
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (metaRes.ok) {
+          await supabaseAdminRequest(`/rest/v1/messages?id=eq.${encodeURIComponent(msg.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({ message_status: "delivered" }),
+          });
+          logger.info({ conversationId, messageId: msg.id }, "[Outbound] Message delivered via Meta Graph API");
+          return;
+        }
+      } catch (metaErr) {
+        logger.warn({ metaErr, conversationId }, "[Outbound] Meta Graph send failed, trying n8n fallback");
+      }
+    }
+
+    // Delivery 4: n8n / Custom Webhook Dispatcher
     const config = resolveOutboundDispatcherConfig();
     if (config) {
       const payload = {

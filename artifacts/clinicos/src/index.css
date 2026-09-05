@@ -323,6 +323,22 @@
   .auth-stagger > * { animation-duration: 0.01ms; animation-delay: 0ms; }
 }
 
+/* Premium sheen sweep across the primary auth submit button on hover. */
+.auth-submit { position: relative; overflow: hidden; }
+.auth-submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.16) 50%, transparent 68%);
+  transform: translateX(-130%);
+  transition: transform 0.9s ease;
+  pointer-events: none;
+}
+.auth-submit:hover:not(:disabled)::after { transform: translateX(130%); }
+@media (prefers-reduced-motion: reduce) {
+  .auth-submit::after { display: none; }
+}
+
 
 .channel-shortcut {
   display: inline-flex;

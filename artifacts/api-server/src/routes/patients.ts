@@ -4,7 +4,7 @@ import { supabaseRequest } from "../lib/supabase";
 import { clinicEvents } from "../lib/events";
 
 const router = Router();
-type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string; phone?: string; created_at?: string };
+type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string; phone?: string; email?: string; notes?: string; created_at?: string };
 type PatientInput = { name?: unknown; phone?: unknown; email?: unknown; notes?: unknown };
 
 function sessionHeaders(accessToken: string, extra: Record<string, string> = {}) {
@@ -24,10 +24,10 @@ router.get("/patients", async (req, res) => {
   try { session = await requireClinicPermission(req, "Patients", "patients", "read"); } catch (error) { respondToPermissionError(res, error); return; }
   const limit = clampInt(req.query.limit, 1000, 1, 1000);
   const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
-  const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=" + limit + "&offset=" + offset;
+  const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,email,notes,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=" + limit + "&offset=" + offset;
   const result = await supabaseRequest<PatientRow[]>(path, { headers: { Authorization: `Bearer ${session.accessToken}` } });
   if (!result.ok) { res.status(result.status || 502).json({ error: "Patients could not be loaded." }); return; }
-  const items = (result.data ?? []).map((patient) => ({ id: patient.id, name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم", phone: patient.phone || "—", createdAt: patient.created_at || null }));
+  const items = (result.data ?? []).map((patient) => ({ id: patient.id, name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم", phone: patient.phone || "—", email: patient.email || null, notes: patient.notes || null, createdAt: patient.created_at || null }));
   res.json({ items, total: items.length, hasMore: items.length >= limit });
 });
 

@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'wouter';
-import { ArrowRight, Check, Globe, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Globe, ShieldCheck, X } from 'lucide-react';
 import { BrandMark } from '@/components/brand';
 import type { AuthErrorKey } from '@/lib/api-errors';
 
 // Shared identity for every auth surface (login, register, password recovery,
 // admin gate): pinned split layout — brand panel left, form right — with the
 // light form styling and ambient motion. Pages provide only their own copy.
+// Text direction follows the active language; the panel geometry stays pinned.
 
 export type AuthLanguage = 'ar' | 'en';
 export type GreetingKey = 'morning' | 'afternoon' | 'evening';
@@ -116,14 +117,19 @@ export function useAuthLocale() {
 }
 
 export function AuthLocaleProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<AuthLanguage>('ar');
+  // Same preference semantics as lib/preferences.tsx (Arabic-first): only an
+  // explicit saved 'en' switches language, and the shared landing/auth key
+  // 'meruna-language' is kept. Reading it lazily also prevents the wrong
+  // first paint when a returning user saved the other language.
+  const [lang, setLang] = useState<AuthLanguage>(
+    () => (window.localStorage.getItem('meruna-language') === 'en' ? 'en' : 'ar')
+  );
+
   useEffect(() => {
-    const saved = window.localStorage.getItem('meruna-language');
-    if (saved === 'en' || saved === 'ar') setLang(saved);
-  }, []);
-  useEffect(() => {
+    document.documentElement.lang = lang;
     window.localStorage.setItem('meruna-language', lang);
   }, [lang]);
+
   const value = {
     lang,
     text: sharedAuthCopy[lang],
@@ -139,33 +145,85 @@ export function getGreetingKey(date = new Date()): GreetingKey {
   return 'evening';
 }
 
+const ARABIC_CHAR_RE = /[\u0600-\u06FF]/;
+const LATIN_TOKEN_RE = /([A-Za-z0-9][A-Za-z0-9@._+\-/:#%]*)/g;
+
+// Isolates Latin tokens (brand names, units like 256-bit, numbers) inside
+// Arabic sentences so the bidi algorithm cannot visually scramble them.
+// Pure-Latin copy is returned untouched to keep the DOM clean.
+export function BidiText({ children }: { children: string }) {
+  if (!ARABIC_CHAR_RE.test(children)) return children;
+  const parts = children.split(LATIN_TOKEN_RE);
+  return (
+    <>
+      {parts.map((part, index) => (index % 2 === 1 ? <bdi key={index}>{part}</bdi> : part))}
+    </>
+  );
+}
+
 export const SUBMIT_BUTTON_CLASS =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d2436] py-3.5 text-sm font-extrabold text-white shadow-lg shadow-[#0d2436]/20 transition-all hover:bg-[#143350] active:scale-[0.99] disabled:opacity-60';
+  'auth-submit flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d2436] py-3.5 text-sm font-extrabold text-white shadow-lg shadow-[#0d2436]/25 outline-none transition-all duration-200 hover:bg-[#143350] hover:shadow-xl hover:shadow-[#0d2436]/25 enabled:hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-sky-500/30 enabled:active:translate-y-0 enabled:active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 dark:bg-[#2a6c8c] dark:shadow-black/30 dark:hover:bg-[#35809f] dark:focus-visible:ring-sky-400/30';
 
 export const FIELD_INPUT_CLASS =
-  'w-full rounded-xl border border-slate-200 bg-white py-3 text-sm text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15';
+  'w-full rounded-xl border border-slate-200 bg-white py-3 text-sm text-slate-800 shadow-sm outline-none transition-all duration-200 hover:border-slate-300 placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-100 dark:shadow-none dark:placeholder:text-slate-500 dark:hover:border-white/20 dark:focus:border-sky-400/70 dark:focus:ring-sky-400/20';
 
-// Icons sit on the right edge and the password toggle on the left edge — the
-// geometry is pinned to the Arabic layout; switching language changes words
-// only and never moves or flips anything.
+// Field icons sit on the inline-start edge and the password toggle on the
+// inline-end edge using logical utilities — they flip automatically with the
+// column direction and never need per-language geometry.
 export function fieldClasses() {
   return {
-    startIcon: 'right-3.5',
-    endIcon: 'left-3.5',
-    emailPad: 'pr-10 pl-4',
+    startIcon: 'start-3.5',
+    endIcon: 'end-3.5',
+    emailPad: 'ps-10 pe-4',
     passwordPad: 'px-10',
   };
+}
+
+// Shared pill style for the header actions (home link, language toggle).
+const HEADER_PILL_CLASS =
+  'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-px hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:shadow-none dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:text-white';
+
+const PASSWORD_TOGGLE_CLASS =
+  'absolute end-3.5 top-3.5 -m-1 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-slate-200';
+
+export function PasswordFieldToggle({
+  visible,
+  onToggle,
+  showLabel,
+  hideLabel,
+  testId,
+}: {
+  visible: boolean;
+  onToggle: () => void;
+  showLabel: string;
+  hideLabel: string;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={PASSWORD_TOGGLE_CLASS}
+      onClick={onToggle}
+      aria-label={visible ? hideLabel : showLabel}
+      aria-pressed={visible}
+      data-testid={testId}
+    >
+      {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+    </button>
+  );
 }
 
 export function ErrorAlert({ message, testid }: { message: string; testid: string }) {
   return (
     <div
-      className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700"
+      className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
       data-testid={testid}
       role="alert"
     >
-      <X size={15} className="mt-0.5 shrink-0 text-red-400" />
-      <span>{message}</span>
+      <X size={15} className="mt-0.5 shrink-0 text-red-400 dark:text-red-300/80" />
+      <span>
+        <BidiText>{message}</BidiText>
+      </span>
     </div>
   );
 }
@@ -173,14 +231,16 @@ export function ErrorAlert({ message, testid }: { message: string; testid: strin
 export function SuccessAlert({ message, testid }: { message: string; testid: string }) {
   return (
     <div
-      className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs leading-5 text-emerald-700"
+      className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs leading-5 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
       data-testid={testid}
       role="status"
     >
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-700">
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-300">
         <Check size={12} strokeWidth={3} />
       </span>
-      <span>{message}</span>
+      <span>
+        <BidiText>{message}</BidiText>
+      </span>
     </div>
   );
 }
@@ -188,22 +248,24 @@ export function SuccessAlert({ message, testid }: { message: string; testid: str
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <span className="mt-1 block text-xs font-semibold text-red-600" data-testid="text-field-error">
-      {message}
+    <span className="mt-1 block text-xs font-semibold text-red-600 dark:text-red-400" data-testid="text-field-error">
+      <BidiText>{message}</BidiText>
     </span>
   );
 }
 
 function BrandPanel() {
-  const { text } = useAuthLocale();
+  const { lang, text } = useAuthLocale();
+  const rtl = lang === 'ar';
 
   return (
     <aside
-      dir="ltr"
-      className="relative hidden w-full flex-1 flex-col justify-between overflow-hidden bg-[linear-gradient(165deg,#0e2f4c_0%,#0a2033_48%,#06121f_100%)] p-10 text-slate-100 lg:flex xl:p-14"
+      dir={rtl ? 'rtl' : 'ltr'}
+      className={`relative hidden w-full flex-1 flex-col justify-between overflow-hidden border-r border-white/[0.06] bg-[linear-gradient(165deg,#0e2f4c_0%,#0a2033_48%,#06121f_100%)] p-10 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] lg:flex xl:p-14 ${rtl ? 'ar' : ''}`}
     >
       {/* Ambient motion: drifting orbs, breathing rings, a slow diagonal sheen */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(58%_46%_at_72%_36%,rgba(56,189,248,0.09),transparent_70%)]" />
         <div className="auth-orb absolute -right-24 -top-24 size-[420px] rounded-full bg-sky-500/15 blur-3xl" />
         <div className="auth-orb auth-orb-slow absolute -bottom-32 -left-20 size-[460px] rounded-full bg-indigo-500/15 blur-3xl" />
         <div className="auth-glow absolute left-1/2 top-1/3 size-[340px] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[100px]" />
@@ -218,40 +280,60 @@ function BrandPanel() {
 
       <header className="relative z-10 flex items-center gap-3">
         <BrandMark size={40} />
-        <div>
+        <div dir="ltr">
           <span className="block text-base font-extrabold tracking-[0.18em] text-white">MERUNA</span>
-          <span className="-mt-1 block text-[10px] font-semibold uppercase tracking-widest text-sky-400">Clinic System</span>
+          <span className="-mt-1 block text-xs font-semibold uppercase tracking-widest text-sky-400">Clinic System</span>
         </div>
       </header>
 
       <div className="relative z-10 flex flex-col items-center px-6 text-center">
         <span className="auth-badge inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/10 px-4 py-1.5 text-xs font-bold text-sky-300">
           <ShieldCheck className="size-3.5" />
-          {text.brand.badge}
+          <BidiText>{text.brand.badge}</BidiText>
         </span>
         <h2 className="auth-float mt-7 max-w-[600px] text-4xl font-black leading-[1.3] text-white xl:text-[2.9rem] xl:leading-[1.25]">
-          <span className="auth-shimmer">{text.brand.headline}</span>
+          <span className="auth-shimmer">
+            <BidiText>{text.brand.headline}</BidiText>
+          </span>
         </h2>
-        <p className="mt-5 max-w-md text-sm leading-8 text-slate-300">{text.brand.sub}</p>
+        <p className="mt-5 max-w-md text-sm leading-8 text-slate-300">
+          <BidiText>{text.brand.sub}</BidiText>
+        </p>
       </div>
 
-      <footer className="relative z-10 flex items-center justify-between text-[11px] text-slate-400">
-        <span>{text.brand.privacy}</span>
-        <span>© {text.brand.copyright}</span>
+      <footer className="relative z-10 flex items-center justify-between text-xs text-slate-400">
+        <span>
+          <BidiText>{text.brand.privacy}</BidiText>
+        </span>
+        <span dir="ltr">© {text.brand.copyright}</span>
       </footer>
     </aside>
   );
 }
 
-export function AuthShell({ children, languageToggle = true }: { children: ReactNode; languageToggle?: boolean }) {
-  const { text, toggleLanguage } = useAuthLocale();
+// Auth routes mount outside PreferencesProvider, so the shell syncs the app
+// dark-mode class from the same stored theme preference itself. Every
+// destination (app shell, landing) re-syncs it on mount, so no cleanup is
+// needed beyond keeping the value in step while auth is visible.
+function useAuthThemeSync() {
+  useEffect(() => {
+    const stored =
+      window.localStorage.getItem('clinicos-theme') ?? window.localStorage.getItem('meruna-theme');
+    document.documentElement.classList.toggle('dark', stored === 'dark');
+  }, []);
+}
 
-  // The split layout is pinned: brand panel on the left, form on the right,
-  // and the whole form column keeps its RTL geometry in both languages —
-  // switching language changes words only.
+export function AuthShell({ children, languageToggle = true }: { children: ReactNode; languageToggle?: boolean }) {
+  const { lang, text, toggleLanguage } = useAuthLocale();
+  useAuthThemeSync();
+  const rtl = lang === 'ar';
+  const BackArrow = rtl ? ArrowRight : ArrowLeft;
+
+  // The split layout is pinned: brand panel on the left, form on the right.
+  // Only the text direction of each column follows the active language.
   return (
     <div
-      className="flex min-h-[100dvh] w-full flex-row bg-[#f2f6f9] text-slate-800"
+      className="flex min-h-[100dvh] w-full flex-row bg-[#f2f6f9] text-slate-800 dark:bg-background dark:text-slate-200"
       dir="ltr"
       data-testid="auth-layout"
     >
@@ -259,36 +341,33 @@ export function AuthShell({ children, languageToggle = true }: { children: React
 
       {/* Form side */}
       <div
-        dir="rtl"
-        className="relative flex w-full flex-col lg:w-[54%] xl:w-[56%] 2xl:w-[58%]"
+        dir={rtl ? 'rtl' : 'ltr'}
+        className={`relative flex w-full flex-col lg:w-[54%] xl:w-[56%] 2xl:w-[58%] ${rtl ? 'ar' : ''}`}
       >
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="auth-orb absolute -right-24 -top-24 size-80 rounded-full bg-sky-200/60 blur-3xl" />
-          <div className="auth-orb auth-orb-slow absolute -bottom-24 -left-24 size-80 rounded-full bg-indigo-200/50 blur-3xl" />
+          <div className="auth-orb absolute -right-24 -top-24 size-80 rounded-full bg-sky-200/60 blur-3xl dark:bg-sky-500/10" />
+          <div className="auth-orb auth-orb-slow absolute -bottom-24 -left-24 size-80 rounded-full bg-indigo-200/50 blur-3xl dark:bg-indigo-500/10" />
         </div>
 
         <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
           <div className="flex items-center gap-2.5 lg:hidden" dir="ltr">
             <BrandMark size={30} />
-            <span className="text-sm font-extrabold tracking-[0.16em] text-[#0b2437]">MERUNA</span>
+            <span className="text-sm font-extrabold tracking-[0.16em] text-[#0b2437] dark:text-white">MERUNA</span>
           </div>
           <span className="hidden lg:block" />
           <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
-            >
-              <ArrowRight className="size-3.5" />
+            <Link href="/" className={HEADER_PILL_CLASS}>
+              <BackArrow className="size-3.5" />
               <span>{text.home}</span>
             </Link>
             {languageToggle ? (
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
+                className={HEADER_PILL_CLASS}
                 data-testid="button-auth-language"
               >
-                <Globe className="size-3.5 text-sky-600" />
+                <Globe className="size-3.5 text-sky-600 dark:text-sky-400" />
                 <span>{text.language}</span>
               </button>
             ) : null}
@@ -299,14 +378,18 @@ export function AuthShell({ children, languageToggle = true }: { children: React
           <div className="auth-stagger w-full max-w-[430px] py-4">{children}</div>
         </main>
 
-        <footer className="relative z-10 flex items-center justify-between px-6 py-5 text-[11px] text-slate-500 sm:px-10">
+        <footer className="relative z-10 flex items-center justify-between px-6 py-5 text-xs text-slate-500 sm:px-10 dark:text-slate-400">
           <span className="flex items-center gap-1.5">
             <span className="live-pulse-dot inline-block size-1.5 rounded-full bg-emerald-500" />
-            <span>{text.footer.status}</span>
+            <span>
+              <BidiText>{text.footer.status}</BidiText>
+            </span>
           </span>
           <span className="flex items-center gap-1">
-            <ShieldCheck size={13} className="text-slate-400" />
-            <span>{text.footer.secure}</span>
+            <ShieldCheck size={13} className="text-slate-400 dark:text-slate-500" />
+            <span>
+              <BidiText>{text.footer.secure}</BidiText>
+            </span>
           </span>
         </footer>
       </div>

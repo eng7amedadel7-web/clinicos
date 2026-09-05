@@ -1,0 +1,38 @@
+-- =============================================================================
+-- Staff invites — DOCUMENTATION ONLY, no DDL.
+--
+-- The live database already owns this feature with a richer shape than any
+-- repo table would provide. Do NOT create or alter these objects from the
+-- repository; this file exists so a fresh-environment reader knows what the
+-- invite flow depends on.
+--
+-- Live objects the /organization/staff/invites + /accept-invite flow uses:
+--
+--   enum public.staff_role            -> 'owner', 'admin', 'staff'
+--   table public.staff_email_invites  -> clinic_id, email, staff_role, role_id,
+--                                        branch_id, token_hash (sha256 hex),
+--                                        status (pending/sent/delivery_failed/
+--                                        accepted/revoked), invited_by,
+--                                        accepted_by, expires_at (7 days),
+--                                        sent_at, accepted_at, revoked_at.
+--                                        RLS: no direct writes; authorized
+--                                        selects only.
+--   table public.staff_invite_tokens  -> legacy Telegram-verification tokens
+--                                        (clinic_staff_id, token_hash) - NOT
+--                                        used by the email invite flow.
+--   rpc  issue_staff_email_invite(p_clinic_id, p_email, p_staff_role,
+--                                 p_role_id, p_branch_id, p_token_hash,
+--                                 p_inviter_id)  -> SECURITY DEFINER; verifies
+--                                 the inviter is owner/admin, auto-revokes
+--                                 earlier pending invites for the same email,
+--                                 audit-logs the issue.
+--   rpc  accept_staff_email_invite(p_token_hash) -> SECURITY DEFINER; requires
+--                                 auth.uid() of the invitee (email must match
+--                                 the invite), inserts users/clinic_staff/
+--                                 user_roles rows atomically, marks accepted,
+--                                 audit-logs.
+--   rpc  revoke_staff_email_invite(p_invite_id, p_revoker_id)
+--   rpc  mark_staff_email_invite_delivery(p_invite_id, p_sent, p_error)
+--
+-- Server implementation: artifacts/api-server/src/routes/organization.ts.
+-- =============================================================================

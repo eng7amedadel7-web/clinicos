@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { timingSafeEqual, createHash } from "node:crypto";
 import { z } from "zod";
 import { supabaseAdminRequest, supabaseRequest } from "../lib/supabase";
 import { clinicEvents } from "../lib/events";
@@ -7,22 +8,30 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-function getAdminSecret(): string {
-  return process.env.PLATFORM_ADMIN_SECRET?.trim() ?? "";
+const ADMIN_UNSET = Symbol("admin-secret-unset");
+
+function getAdminSecret(): string | typeof ADMIN_UNSET {
+  const secret = process.env.PLATFORM_ADMIN_SECRET?.trim();
+  // No default: a guessable platform secret would let anyone provision clinics.
+  return secret ? secret : ADMIN_UNSET;
 }
 
 function verifyAdminAccess(req: Request): boolean {
   const configured = getAdminSecret();
-  if (!configured) return false;
+  if (configured === ADMIN_UNSET) {
+    logger.warn("[Admin] PLATFORM_ADMIN_SECRET is not configured; admin routes are locked.");
+    return false;
+  }
   const provided = (
     req.headers["x-admin-key"] ||
     req.headers["x-admin-secret"] ||
-    req.query.key ||
     req.headers["authorization"]?.replace(/^Bearer\s+/i, "")
   );
 
-  if (typeof provided !== "string") return false;
-  return provided.trim() === configured;
+  if (typeof provided !== "string" || !provided.trim()) return false;
+  const providedBuffer = createHash("sha256").update(provided.trim()).digest();
+  const configuredBuffer = createHash("sha256").update(configured).digest();
+  return timingSafeEqual(providedBuffer, configuredBuffer);
 }
 
 function publicAppOrigin(req: Request): string {
@@ -39,11 +48,11 @@ function generateWebhooks(clinicId: string, baseUrl: string) {
   const secretParam = secret ? `&secret=${encodeURIComponent(secret)}` : "";
 
   return {
-    whatsapp: `${baseUrl}/api/inbound?clinic_id=${clinicId}&channel=whatsapp${secretParam}`,
-    telegram: `${baseUrl}/api/inbound?clinic_id=${clinicId}&channel=telegram${secretParam}`,
-    instagram: `${baseUrl}/api/inbound?clinic_id=${clinicId}&channel=instagram${secretParam}`,
-    messenger: `${baseUrl}/api/inbound?clinic_id=${clinicId}&channel=messenger${secretParam}`,
-    voice: `${baseUrl}/api/inbound?clinic_id=${clinicId}&channel=voice${secretParam}`,
+    whatsapp: `${baseUrl}/api/inbox/webhook?clinic_id=${clinicId}&channel=whatsapp${secretParam}`,
+    telegram: `${baseUrl}/api/inbox/webhook?clinic_id=${clinicId}&channel=telegram${secretParam}`,
+    instagram: `${baseUrl}/api/inbox/webhook?clinic_id=${clinicId}&channel=instagram${secretParam}`,
+    messenger: `${baseUrl}/api/inbox/webhook?clinic_id=${clinicId}&channel=messenger${secretParam}`,
+    voice: `${baseUrl}/api/inbox/webhook?clinic_id=${clinicId}&channel=voice${secretParam}`,
     voiceAgentPage: `${baseUrl}/voice-agent`,
   };
 }

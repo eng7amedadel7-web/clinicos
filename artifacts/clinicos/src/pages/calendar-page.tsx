@@ -6,15 +6,26 @@ import { toast } from "sonner";
 import { usePreferences } from "@/lib/preferences";
 import { WorkspacePage, WorkspacePageHeader } from "@/components/workspace-page";
 
+// الخادم يعيد الحقول بصيغة camelCase: { id, name, scheduledAt, status, ... }
 type Appointment = {
+  id: string;
+  name: string;
+  scheduledAt: string | null;
+  status: string;
+  doctorName?: string | null;
+  serviceName?: string | null;
+};
+
+type AppointmentRow = {
   id?: string;
-  patient_id?: string;
-  appointment_status?: string;
-  scheduled_at?: string;
-  booking_number?: string | null;
+  name?: string;
   patientName?: string;
-  serviceName?: string;
-  doctorName?: string;
+  scheduledAt?: string | null;
+  scheduled_at?: string | null;
+  status?: string;
+  appointment_status?: string;
+  doctorName?: string | null;
+  serviceName?: string | null;
 };
 
 type BookingOptions = {
@@ -28,7 +39,16 @@ async function getCalendarAppointments(signal?: AbortSignal): Promise<Appointmen
   const response = await fetch("/api/appointments?includeOptions=false", { credentials: "include", signal });
   if (!response.ok) throw new Error("تعذر تحميل المواعيد");
   const data = await response.json().catch(() => null);
-  return Array.isArray(data?.appointments) ? data.appointments : [];
+  // الخادم يعيد مصفوفة مباشرة، أو { appointments, options } عند includeOptions=true
+  const rows: AppointmentRow[] = Array.isArray(data) ? data : Array.isArray(data?.appointments) ? data.appointments : [];
+  return rows.map((row) => ({
+    id: String(row.id ?? ""),
+    name: row.name || row.patientName || "مريض بدون اسم",
+    scheduledAt: row.scheduledAt ?? row.scheduled_at ?? null,
+    status: row.status || row.appointment_status || "scheduled",
+    doctorName: row.doctorName ?? null,
+    serviceName: row.serviceName ?? null,
+  }));
 }
 
 async function getBookingOptions(signal?: AbortSignal): Promise<BookingOptions | null> {
@@ -145,14 +165,52 @@ export default function CalendarPage() {
     },
   });
 
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ id, scheduledAt }: { id: string; scheduledAt: string }) => {
+      const res = await fetch(`/api/appointments/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ scheduledAt }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || (en ? "Failed to reschedule appointment" : "تعذر نقل الموعد"));
+      }
+      return res.json();
+    },
+    // تحديث متفائل مع التراجع عند الفشل
+    onMutate: async ({ id, scheduledAt }) => {
+      await queryClient.cancelQueries({ queryKey: ["calendar-appointments"] });
+      const previous = queryClient.getQueryData<Appointment[]>(["calendar-appointments", selectedBranchId]);
+      queryClient.setQueryData<Appointment[]>(["calendar-appointments", selectedBranchId], (old) =>
+        (old ?? []).map((appt) => (appt.id === id ? { ...appt, scheduledAt } : appt))
+      );
+      return { previous };
+    },
+    onSuccess: (_data, vars) => {
+      toast.success(
+        en
+          ? `Appointment rescheduled to ${formatDateShort(new Date(vars.scheduledAt), en)}`
+          : `تم نقل الموعد وتأجيله إلى ${formatDateShort(new Date(vars.scheduledAt), en)}`
+      );
+      queryClient.invalidateQueries({ queryKey: ["calendar-appointments"] });
+    },
+    onError: (error: Error, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(["calendar-appointments", selectedBranchId], context.previous);
+      toast.error(error.message || (en ? "Failed to reschedule appointment" : "تعذر نقل الموعد"));
+      queryClient.invalidateQueries({ queryKey: ["calendar-appointments"] });
+    },
+  });
+
   const appointments = query.data ?? [];
   const weekDays = useMemo(() => getWeekDays(baseDate), [baseDate]);
 
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     for (const appt of appointments) {
-      if (!appt.scheduled_at) continue;
-      const d = new Date(appt.scheduled_at);
+      if (!appt.scheduledAt) continue;
+      const d = new Date(appt.scheduledAt);
       if (Number.isNaN(d.getTime())) continue;
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (!map.has(key)) map.set(key, []);
@@ -268,7 +326,7 @@ export default function CalendarPage() {
           {weekDays.map((day) => {
             const key = dayKey(day);
             const dayAppts = (appointmentsByDay.get(key) ?? []).sort((a, b) =>
-              (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? "")
+              (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? "")
             );
             const isToday = key === todayKey;
             return (
@@ -285,13 +343,15 @@ export default function CalendarPage() {
                   e.preventDefault();
                   e.currentTarget.classList.remove("ring-2", "ring-primary", "bg-primary/5");
                   const apptId = e.dataTransfer.getData("text/plain");
-                  if (apptId) {
-                    toast.success(
-                      en
-                        ? `Appointment rescheduled to ${formatDateShort(day, en)}`
-                        : `تم نقل الموعد وتأجيله إلى ${formatDateShort(day, en)}`
-                    );
-                  }
+                  const appt = appointments.find((item) => item.id === apptId);
+                  if (!apptId || !appt?.scheduledAt) return;
+                  const original = new Date(appt.scheduledAt);
+                  if (Number.isNaN(original.getTime())) return;
+                  if (dayKey(original) === dayKey(day)) return; // نفس اليوم: لا يوجد تغيير
+                  // نحافظ على وقت الموعد الأصلي ونغيّر اليوم فقط
+                  const next = new Date(day);
+                  next.setHours(original.getHours(), original.getMinutes(), 0, 0);
+                  rescheduleMutation.mutate({ id: appt.id, scheduledAt: next.toISOString() });
                 }}
                 className={`flex flex-col rounded-2xl border p-3 transition-all ${isToday ? "border-[#9fc0ca] bg-[#f0f7f9] dark:border-[#1e5a6d] dark:bg-[#0e2030]" : "border-[#e4edf1] bg-white dark:border-[#1e3a4d] dark:bg-[#122434]"}`}
                 data-testid={`calendar-day-${key}`}
@@ -327,18 +387,18 @@ export default function CalendarPage() {
                     >
                       <Link
                         href={`/appointments/${appt.id}`}
-                        className={`block rounded-xl border p-2 transition hover:opacity-80 ${statusColors(appt.appointment_status ?? "")}`}
+                        className={`block rounded-xl border p-2 transition hover:opacity-80 ${statusColors(appt.status)}`}
                         data-testid={`calendar-appt-${appt.id}`}
                       >
                         <div className="flex items-center gap-1">
                           <Clock3 size={10} className="shrink-0 opacity-70" />
-                          <span className="text-[10px] font-bold">{formatTime(appt.scheduled_at)}</span>
+                          <span className="text-[10px] font-bold">{formatTime(appt.scheduledAt)}</span>
                         </div>
                         <p className="mt-0.5 truncate text-[11px] font-bold leading-tight">
-                          {appt.patientName ?? (en ? "Patient" : "مريض")}
+                          {appt.name}
                         </p>
                         <p className="truncate text-[9px] opacity-75">
-                          {statusLabel(appt.appointment_status ?? "", en)}
+                          {statusLabel(appt.status, en)}
                         </p>
                       </Link>
                     </div>
@@ -365,7 +425,7 @@ export default function CalendarPage() {
       {!query.isLoading && !query.isError && viewMode === "day" && (() => {
         const key = dayKey(baseDate);
         const dayAppts = (appointmentsByDay.get(key) ?? []).sort((a, b) =>
-          (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? "")
+          (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? "")
         );
         const isToday = key === todayKey;
         return (
@@ -401,13 +461,13 @@ export default function CalendarPage() {
                     data-testid={`day-appt-${appt.id}`}
                   >
                     <span className="w-14 shrink-0 text-right text-xs font-bold text-[#4f7183] dark:text-[#a8bfc9]">
-                      {formatTime(appt.scheduled_at)}
+                      {formatTime(appt.scheduledAt)}
                     </span>
-                    <span className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${statusColors(appt.appointment_status ?? "")}`}>
-                      {statusLabel(appt.appointment_status ?? "", en)}
+                    <span className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${statusColors(appt.status)}`}>
+                      {statusLabel(appt.status, en)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold dark:text-[#e2ecf1]">{appt.patientName ?? (en ? "Patient" : "مريض")}</p>
+                      <p className="truncate text-sm font-bold dark:text-[#e2ecf1]">{appt.name}</p>
                       {appt.serviceName && <p className="mt-0.5 truncate text-[10px] text-[#8496a0] dark:text-[#7e939e]">{appt.serviceName}</p>}
                     </div>
                     <ChevronLeft size={15} className="shrink-0 text-[#a0adb3] dark:text-[#4a6475]" />

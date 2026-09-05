@@ -49,13 +49,13 @@ async function saveTemplate(template: Partial<Template> & { id?: string }): Prom
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(template),
   });
-  if (res.ok) return res.json() as Promise<Template>;
-  // Optimistic: return back as-is
-  return { id: template.id ?? `local-${Date.now()}`, title: template.title ?? "", content: template.content ?? "", category: template.category ?? "general" };
+  if (!res.ok) throw new Error("تعذر حفظ القالب");
+  return res.json() as Promise<Template>;
 }
 
 async function deleteTemplate(id: string): Promise<void> {
-  await fetch(`/api/templates/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" });
+  const res = await fetch(`/api/templates/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" });
+  if (!res.ok) throw new Error("تعذر حذف القالب");
 }
 
 const categoryLabels: Record<TemplateCategory, { ar: string; en: string; color: string }> = {
@@ -97,7 +97,11 @@ export default function TemplatesPage() {
       setEditor(null);
       toast.success(en ? "Template saved" : "تم حفظ القالب");
     },
-    onError: () => toast.error(en ? "Could not save template" : "تعذر حفظ القالب"),
+    onError: () => {
+      // نفشل العملية ونطلق إعادة جلب حتى يعكس الواقع على الواجهة
+      toast.error(en ? "Could not save template" : "تعذر حفظ القالب");
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -105,6 +109,10 @@ export default function TemplatesPage() {
     onSuccess: (_, id) => {
       queryClient.setQueryData<Template[]>(["templates"], (old) => old?.filter(t => t.id !== id));
       toast.success(en ? "Template deleted" : "تم حذف القالب");
+    },
+    onError: () => {
+      toast.error(en ? "Could not delete template" : "تعذر حذف القالب");
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
     },
   });
 

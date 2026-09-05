@@ -6,6 +6,7 @@ import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
 import router from "./routes";
 import { paddleWebhook } from "./routes/billing";
+import { handleWasapFlowWebhook } from "./routes/inbound";
 import { logger } from "./lib/logger";
 import { readSession, writeSession, clearSession, sessionNeedsRefresh, shouldThrottleRefresh, SESSION_COOKIE } from "./lib/session";
 import { supabaseAuthRequest } from "./lib/supabase";
@@ -110,6 +111,9 @@ app.use(async (req, res, next) => {
 });
 
 app.post("/api/billing/webhook", express.raw({ type: "application/json" }), paddleWebhook);
+// Raw body before the JSON parser so the WasapFlow HMAC is verified over the
+// exact bytes the provider signed.
+app.post("/api/inbox/wasapflow", express.raw({ type: "application/json" }), handleWasapFlowWebhook);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

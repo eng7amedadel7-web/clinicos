@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { supabaseAdminRequest, supabaseRequest } from "../lib/supabase";
+import { verifyWasapFlowSignature } from "../lib/wasapflow";
 import { clinicEvents } from "../lib/events";
 import { logger } from "../lib/logger";
 
@@ -367,9 +368,39 @@ async function handleInbound(req: Request, res: Response) {
   });
 }
 
-async function handleWasapFlowWebhook(req: Request, res: Response) {
+export async function handleWasapFlowWebhook(req: Request, res: Response) {
+  // Signature gate: the route is registered app-level with express.raw so the
+  // exact bytes WasapFlow signed are what we verify here. Fail closed unless the
+  // operator explicitly opts out with WF_REQUIRE_WEBHOOK_SIGNATURE=0.
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body ?? ""));
+  const signature =
+    req.header("x-wasapflow-signature") ||
+    req.header("x-signature-256") ||
+    req.header("x-hub-signature-256") ||
+    null;
+  const requireSignature = process.env.WF_REQUIRE_WEBHOOK_SIGNATURE?.trim() !== "0";
+  if (signature) {
+    if (!verifyWasapFlowSignature(rawBody, signature)) {
+      logger.warn({ wabaHeader: req.header("x-wasapflow-signature") ? "present" : "absent" }, "[WasapFlow Webhook] Invalid signature, rejecting");
+      res.status(401).json({ error: "Invalid webhook signature." });
+      return;
+    }
+  } else if (requireSignature) {
+    logger.warn({ receivedHeaders: Object.keys(req.headers).filter((h) => h.includes("signat")) }, "[WasapFlow Webhook] Missing signature header, rejecting");
+    res.status(401).json({ error: "Missing webhook signature." });
+    return;
+  }
+
+  let parsed: Record<string, any> = {};
+  try {
+    parsed = JSON.parse(rawBody.toString("utf8")) as Record<string, any>;
+  } catch {
+    res.status(400).json({ error: "Invalid JSON body." });
+    return;
+  }
+
   // Always respond 200 OK promptly as required by WasapFlow Bridge
-  const body = req.body || {};
+  const body = parsed;
   const event = String(body.event || "").toLowerCase();
   const wabaId = String(body.waba_id || "").trim();
   const phoneNumberId = String(body.phone_number_id || "").trim();
@@ -567,8 +598,8 @@ async function handleWasapFlowWebhook(req: Request, res: Response) {
 
 router.post("/inbox/inbound", handleInbound);
 router.post("/inbox/webhook", handleInbound);
-router.post("/api/inbound/wasapflow", handleWasapFlowWebhook);
-router.post("/inbox/wasapflow", handleWasapFlowWebhook);
+// WasapFlow webhook is registered app-level (see app.ts) so the raw body can be
+// signature-verified before the global JSON parser consumes it.
 
 export default router;
 

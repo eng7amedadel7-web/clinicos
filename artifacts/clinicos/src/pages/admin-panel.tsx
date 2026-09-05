@@ -68,8 +68,6 @@ interface ProvisionReport {
   loginUrl: string;
 }
 
-const DEFAULT_ADMIN_KEY = 'meruna-saas-admin-secret-2026';
-
 export default function AdminPanelPage() {
   const [, setLocation] = useLocation();
   const [adminKey, setAdminKey] = useState<string>(() => {
@@ -80,7 +78,7 @@ export default function AdminPanelPage() {
       window.localStorage.setItem('meruna_admin_key', keyParam);
       return keyParam;
     }
-    return window.localStorage.getItem('meruna_admin_key') || DEFAULT_ADMIN_KEY;
+    return window.localStorage.getItem('meruna_admin_key') || '';
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -137,7 +135,7 @@ export default function AdminPanelPage() {
       }
 
       const data = await res.json().catch(() => ({}));
-      if (res.ok || key === DEFAULT_ADMIN_KEY) {
+      if (res.ok) {
         setClinics(Array.isArray(data.clinics) ? data.clinics : []);
         setIsAuthenticated(true);
         toast.success('تم تسجيل الدخول إلى لوحة المشرف العام بنجاح 👑');
@@ -145,13 +143,8 @@ export default function AdminPanelPage() {
         throw new Error(data.error || `Server returned ${res.status}`);
       }
     } catch (err) {
-      // If server responded or default key matched, still grant dashboard view
-      if (key === DEFAULT_ADMIN_KEY) {
-        setIsAuthenticated(true);
-      } else {
-        setAuthError('تعذر الاتصال بالخادم. تحقق من مفتاح الدخول أو أعد المحاولة.');
-        toast.error('تعذر جلب بيانات العيادات');
-      }
+      setAuthError('تعذر الاتصال بالخادم. تحقق من مفتاح الدخول أو أعد المحاولة.');
+      toast.error('تعذر جلب بيانات العيادات');
     } finally {
       setLoading(false);
     }

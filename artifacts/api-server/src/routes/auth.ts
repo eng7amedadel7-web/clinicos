@@ -73,6 +73,12 @@ type ClinicRecord = {
   location_config?: Record<string, unknown>;
 };
 
+// Workspace roles the login gate accepts. clinic_staff.role (assigned by the
+// organization settings UI) is the source of truth; the roles-table assignment
+// name is a fallback for legacy memberships. Keep owner/admin first so display
+// precedence is preserved, and only reject genuinely unknown roles.
+const LOGIN_ALLOWED_ROLES = new Set(["owner", "admin", "reception", "doctor", "staff"]);
+
 function restHeaders(accessToken: string) {
   return { Authorization: `Bearer ${accessToken}` };
 }
@@ -126,7 +132,11 @@ export async function getProfile(user: SupabaseAuthUser, accessToken: string) {
 
   const roleName = String(roleResult.ok ? roleResult.data?.[0]?.name ?? "" : "").toLowerCase();
   const staffRole = String(staffResult.ok ? staffResult.data?.[0]?.role ?? "" : "").toLowerCase();
-  const role = staffRole === "owner" ? "owner" : roleName === "admin" ? "admin" : null;
+  const role = LOGIN_ALLOWED_ROLES.has(staffRole)
+    ? staffRole
+    : LOGIN_ALLOWED_ROLES.has(roleName)
+      ? roleName
+      : null;
   if (!role) return null;
 
   const publicUser = userResult.ok ? userResult.data?.[0] : undefined;

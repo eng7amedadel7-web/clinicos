@@ -19,7 +19,7 @@ function headers(session: Session, extra: Record<string, string> = {}) {
 }
 
 // 1. GET /api/integrations/config - Load clinic integration settings (API key, Webhooks, Pixels)
-router.get("/api/integrations/config", async (req: Request, res: Response) => {
+router.get("/integrations/config", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "read");
@@ -59,7 +59,7 @@ const configSchema = z.object({
   regenerateKey: z.boolean().optional(),
 });
 
-router.post("/api/integrations/config", async (req: Request, res: Response) => {
+router.post("/integrations/config", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -122,7 +122,7 @@ router.post("/api/integrations/config", async (req: Request, res: Response) => {
 });
 
 // 3. POST /api/integrations/test-webhook - Ping external webhook URL (Zapier / Make / CRM)
-router.post("/api/integrations/test-webhook", async (req: Request, res: Response) => {
+router.post("/integrations/test-webhook", async (req: Request, res: Response) => {
   let session: Session | null = null;
   try {
     session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage");
@@ -197,7 +197,7 @@ async function resolveClinicByApiKey(req: Request): Promise<{ clinicId: string }
 }
 
 // POST /api/v1/external/patients - Ingest new lead or patient from external marketing/CRM
-router.post("/api/v1/external/patients", async (req: Request, res: Response) => {
+router.post("/v1/external/patients", async (req: Request, res: Response) => {
   const clinic = await resolveClinicByApiKey(req);
   if (!clinic) {
     res.status(401).json({ error: "Unauthorized: Invalid or missing x-clinic-api-key header." });
@@ -239,7 +239,7 @@ router.post("/api/v1/external/patients", async (req: Request, res: Response) => 
 });
 
 // POST /api/v1/external/appointments - Ingest booking from external website/EHR
-router.post("/api/v1/external/appointments", async (req: Request, res: Response) => {
+router.post("/v1/external/appointments", async (req: Request, res: Response) => {
   const clinic = await resolveClinicByApiKey(req);
   if (!clinic) {
     res.status(401).json({ error: "Unauthorized: Invalid or missing x-clinic-api-key header." });

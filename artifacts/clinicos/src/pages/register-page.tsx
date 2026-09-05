@@ -3,16 +3,18 @@ import { useLocation, Link } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Building2, Eye, EyeOff, Mail, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Mail, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { getGetAuthSessionQueryKey, useRegister } from '@workspace/api-client-react';
 import { matchAuthErrorKey } from '@/lib/api-errors';
 import {
   AuthLocaleProvider,
   AuthShell,
+  BidiText,
   ErrorAlert,
   FieldError,
   FIELD_INPUT_CLASS,
   fieldClasses,
+  PasswordFieldToggle,
   SUBMIT_BUTTON_CLASS,
   useAuthLocale,
 } from '@/components/auth-shell';
@@ -97,6 +99,7 @@ export function RegisterPageInner() {
   const copy = pageCopy[lang];
   const field = fieldClasses();
   const apiError = register.error ? text.errors[matchAuthErrorKey(register.error) ?? 'generic'] : undefined;
+  const ForwardArrow = lang === 'ar' ? ArrowLeft : ArrowRight;
 
   const onSubmit = (values: RegisterValues) =>
     register.mutate(
@@ -114,11 +117,13 @@ export function RegisterPageInner() {
     <AuthShell>
       <div>
         <div>
-          <p className="text-xs font-bold text-sky-700">{copy.eyebrow}</p>
-          <h1 className="mt-1.5 text-3xl font-black text-[#0b2437]" data-testid="heading-register">
-            {copy.title}
+          <p className="text-xs font-bold text-sky-700 dark:text-sky-400">{copy.eyebrow}</p>
+          <h1 className="mt-1.5 text-3xl font-black text-[#0b2437] dark:text-foreground" data-testid="heading-register">
+            <BidiText>{copy.title}</BidiText>
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{copy.subtitle}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <BidiText>{copy.subtitle}</BidiText>
+          </p>
         </div>
 
         {apiError ? (
@@ -129,7 +134,7 @@ export function RegisterPageInner() {
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.fullName}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.fullName}</span>
             <div className="relative">
               <UserRound size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -144,7 +149,7 @@ export function RegisterPageInner() {
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.clinicName}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.clinicName}</span>
             <div className="relative">
               <Building2 size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -159,7 +164,7 @@ export function RegisterPageInner() {
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.email}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.email}</span>
             <div className="relative">
               <Mail size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -176,7 +181,7 @@ export function RegisterPageInner() {
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.password}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.password}</span>
             <div className="relative">
               <ShieldCheck size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -188,50 +193,53 @@ export function RegisterPageInner() {
                 autoComplete="new-password"
                 data-testid="input-register-password"
               />
-              <button
-                type="button"
-                className={`absolute ${field.endIcon} top-3.5 text-slate-400 transition-colors hover:text-slate-600`}
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? copy.hidePassword : copy.showPassword}
-                data-testid="button-toggle-register-password"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              <PasswordFieldToggle
+                visible={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                showLabel={copy.showPassword}
+                hideLabel={copy.hidePassword}
+                testId="button-toggle-register-password"
+              />
             </div>
             {form.formState.errors.password?.message ? (
               <FieldError message={form.formState.errors.password.message} />
             ) : (
-              <span className="mt-1 block text-[11px] text-slate-400">{copy.passwordHint}</span>
+              <span className="mt-1 block text-xs text-slate-400">
+                <BidiText>{copy.passwordHint}</BidiText>
+              </span>
             )}
           </label>
 
           {/* The form is noValidate, so the terms box must be enforced here —
               a bare `required` attribute would silently never run. */}
           <div>
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600 shadow-sm transition hover:border-slate-300">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600 shadow-sm transition-all duration-200 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300 dark:shadow-none dark:hover:border-white/20">
               <input
                 {...form.register('terms', { validate: (value) => value === true || copy.termsRequired })}
                 type="checkbox"
-                className="mt-0.5 size-4 rounded border-slate-300 accent-[#0d2436]"
+                className="mt-0.5 size-4 rounded border-slate-300 accent-[#0d2436] dark:accent-[#35809f]"
                 data-testid="input-terms"
               />
-              <span>{copy.terms}</span>
+              <span>
+                <BidiText>{copy.terms}</BidiText>
+              </span>
             </label>
             <FieldError message={form.formState.errors.terms?.message} />
           </div>
 
-          <button className={SUBMIT_BUTTON_CLASS} type="submit" disabled={register.isPending} data-testid="button-register">
+          <button className={SUBMIT_BUTTON_CLASS} type="submit" disabled={register.isPending} aria-busy={register.isPending} data-testid="button-register">
             {register.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.loading}</span></>
             ) : (
-              <><span>{copy.submit}</span><ArrowLeft className="size-4" /></>
+              <><span>{copy.submit}</span><ForwardArrow className="size-4" /></>
             )}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          <Link href="/login" className="font-bold text-sky-700 transition-colors hover:text-sky-600 hover:underline" data-testid="link-login">
-            {copy.haveAccount} {copy.login}
+        <p className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
+          <BidiText>{copy.haveAccount}</BidiText>{' '}
+          <Link href="/login" className="font-bold text-sky-700 transition-colors hover:text-sky-600 hover:underline dark:text-sky-400 dark:hover:text-sky-300" data-testid="link-login">
+            {copy.login}
           </Link>
         </p>
       </div>

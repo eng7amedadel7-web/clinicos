@@ -1,11 +1,27 @@
 import { useState } from 'react';
 import { Plus, X, CalendarDays, UserRound, MessageSquare, CheckSquare, Sparkles, Send } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'wouter';
 import { toast } from 'sonner';
 import { usePreferences } from '@/lib/preferences';
 import { getGetDashboardSummaryQueryKey } from '@workspace/api-client-react';
 
 type QuickAddTab = 'appointment' | 'patient' | 'message' | 'task';
+
+type BookingOptions = {
+  patients: Array<{ id: string; name: string }>;
+  doctors: Array<{ id: string; name: string; specialization?: string | null }>;
+  services: Array<{ id: string; name: string; durationMinutes?: number | null }>;
+  slots: Array<{ id: string; doctorId: string; serviceId: string; startTime: string; endTime: string; status: string }>;
+};
+
+const NEW_PATIENT = '__new__';
+
+function formatSlotTime(value: string, locale: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+}
 
 export function QuickAddModal() {
   const { language } = usePreferences();
@@ -14,20 +30,38 @@ export function QuickAddModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<QuickAddTab>('appointment');
 
-  // Form states
+  // حقول تبويب الموعد
+  const [apptPatientId, setApptPatientId] = useState('');
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientPhone, setNewPatientPhone] = useState('');
+  const [apptSlotId, setApptSlotId] = useState('');
+  const [apptNotes, setApptNotes] = useState('');
+
+  // حقول تبويب المريض
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
-  const [patientAge, setPatientAge] = useState('');
-  const [patientGender, setPatientGender] = useState<'MALE' | 'FEMALE'>('MALE');
-  const [doctorName, setDoctorName] = useState('طبيب عام');
-  const [apptDate, setApptDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [apptTime, setApptTime] = useState('17:00');
-  const [notes, setNotes] = useState('');
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskPriority, setTaskPriority] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
+  const [patientEmail, setPatientEmail] = useState('');
+  const [patientNotes, setPatientNotes] = useState('');
+
+  // خيارات الحجز الحقيقية من الخادم
+  const bookingOptionsQuery = useQuery({
+    queryKey: ['booking-options'],
+    queryFn: async ({ signal }) => {
+      const res = await fetch('/api/appointments?includeOptions=true', { credentials: 'include', signal });
+      if (!res.ok) throw new Error(isArabic ? 'تعذر تحميل خيارات الحجز' : 'Failed to load booking options');
+      const data = await res.json().catch(() => null);
+      return (data?.options ?? null) as BookingOptions | null;
+    },
+    enabled: isOpen,
+    staleTime: 60_000,
+  });
+  const bookingOptions = bookingOptionsQuery.data ?? null;
+  const availableSlots = bookingOptions?.slots ?? [];
+  const doctorName = (id: string) => bookingOptions?.doctors.find((d) => d.id === id)?.name || (isArabic ? 'الطبيب' : 'Doctor');
+  const serviceName = (id: string) => bookingOptions?.services.find((s) => s.id === id)?.name || (isArabic ? 'الخدمة' : 'Service');
 
   const createPatientMutation = useMutation({
-    mutationFn: async (payload: { fullName: string; phoneNumber: string; age?: number; gender: string; notes?: string }) => {
+    mutationFn: async (payload: { name: string; phone?: string; email?: string; notes?: string }) => {
       const res = await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,25 +72,15 @@ export function QuickAddModal() {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || (isArabic ? 'فشل حفظ المريض' : 'Failed to save patient'));
       }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-      toast.success(isArabic ? 'تم حفظ ملف المريض بنجاح' : 'Patient created successfully');
-      resetForm();
-      setIsOpen(false);
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || (isArabic ? 'فشل حفظ المريض' : 'Failed to save patient'));
+      return res.json() as Promise<{ id?: string }>;
     }
   });
 
   const createAppointmentMutation = useMutation({
-    mutationFn: async (payload: { patientName: string; patientPhone?: string; doctorName?: string; startAt: string; notes?: string }) => {
+    mutationFn: async (payload: { patientId: string; slotId: string; notes?: string }) => {
       const res = await fetch('/api/appointments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         credentials: 'include',
         body: JSON.stringify(payload)
       });
@@ -67,66 +91,91 @@ export function QuickAddModal() {
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-appointments'] });
       queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       toast.success(isArabic ? 'تم حجز الموعد وتأكيده بنجاح' : 'Appointment booked successfully');
       resetForm();
       setIsOpen(false);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err?.message || (isArabic ? 'فشل حجز الموعد' : 'Failed to book appointment'));
     }
   });
 
   const resetForm = () => {
+    setApptPatientId('');
+    setNewPatientName('');
+    setNewPatientPhone('');
+    setApptSlotId('');
+    setApptNotes('');
     setPatientName('');
     setPatientPhone('');
-    setPatientAge('');
-    setNotes('');
-    setTaskTitle('');
+    setPatientEmail('');
+    setPatientNotes('');
   };
 
   const handleCreateAppointment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName.trim()) return;
+    if (!apptSlotId) return;
+    const notes = apptNotes.trim() || undefined;
 
-    createAppointmentMutation.mutate({
-      patientName: patientName.trim(),
-      patientPhone: patientPhone.trim() || undefined,
-      doctorName: doctorName.trim() || undefined,
-      startAt: `${apptDate}T${apptTime}:00Z`,
-      notes: notes.trim() || undefined,
-    });
+    // مريض جديد: ننشئه أولاً ثم نحجز بمعرّف المريض الحقيقي
+    if (apptPatientId === NEW_PATIENT) {
+      if (!newPatientName.trim()) return;
+      createPatientMutation.mutate(
+        { name: newPatientName.trim(), phone: newPatientPhone.trim() || undefined },
+        {
+          onSuccess: (created) => {
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
+            if (!created?.id) {
+              toast.error(isArabic ? 'تعذر إنشاء المريض الجديد' : 'Failed to create the new patient');
+              return;
+            }
+            createAppointmentMutation.mutate({ patientId: String(created.id), slotId: apptSlotId, notes });
+          },
+          onError: (err: Error) => {
+            toast.error(err?.message || (isArabic ? 'فشل حفظ المريض' : 'Failed to save patient'));
+          }
+        }
+      );
+      return;
+    }
+
+    if (!apptPatientId) return;
+    createAppointmentMutation.mutate({ patientId: apptPatientId, slotId: apptSlotId, notes });
   };
 
   const handleCreatePatient = (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientName.trim()) return;
 
-    createPatientMutation.mutate({
-      fullName: patientName.trim(),
-      phoneNumber: patientPhone.trim() || '01000000000',
-      age: patientAge ? parseInt(patientAge, 10) : undefined,
-      gender: patientGender,
-      notes: notes.trim() || undefined
-    });
+    // الخادم يقبل name/phone/email/notes فقط
+    createPatientMutation.mutate(
+      {
+        name: patientName.trim(),
+        phone: patientPhone.trim() || undefined,
+        email: patientEmail.trim() || undefined,
+        notes: patientNotes.trim() || undefined
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['patients'] });
+          queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+          toast.success(isArabic ? 'تم حفظ ملف المريض بنجاح' : 'Patient created successfully');
+          resetForm();
+          setIsOpen(false);
+        },
+        onError: (err: Error) => {
+          toast.error(err?.message || (isArabic ? 'فشل حفظ المريض' : 'Failed to save patient'));
+        }
+      }
+    );
   };
 
-  const handleCreateMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!patientName.trim() || !notes.trim()) return;
-    toast.success(isArabic ? `تم إرسال الرسالة إلى ${patientName} عبر الواتساب` : `Message sent to ${patientName} via WhatsApp`);
-    resetForm();
-    setIsOpen(false);
-  };
-
-  const handleCreateTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!taskTitle.trim()) return;
-    toast.success(isArabic ? 'تمت إضافة المهمة إلى قائمة مهام العيادة' : 'Task added to clinic queue');
-    resetForm();
-    setIsOpen(false);
-  };
+  const bookingPending = createAppointmentMutation.isPending || createPatientMutation.isPending;
+  const noSlotsAvailable = Boolean(bookingOptions) && availableSlots.length === 0;
 
   return (
     <>
@@ -220,76 +269,110 @@ export function QuickAddModal() {
                 <form onSubmit={handleCreateAppointment} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-                      {isArabic ? 'اسم المريض *' : 'Patient Name *'}
+                      {isArabic ? 'المريض *' : 'Patient *'}
                     </label>
-                    <input
+                    <select
                       required
-                      value={patientName}
-                      onChange={(e) => setPatientName(e.target.value)}
-                      placeholder={isArabic ? 'مثال: يوسف أحمد' : 'e.g. John Doe'}
+                      value={apptPatientId}
+                      onChange={(e) => setApptPatientId(e.target.value)}
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                    >
+                      <option value="">{isArabic ? 'اختر مريضاً من العيادة' : 'Select an existing patient'}</option>
+                      {bookingOptions?.patients.map((patient) => (
+                        <option value={patient.id} key={patient.id}>{patient.name}</option>
+                      ))}
+                      <option value={NEW_PATIENT}>{isArabic ? '+ إضافة مريض جديد' : '+ New patient'}</option>
+                    </select>
+                  </div>
+
+                  {apptPatientId === NEW_PATIENT && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground mb-1.5">
+                          {isArabic ? 'اسم المريض الجديد *' : 'New Patient Name *'}
+                        </label>
+                        <input
+                          required
+                          value={newPatientName}
+                          onChange={(e) => setNewPatientName(e.target.value)}
+                          placeholder={isArabic ? 'مثال: يوسف أحمد' : 'e.g. John Doe'}
+                          className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground mb-1.5">
+                          {isArabic ? 'رقم الهاتف' : 'Phone Number'}
+                        </label>
+                        <input
+                          value={newPatientPhone}
+                          onChange={(e) => setNewPatientPhone(e.target.value)}
+                          placeholder="010XXXXXXXX"
+                          dir="ltr"
+                          className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1.5">
+                      {isArabic ? 'الموعد المتاح *' : 'Available Slot *'}
+                    </label>
+                    <select
+                      required
+                      value={apptSlotId}
+                      onChange={(e) => setApptSlotId(e.target.value)}
+                      disabled={availableSlots.length === 0}
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary disabled:opacity-60"
+                    >
+                      <option value="">
+                        {bookingOptions
+                          ? (availableSlots.length
+                            ? (isArabic ? 'اختر موعداً متاحاً' : 'Select an available slot')
+                            : (isArabic ? 'لا توجد مواعيد متاحة' : 'No available slots'))
+                          : (isArabic ? 'جارٍ تحميل المواعيد المتاحة...' : 'Loading available slots...')}
+                      </option>
+                      {availableSlots.map((slot) => (
+                        <option value={slot.id} key={slot.id}>
+                          {formatSlotTime(slot.startTime, isArabic ? 'ar-EG' : 'en-US')} · {doctorName(slot.doctorId)} · {serviceName(slot.serviceId)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {bookingOptionsQuery.isError && (
+                    <p className="rounded-xl bg-[#fff7f6] p-3 text-xs leading-6 text-[#a64036] dark:bg-[#3d1f1b] dark:text-[#eb9a90]">
+                      {isArabic ? 'تعذر تحميل المواعيد المتاحة. حاول مرة أخرى.' : 'Could not load available slots. Please try again.'}
+                    </p>
+                  )}
+
+                  {noSlotsAvailable && (
+                    <p className="rounded-xl bg-[#fffaf0] p-3 text-xs leading-6 text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]">
+                      {isArabic ? 'لا توجد مواعيد متاحة — أضف أطباء ومواعيد متاحة من ' : 'No available slots — add doctors and available slots from '}
+                      <Link href="/settings" className="font-bold underline underline-offset-2">{isArabic ? 'الإعدادات' : 'Settings'}</Link>
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1.5">
+                      {isArabic ? 'ملاحظات الموعد' : 'Appointment Notes'}
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={apptNotes}
+                      onChange={(e) => setApptNotes(e.target.value)}
+                      placeholder={isArabic ? 'ملاحظات إضافية للموعد...' : 'Optional notes for the appointment...'}
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-hidden focus:border-primary"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-                        {isArabic ? 'رقم الهاتف' : 'Phone Number'}
-                      </label>
-                      <input
-                        value={patientPhone}
-                        onChange={(e) => setPatientPhone(e.target.value)}
-                        placeholder="010XXXXXXXX"
-                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-                        {isArabic ? 'الطبيب المعالج' : 'Doctor'}
-                      </label>
-                      <select
-                        value={doctorName}
-                        onChange={(e) => setDoctorName(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
-                      >
-                        <option value="طبيب عام">{isArabic ? 'طبيب 1 (كشف عام)' : 'General Physician 1'}</option>
-                        <option value="طبيب استشاري">{isArabic ? 'طبيب 2 (استشاري)' : 'Specialist Physician 2'}</option>
-                        <option value="طبيب جراحة">{isArabic ? 'طبيب 3 (جراحة)' : 'Surgeon 3'}</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-                        {isArabic ? 'التاريخ' : 'Date'}
-                      </label>
-                      <input
-                        type="date"
-                        value={apptDate}
-                        onChange={(e) => setApptDate(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-hidden focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-                        {isArabic ? 'الوقت' : 'Time'}
-                      </label>
-                      <input
-                        type="time"
-                        value={apptTime}
-                        onChange={(e) => setApptTime(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-hidden focus:border-primary"
-                      />
-                    </div>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={createAppointmentMutation.isPending}
-                    className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md transition hover:opacity-90 disabled:opacity-50"
+                    disabled={bookingPending || availableSlots.length === 0}
+                    title={noSlotsAvailable ? (isArabic ? 'لا توجد مواعيد متاحة' : 'No available slots') : undefined}
+                    className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {createAppointmentMutation.isPending
+                    {bookingPending
                       ? (isArabic ? 'جارٍ الحجز...' : 'Booking...')
                       : (isArabic ? '✓ تأكيد حجز الموعد' : '✓ Confirm Booking')}
                   </button>
@@ -312,8 +395,8 @@ export function QuickAddModal() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
                       <label className="block text-xs font-bold text-muted-foreground mb-1.5">
                         {isArabic ? 'رقم الهاتف *' : 'Phone *'}
                       </label>
@@ -322,18 +405,20 @@ export function QuickAddModal() {
                         value={patientPhone}
                         onChange={(e) => setPatientPhone(e.target.value)}
                         placeholder="012XXXXXXXX"
+                        dir="ltr"
                         className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-muted-foreground mb-1.5">
-                        {isArabic ? 'العمر' : 'Age'}
+                        {isArabic ? 'البريد الإلكتروني' : 'Email'}
                       </label>
                       <input
-                        type="number"
-                        value={patientAge}
-                        onChange={(e) => setPatientAge(e.target.value)}
-                        placeholder="32"
+                        type="email"
+                        value={patientEmail}
+                        onChange={(e) => setPatientEmail(e.target.value)}
+                        placeholder="patient@example.com"
+                        dir="ltr"
                         className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
                       />
                     </div>
@@ -345,8 +430,8 @@ export function QuickAddModal() {
                     </label>
                     <textarea
                       rows={2}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
+                      value={patientNotes}
+                      onChange={(e) => setPatientNotes(e.target.value)}
                       placeholder={isArabic ? 'حساسية من البنسلين، مريض سكري...' : 'Any allergies or conditions...'}
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-hidden focus:border-primary"
                     />
@@ -364,19 +449,20 @@ export function QuickAddModal() {
                 </form>
               )}
 
-              {/* TAB 3: Quick Message */}
+              {/* TAB 3: Quick Message — غير متاحة بعد */}
               {activeTab === 'message' && (
-                <form onSubmit={handleCreateMessage} className="space-y-4">
+                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                  <p className="rounded-xl bg-muted/50 p-3 text-xs font-bold text-muted-foreground">
+                    {isArabic ? 'هذه الميزة غير متاحة بعد — قريباً' : 'This feature is not available yet — coming soon'}
+                  </p>
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground mb-1.5">
                       {isArabic ? 'اسم المريض أو الرقم *' : 'Recipient Name / Phone *'}
                     </label>
                     <input
-                      required
-                      value={patientName}
-                      onChange={(e) => setPatientName(e.target.value)}
+                      disabled
                       placeholder={isArabic ? 'اسم المريض أو رقمه' : 'Patient name or phone'}
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
 
@@ -385,38 +471,40 @@ export function QuickAddModal() {
                       {isArabic ? 'نص الرسالة *' : 'Message Content *'}
                     </label>
                     <textarea
-                      required
+                      disabled
                       rows={3}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
                       placeholder={isArabic ? 'مرحباً، نود تذكيرك بموعد الكشف القادم...' : 'Hi, gentle reminder for your upcoming visit...'}
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-hidden focus:border-primary"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm outline-hidden focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
 
                   <button
-                    type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md transition hover:bg-emerald-700"
+                    type="button"
+                    disabled
+                    title={isArabic ? 'قريباً' : 'Coming soon'}
+                    aria-disabled
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Send className="size-4" />
-                    <span>{isArabic ? 'إرسال عبر الواتساب فوراً' : 'Send via WhatsApp'}</span>
+                    <span>{isArabic ? 'إرسال عبر الواتساب' : 'Send via WhatsApp'}</span>
                   </button>
                 </form>
               )}
 
-              {/* TAB 4: Quick Task */}
+              {/* TAB 4: Quick Task — غير متاحة بعد */}
               {activeTab === 'task' && (
-                <form onSubmit={handleCreateTask} className="space-y-4">
+                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                  <p className="rounded-xl bg-muted/50 p-3 text-xs font-bold text-muted-foreground">
+                    {isArabic ? 'هذه الميزة غير متاحة بعد — قريباً' : 'This feature is not available yet — coming soon'}
+                  </p>
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground mb-1.5">
                       {isArabic ? 'عنوان المهمة *' : 'Task Title *'}
                     </label>
                     <input
-                      required
-                      value={taskTitle}
-                      onChange={(e) => setTaskTitle(e.target.value)}
+                      disabled
                       placeholder={isArabic ? 'مثال: طلب مستلزمات تعقيم إضافية' : 'e.g. Order sterilization supplies'}
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
 
@@ -426,13 +514,13 @@ export function QuickAddModal() {
                         {isArabic ? 'الأولوية' : 'Priority'}
                       </label>
                       <select
-                        value={taskPriority}
-                        onChange={(e: any) => setTaskPriority(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-hidden focus:border-primary"
+                        disabled
+                        defaultValue="MEDIUM"
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-hidden focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <option value="HIGH">{isArabic ? 'عالية 🔴' : 'High 🔴'}</option>
-                        <option value="MEDIUM">{isArabic ? 'متوسطة 🟡' : 'Medium 🟡'}</option>
-                        <option value="LOW">{isArabic ? 'منخفضة 🟢' : 'Low 🟢'}</option>
+                        <option value="HIGH">{isArabic ? 'عالية' : 'High'}</option>
+                        <option value="MEDIUM">{isArabic ? 'متوسطة' : 'Medium'}</option>
+                        <option value="LOW">{isArabic ? 'منخفضة' : 'Low'}</option>
                       </select>
                     </div>
                     <div>
@@ -440,17 +528,21 @@ export function QuickAddModal() {
                         {isArabic ? 'المسؤول' : 'Assignee'}
                       </label>
                       <input
+                        disabled
                         defaultValue={isArabic ? 'موظف الاستقبال' : 'Front Desk'}
-                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     </div>
                   </div>
 
                   <button
-                    type="submit"
-                    className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md transition hover:opacity-90"
+                    type="button"
+                    disabled
+                    title={isArabic ? 'قريباً' : 'Coming soon'}
+                    aria-disabled
+                    className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md transition disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isArabic ? '✓ إضافة إلى قائمة المهام' : '✓ Add to Task List'}
+                    {isArabic ? 'إضافة إلى قائمة المهام' : 'Add to Task List'}
                   </button>
                 </form>
               )}

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireClinicPermission, requireSession } from "../lib/permissions";
+import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
 
 const router = Router();
@@ -40,22 +40,14 @@ function dayKey(isoString: string) {
 }
 
 router.get("/analytics/summary", async (req, res) => {
+  // Fail closed: analytics exposes clinic-wide numbers, so it requires the same
+  // permission gate as every other sensitive route (no session-only fallback).
   let session;
   try {
-    // Try full permission check first
     session = await requireClinicPermission(req, "Operations", "workspace", "read");
-  } catch {
-    // If RPC check fails (e.g. fn_has_clinic_permission not found), fall back to session-only auth
-    try {
-      session = requireSession(req);
-    } catch (sessionError) {
-      const statusCode =
-        typeof sessionError === "object" && sessionError && "statusCode" in sessionError && typeof sessionError.statusCode === "number"
-          ? sessionError.statusCode
-          : 401;
-      res.status(statusCode).json({ error: sessionError instanceof Error ? sessionError.message : "Unauthorized" });
-      return;
-    }
+  } catch (error) {
+    respondToPermissionError(res, error);
+    return;
   }
 
   const clinicId = session.clinicId;

@@ -3,7 +3,7 @@ import { useLocation, Link } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Eye, EyeOff, Mail, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Mail, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   getGetAuthSessionQueryKey,
   getHealthCheckQueryKey,
@@ -16,11 +16,13 @@ import { matchAuthErrorKey } from '@/lib/api-errors';
 import {
   AuthLocaleProvider,
   AuthShell,
+  BidiText,
   ErrorAlert,
   FieldError,
   FIELD_INPUT_CLASS,
   fieldClasses,
   getGreetingKey,
+  PasswordFieldToggle,
   SuccessAlert,
   SUBMIT_BUTTON_CLASS,
   useAuthLocale,
@@ -72,6 +74,8 @@ const pageCopy = {
       subtitle: 'اختر كلمة مرور قوية لحماية حساب عيادتك.',
       password: 'كلمة المرور الجديدة',
       confirm: 'تأكيد كلمة المرور',
+      showPassword: 'إظهار كلمة المرور',
+      hidePassword: 'إخفاء كلمة المرور',
       update: 'حفظ وتحديث كلمة المرور',
       updating: 'جارٍ الحفظ...',
       back: 'تسجيل الدخول بكلمة المرور الجديدة',
@@ -127,6 +131,8 @@ const pageCopy = {
       subtitle: 'Choose a strong password to protect your clinic account.',
       password: 'New Password',
       confirm: 'Confirm Password',
+      showPassword: 'Show password',
+      hidePassword: 'Hide password',
       update: 'Update Password',
       updating: 'Updating...',
       back: 'Sign In with New Password',
@@ -178,6 +184,7 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
   const copy = pageCopy[lang].recovery;
   const field = fieldClasses();
   const apiError = useLocalizedApiError(recovery.error);
+  const ForwardArrow = lang === 'ar' ? ArrowLeft : ArrowRight;
 
   const submit = (values: RecoveryValues) => {
     recovery.mutate({ data: { email: values.email.trim() } });
@@ -186,11 +193,13 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <div>
-        <p className="text-xs font-bold text-sky-700">{copy.eyebrow}</p>
-        <h2 className="mt-1.5 text-2xl font-black text-[#0b2437]" data-testid="heading-recovery">
-          {copy.title}
+        <p className="text-xs font-bold text-sky-700 dark:text-sky-400">{copy.eyebrow}</p>
+        <h2 className="mt-1.5 text-2xl font-black text-[#0b2437] dark:text-foreground" data-testid="heading-recovery">
+          <BidiText>{copy.title}</BidiText>
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">{copy.subtitle}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          <BidiText>{copy.subtitle}</BidiText>
+        </p>
       </div>
 
       {apiError ? (
@@ -206,7 +215,7 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
       ) : (
         <form onSubmit={form.handleSubmit(submit)} className="mt-6 space-y-4" noValidate>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.email}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.email}</span>
             <div className="relative">
               <Mail size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -222,15 +231,17 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
             {form.formState.errors.email?.message ? (
               <FieldError message={form.formState.errors.email.message} />
             ) : (
-              <span className="mt-1 block text-[11px] text-slate-400">{copy.emailHint}</span>
+              <span className="mt-1 block text-xs text-slate-400">
+                <BidiText>{copy.emailHint}</BidiText>
+              </span>
             )}
           </label>
 
-          <button className={SUBMIT_BUTTON_CLASS} type="submit" disabled={recovery.isPending} data-testid="button-recovery">
+          <button className={SUBMIT_BUTTON_CLASS} type="submit" disabled={recovery.isPending} aria-busy={recovery.isPending} data-testid="button-recovery">
             {recovery.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.sending}</span></>
             ) : (
-              <><span>{copy.send}</span><ArrowLeft className="size-4" /></>
+              <><span>{copy.send}</span><ForwardArrow className="size-4" /></>
             )}
           </button>
         </form>
@@ -238,11 +249,11 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
 
       <button
         type="button"
-        className="mt-6 w-full text-center text-xs font-bold text-sky-700 transition-colors hover:text-sky-600"
+        className="mt-6 w-full text-center text-xs font-bold text-sky-700 transition-colors hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300"
         onClick={onBack}
         data-testid="button-back-to-login"
       >
-        {copy.back}
+        <BidiText>{copy.back}</BidiText>
       </button>
     </div>
   );
@@ -251,9 +262,11 @@ function RecoveryView({ onBack }: { onBack: () => void }) {
 function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDone: () => void }) {
   const reset = useResetPassword();
   const form = useForm<ResetValues>({ defaultValues: { password: '', confirmPassword: '' }, mode: 'onTouched' });
+  const [showPassword, setShowPassword] = useState(false);
   const { lang } = useAuthLocale();
   const copy = pageCopy[lang].reset;
   const apiError = useLocalizedApiError(reset.error);
+  const ForwardArrow = lang === 'ar' ? ArrowLeft : ArrowRight;
 
   const submit = (values: ResetValues) => {
     reset.mutate({ data: { accessToken, password: values.password } });
@@ -262,9 +275,13 @@ function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDon
   return (
     <div>
       <div>
-        <p className="text-xs font-bold text-sky-700">{copy.eyebrow}</p>
-        <h2 className="mt-1.5 text-2xl font-black text-[#0b2437]">{copy.title}</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">{copy.subtitle}</p>
+        <p className="text-xs font-bold text-sky-700 dark:text-sky-400">{copy.eyebrow}</p>
+        <h2 className="mt-1.5 text-2xl font-black text-[#0b2437] dark:text-foreground">
+          <BidiText>{copy.title}</BidiText>
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          <BidiText>{copy.subtitle}</BidiText>
+        </p>
       </div>
 
       {apiError ? (
@@ -278,42 +295,60 @@ function ResetPasswordView({ accessToken, onDone }: { accessToken: string; onDon
           <SuccessAlert testid="alert-reset-success" message={copy.success} />
           <button type="button" className={SUBMIT_BUTTON_CLASS} onClick={onDone} data-testid="button-reset-done">
             <span>{copy.back}</span>
-            <ArrowLeft className="size-4" />
+            <ForwardArrow className="size-4" />
           </button>
         </div>
       ) : (
         <form onSubmit={form.handleSubmit(submit)} className="mt-6 space-y-4" noValidate>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.password}</span>
-            <input
-              {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })}
-              className={`${FIELD_INPUT_CLASS} px-4`}
-              dir="ltr"
-              type="password"
-              autoComplete="new-password"
-              data-testid="input-reset-password"
-            />
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.password}</span>
+            <div className="relative">
+              <input
+                {...form.register('password', { required: copy.requiredPassword, minLength: { value: 8, message: copy.minPassword } })}
+                className={`${FIELD_INPUT_CLASS} px-4`}
+                dir="ltr"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                data-testid="input-reset-password"
+              />
+              <PasswordFieldToggle
+                visible={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                showLabel={copy.showPassword}
+                hideLabel={copy.hidePassword}
+                testId="button-toggle-reset-password"
+              />
+            </div>
             <FieldError message={form.formState.errors.password?.message} />
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.confirm}</span>
-            <input
-              {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: (value) => value === form.getValues('password') || copy.mismatch })}
-              className={`${FIELD_INPUT_CLASS} px-4`}
-              dir="ltr"
-              type="password"
-              autoComplete="new-password"
-              data-testid="input-reset-confirm-password"
-            />
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.confirm}</span>
+            <div className="relative">
+              <input
+                {...form.register('confirmPassword', { required: copy.requiredConfirm, validate: (value) => value === form.getValues('password') || copy.mismatch })}
+                className={`${FIELD_INPUT_CLASS} px-4`}
+                dir="ltr"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                data-testid="input-reset-confirm-password"
+              />
+              <PasswordFieldToggle
+                visible={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                showLabel={copy.showPassword}
+                hideLabel={copy.hidePassword}
+                testId="button-toggle-reset-confirm-password"
+              />
+            </div>
             <FieldError message={form.formState.errors.confirmPassword?.message} />
           </label>
 
-          <button className={SUBMIT_BUTTON_CLASS} type="submit" disabled={reset.isPending} data-testid="button-reset-password">
+          <button className={SUBMIT_BUTTON_CLASS} type="submit" disabled={reset.isPending} aria-busy={reset.isPending} data-testid="button-reset-password">
             {reset.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.updating}</span></>
             ) : (
-              <><span>{copy.update}</span><ArrowLeft className="size-4" /></>
+              <><span>{copy.update}</span><ForwardArrow className="size-4" /></>
             )}
           </button>
         </form>
@@ -336,6 +371,7 @@ export function LoginPageInner() {
   const copy = pageCopy[lang].login;
   const field = fieldClasses();
   const isDev = import.meta.env.DEV;
+  const ForwardArrow = lang === 'ar' ? ArrowLeft : ArrowRight;
 
   const onSubmit = (values: LoginValues) => {
     login.mutate(
@@ -380,11 +416,13 @@ export function LoginPageInner() {
     <AuthShell>
       <div>
         <div>
-          <p className="text-xs font-bold text-sky-700">{text.greetings[greeting]}</p>
-          <h1 className="mt-1.5 text-3xl font-black text-[#0b2437]" data-testid="heading-login">
-            {copy.title}
+          <p className="text-xs font-bold text-sky-700 dark:text-sky-400">{text.greetings[greeting]}</p>
+          <h1 className="mt-1.5 text-3xl font-black text-[#0b2437] dark:text-foreground" data-testid="heading-login">
+            <BidiText>{copy.title}</BidiText>
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{copy.subtitle}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <BidiText>{copy.subtitle}</BidiText>
+          </p>
         </div>
 
         {apiError ? (
@@ -397,28 +435,30 @@ export function LoginPageInner() {
           <>
             <button
               type="button"
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs font-bold text-sky-800 transition-colors hover:bg-sky-100"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs font-bold text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300 dark:hover:bg-sky-400/15"
               onClick={() => {
                 form.setValue('email', 'demo@meruna.app');
                 form.setValue('password', 'demo1234');
               }}
               data-testid="button-demo-login"
             >
-              <Sparkles className="size-4 text-sky-600" />
-              <span>{copy.demo}</span>
+              <Sparkles className="size-4 text-sky-600 dark:text-sky-400" />
+              <span>
+                <BidiText>{copy.demo}</BidiText>
+              </span>
             </button>
             <div className="relative my-5 flex items-center justify-center">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
+                <div className="w-full border-t border-slate-200 dark:border-white/10" />
               </div>
-              <span className="relative bg-[#f2f6f9] px-3 text-[11px] font-semibold text-slate-400">{copy.orEmail}</span>
+              <span className="relative bg-[#f2f6f9] px-3 text-xs font-semibold text-slate-400 dark:bg-background dark:text-slate-500">{copy.orEmail}</span>
             </div>
           </>
         ) : null}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.email}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.email}</span>
             <div className="relative">
               <Mail size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -434,12 +474,14 @@ export function LoginPageInner() {
             {form.formState.errors.email?.message ? (
               <FieldError message={form.formState.errors.email.message} />
             ) : (
-              <span className="mt-1 block text-[11px] text-slate-400">{copy.emailHint}</span>
+              <span className="mt-1 block text-xs text-slate-400">
+                <BidiText>{copy.emailHint}</BidiText>
+              </span>
             )}
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-slate-600">{copy.password}</span>
+            <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{copy.password}</span>
             <div className="relative">
               <ShieldCheck size={16} className={`pointer-events-none absolute ${field.startIcon} top-3.5 text-slate-400`} />
               <input
@@ -451,68 +493,68 @@ export function LoginPageInner() {
                 autoComplete="current-password"
                 data-testid="input-login-password"
               />
-              <button
-                type="button"
-                className={`absolute ${field.endIcon} top-3.5 text-slate-400 transition-colors hover:text-slate-600`}
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? copy.hidePassword : copy.showPassword}
-                data-testid="button-toggle-password"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              <PasswordFieldToggle
+                visible={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                showLabel={copy.showPassword}
+                hideLabel={copy.hidePassword}
+                testId="button-toggle-password"
+              />
             </div>
             <FieldError message={form.formState.errors.password?.message} />
           </label>
 
           <div className="flex items-center justify-between pt-1 text-xs">
-            <label className="flex cursor-pointer select-none items-center gap-2 text-slate-600 transition-colors hover:text-slate-900">
+            <label className="flex cursor-pointer select-none items-center gap-2 text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">
               <input
                 {...form.register('remember')}
                 type="checkbox"
-                className="size-4 rounded border-slate-300 accent-[#0d2436]"
+                className="size-4 rounded border-slate-300 accent-[#0d2436] dark:accent-[#35809f]"
                 data-testid="input-remember"
               />
               <span>{copy.remember}</span>
             </label>
             <button
               type="button"
-              className="font-bold text-sky-700 transition-colors hover:text-sky-600"
+              className="font-bold text-sky-700 transition-colors hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300"
               onClick={() => {
                 login.reset();
                 setLocation('/forgot-password');
               }}
               data-testid="button-forgot-password"
             >
-              {copy.forgot}
+              <BidiText>{copy.forgot}</BidiText>
             </button>
           </div>
 
-          <button className={`${SUBMIT_BUTTON_CLASS} mt-1`} type="submit" disabled={login.isPending} data-testid="button-login">
+          <button className={`${SUBMIT_BUTTON_CLASS} mt-1`} type="submit" disabled={login.isPending} aria-busy={login.isPending} data-testid="button-login">
             {login.isPending ? (
               <><RefreshCw size={16} className="animate-spin" /><span>{copy.loading}</span></>
             ) : (
-              <><span>{copy.submit}</span><ArrowLeft className="size-4" /></>
+              <><span>{copy.submit}</span><ForwardArrow className="size-4" /></>
             )}
           </button>
         </form>
 
         <div className="relative my-5 flex items-center justify-center">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200" />
+            <div className="w-full border-t border-slate-200 dark:border-white/10" />
           </div>
-          <span className="relative bg-[#f2f6f9] px-3 text-[11px] font-semibold text-slate-400">{copy.or}</span>
+          <span className="relative bg-[#f2f6f9] px-3 text-xs font-semibold text-slate-400 dark:bg-background dark:text-slate-500">{copy.or}</span>
         </div>
 
-        <p className="text-center text-xs text-slate-500">
-          {copy.noAccount}{' '}
-          <Link href="/register" className="font-bold text-sky-700 transition-colors hover:text-sky-600 hover:underline" data-testid="link-register">
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+          <BidiText>{copy.noAccount}</BidiText>{' '}
+          <Link href="/register" className="font-bold text-sky-700 transition-colors hover:text-sky-600 hover:underline dark:text-sky-400 dark:hover:text-sky-300" data-testid="link-register">
             {copy.register}
           </Link>
         </p>
 
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-slate-500" data-testid="status-api">
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400" data-testid="status-api">
           <span className={`inline-block size-1.5 rounded-full ${health.isError ? 'bg-red-400' : 'bg-emerald-500 live-pulse-dot'}`} />
-          <span>{health.isError ? text.footer.degraded : text.footer.healthy}</span>
+          <span>
+            <BidiText>{health.isError ? text.footer.degraded : text.footer.healthy}</BidiText>
+          </span>
         </p>
       </div>
     </AuthShell>
