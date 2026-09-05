@@ -406,23 +406,29 @@ router.post("/register", async (req, res) => {
       },
     );
 
-    if (!signupResult.ok || !signupResult.data?.user) {
+    // GoTrue changed its signup shape: older projects wrap the user in
+    // {user:{...}} while newer ones return the user object at the top level.
+    const signupUser = signupResult.data?.user
+      ?? ((signupResult.data && typeof signupResult.data === "object" && "id" in signupResult.data)
+        ? (signupResult.data as unknown as SupabaseAuthUser)
+        : null);
+    if (!signupResult.ok || !signupUser?.id) {
       const publicErrorText = String(
         (signupResult.data as Record<string, unknown>)?.msg ||
         (signupResult.data as Record<string, unknown>)?.error_description ||
         (signupResult.data as Record<string, unknown>)?.message ||
-        "تعذر إنشاء الحساب"
+        `رمز ${signupResult.status} من خدمة الحسابات`
       );
       req.log?.error({ status: signupResult.status, publicErrorText }, "[Auth] Supabase public signup rejected");
       res.status(400).json({
         error: /already\s+registered|already\s+exists/i.test(publicErrorText)
           ? "هذا البريد الإلكتروني مسجل مسبقاً في النظام. يرجى تسجيل الدخول أو استخدام بريد آخر."
-          : `تعذر إنشاء الحساب: ${publicErrorText}`,
+          : `تعذر إنشاء الحساب (${publicErrorText})`,
       });
       return;
     }
 
-    userId = signupResult.data.user.id;
+    userId = signupUser.id;
   }
 
   // 2. Sign in to retrieve access token
