@@ -5,7 +5,7 @@ import { clinicEvents } from "../lib/events";
 
 const router = Router();
 type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string; phone?: string; email?: string; notes?: string; created_at?: string };
-type PatientInput = { name?: unknown; phone?: unknown; email?: unknown; notes?: unknown };
+type PatientInput = { name?: unknown; phone?: unknown; email?: unknown; notes?: unknown; age?: unknown; address?: unknown; };
 
 function sessionHeaders(accessToken: string, extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...extra };
@@ -16,7 +16,10 @@ function input(body: PatientInput) {
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const notes = typeof body.notes === "string" ? body.notes.trim() : "";
-  return { name, phone, email, notes };
+  const address = typeof body.address === "string" ? body.address.trim() : "";
+  const ageRaw = typeof body.age === "number" ? body.age : Number.parseInt(String(body.age ?? ""), 10);
+  const age = Number.isFinite(ageRaw) ? Math.min(130, Math.max(0, ageRaw)) : null;
+  return { name, phone, email, notes, address, age };
 }
 
 router.get("/patients", async (req, res) => {
@@ -24,7 +27,7 @@ router.get("/patients", async (req, res) => {
   try { session = await requireClinicPermission(req, "Patients", "patients", "read"); } catch (error) { respondToPermissionError(res, error); return; }
   const limit = clampInt(req.query.limit, 1000, 1, 1000);
   const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
-  const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,email,notes,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=" + limit + "&offset=" + offset;
+  const path = "/rest/v1/patients?select=id,name,first_name,last_name,phone,email,notes,age,address,created_at&clinic_id=eq." + encodeURIComponent(session.clinicId) + "&deleted_at=is.null&order=created_at.desc&limit=" + limit + "&offset=" + offset;
   const result = await supabaseRequest<PatientRow[]>(path, { headers: { Authorization: `Bearer ${session.accessToken}` } });
   if (!result.ok) { res.status(result.status || 502).json({ error: "Patients could not be loaded." }); return; }
   const items = (result.data ?? []).map((patient) => ({ id: patient.id, name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم", phone: patient.phone || "—", email: patient.email || null, notes: patient.notes || null, createdAt: patient.created_at || null }));
@@ -45,7 +48,7 @@ router.post("/patients", async (req, res) => {
   const result = await supabaseRequest<PatientRow[]>("/rest/v1/patients", {
     method: "POST",
     headers: sessionHeaders(session.accessToken, { Prefer: "return=representation" }),
-    body: JSON.stringify({ clinic_id: session.clinicId, name: data.name, phone: data.phone || null, email: data.email || null, notes: data.notes || null, status: "active" }),
+    body: JSON.stringify({ clinic_id: session.clinicId, name: data.name, phone: data.phone || null, email: data.email || null, notes: data.notes || null, address: data.address || null, age: data.age ?? null, status: "active" }),
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حفظ المريض." }); return; }
   const created = result.data?.[0] ?? null;
@@ -64,7 +67,7 @@ router.patch("/patients/:id", async (req, res) => {
   const result = await supabaseRequest<PatientRow[]>(path, {
     method: "PATCH",
     headers: sessionHeaders(session.accessToken, { Prefer: "return=representation" }),
-    body: JSON.stringify({ name: data.name, phone: data.phone || null, email: data.email || null, notes: data.notes || null }),
+    body: JSON.stringify({ name: data.name, phone: data.phone || null, email: data.email || null, notes: data.notes || null, address: data.address || null, age: data.age ?? null }),
   });
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر تحديث المريض." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "المريض غير موجود." }); return; }

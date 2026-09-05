@@ -35,6 +35,10 @@ export function QuickAddModal() {
   const [newPatientName, setNewPatientName] = useState('');
   const [newPatientPhone, setNewPatientPhone] = useState('');
   const [apptSlotId, setApptSlotId] = useState('');
+  const [apptDoctorId, setApptDoctorId] = useState('');
+  const [apptDate, setApptDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newPatientAge, setNewPatientAge] = useState('');
+  const [newPatientAddress, setNewPatientAddress] = useState('');
   const [apptNotes, setApptNotes] = useState('');
 
   // حقول تبويب المريض
@@ -45,15 +49,18 @@ export function QuickAddModal() {
 
   // خيارات الحجز الحقيقية من الخادم
   const bookingOptionsQuery = useQuery({
-    queryKey: ['booking-options'],
+    queryKey: ['booking-options', apptDoctorId, apptDate],
     queryFn: async ({ signal }) => {
-      const res = await fetch('/api/appointments?includeOptions=true', { credentials: 'include', signal });
+      const params = new URLSearchParams({ includeOptions: 'true' });
+      if (apptDoctorId) params.set('doctorId', apptDoctorId);
+      if (apptDate) params.set('date', apptDate);
+      const res = await fetch(`/api/appointments?${params.toString()}`, { credentials: 'include', signal });
       if (!res.ok) throw new Error(isArabic ? 'تعذر تحميل خيارات الحجز' : 'Failed to load booking options');
       const data = await res.json().catch(() => null);
       return (data?.options ?? null) as BookingOptions | null;
     },
     enabled: isOpen,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
   const bookingOptions = bookingOptionsQuery.data ?? null;
   const availableSlots = bookingOptions?.slots ?? [];
@@ -61,7 +68,7 @@ export function QuickAddModal() {
   const serviceName = (id: string) => bookingOptions?.services.find((s) => s.id === id)?.name || (isArabic ? 'الخدمة' : 'Service');
 
   const createPatientMutation = useMutation({
-    mutationFn: async (payload: { name: string; phone?: string; email?: string; notes?: string }) => {
+    mutationFn: async (payload: { name: string; phone?: string; email?: string; notes?: string; age?: number; address?: string }) => {
       const res = await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,6 +121,10 @@ export function QuickAddModal() {
     setPatientPhone('');
     setPatientEmail('');
     setPatientNotes('');
+    setNewPatientName('');
+    setNewPatientPhone('');
+    setNewPatientAge('');
+    setNewPatientAddress('');
   };
 
   const handleCreateAppointment = (e: React.FormEvent) => {
@@ -125,7 +136,7 @@ export function QuickAddModal() {
     if (apptPatientId === NEW_PATIENT) {
       if (!newPatientName.trim()) return;
       createPatientMutation.mutate(
-        { name: newPatientName.trim(), phone: newPatientPhone.trim() || undefined },
+        { name: newPatientName.trim(), phone: newPatientPhone.trim() || undefined, age: newPatientAge ? Number(newPatientAge) : undefined, address: newPatientAddress.trim() || undefined },
         {
           onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['patients'] });
@@ -318,6 +329,33 @@ export function QuickAddModal() {
                     <label className="block text-xs font-bold text-muted-foreground mb-1.5">
                       {isArabic ? 'الموعد المتاح *' : 'Available Slot *'}
                     </label>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="block text-xs font-bold text-muted-foreground">
+                        {isArabic ? 'الطبيب' : 'Doctor'}
+                        <select
+                          value={apptDoctorId}
+                          onChange={(e) => { setApptDoctorId(e.target.value); setApptSlotId(''); }}
+                          className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                          data-testid="select-quick-add-doctor"
+                        >
+                          <option value="">{isArabic ? 'كل الأطباء' : 'All doctors'}</option>
+                          {(bookingOptions?.doctors ?? []).map((d) => (
+                            <option value={d.id} key={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-xs font-bold text-muted-foreground">
+                        {isArabic ? 'التاريخ' : 'Date'}
+                        <input
+                          type="date"
+                          value={apptDate}
+                          onChange={(e) => { setApptDate(e.target.value); setApptSlotId(''); }}
+                          dir="ltr"
+                          className="mt-1 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
+                          data-testid="input-quick-add-date"
+                        />
+                      </label>
+                    </div>
                     <select
                       required
                       value={apptSlotId}
@@ -408,6 +446,8 @@ export function QuickAddModal() {
                         dir="ltr"
                         className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary"
                       />
+                      <input value={newPatientAge} onChange={(e) => setNewPatientAge(e.target.value)} placeholder={isArabic ? 'السن' : 'Age'} inputMode="numeric" className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary" />
+                      <input value={newPatientAddress} onChange={(e) => setNewPatientAddress(e.target.value)} placeholder={isArabic ? 'العنوان' : 'Address'} className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-hidden focus:border-primary" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-muted-foreground mb-1.5">

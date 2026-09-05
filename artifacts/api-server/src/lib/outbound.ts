@@ -25,7 +25,7 @@ export function resolveOutboundDispatcherConfig(env: Partial<Record<"N8N_INBOX_O
   };
 }
 
-export async function dispatchOutbound(conversationId: string, messageId?: string | null) {
+export async function dispatchOutbound(conversationId: string, messageId?: string | null): Promise<{ delivered: boolean }> {
   try {
     // 1. Fetch conversation details
     const convLookup = await supabaseAdminRequest<Array<{
@@ -41,7 +41,7 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
     const conv = convLookup.data?.[0];
     if (!conv) {
       logger.warn({ conversationId }, "[Outbound] Conversation not found in Supabase");
-      return;
+      return { delivered: false };
     }
 
     const clinicId = conv.clinic_id;
@@ -56,7 +56,7 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
     const msg = msgLookup.data?.[0];
     if (!msg || !msg.content) {
       logger.warn({ conversationId, messageId }, "[Outbound] Message content empty or not found");
-      return;
+      return { delivered: false };
     }
 
     // 3. Resolve recipient phone / external ID
@@ -117,7 +117,7 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
             body: JSON.stringify({ message_status: "delivered" }),
           });
           logger.info({ conversationId, messageId: msg.id, wabaId }, "[Outbound] Message delivered via WasapFlow Bridge");
-          return;
+          return { delivered: true };
         }
       } catch (wfErr) {
         logger.warn({ wfErr, conversationId }, "[Outbound] WasapFlow send failed, trying fallbacks");
@@ -139,7 +139,7 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
             body: JSON.stringify({ message_status: "delivered" }),
           });
           logger.info({ conversationId, messageId: msg.id }, "[Outbound] Message delivered via Telegram Bot");
-          return;
+          return { delivered: true };
         }
       } catch (tgErr) {
         logger.warn({ tgErr, conversationId }, "[Outbound] Telegram send failed, trying n8n fallback");
@@ -168,7 +168,7 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
             body: JSON.stringify({ message_status: "delivered" }),
           });
           logger.info({ conversationId, messageId: msg.id }, "[Outbound] Message delivered via Meta Graph API");
-          return;
+          return { delivered: true };
         }
       } catch (metaErr) {
         logger.warn({ metaErr, conversationId }, "[Outbound] Meta Graph send failed, trying n8n fallback");
@@ -198,11 +198,18 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
           body: JSON.stringify({ message_status: "delivered" }),
         });
         logger.info({ conversationId, messageId: msg.id }, "[Outbound] Message delivered via n8n dispatcher");
-        return;
+        return { delivered: true };
       }
     }
+    await supabaseAdminRequest(`/rest/v1/messages?id=eq.${encodeURIComponent(msg.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ message_status: "failed" }),
+    });
+    logger.error({ conversationId, messageId: msg.id }, "[Outbound] All delivery paths failed; message marked failed");
+    return { delivered: false };
   } catch (error) {
     logger.error({ error, conversationId }, "[Outbound] Unexpected error in dispatchOutbound");
+    return { delivered: false };
   }
 }
 

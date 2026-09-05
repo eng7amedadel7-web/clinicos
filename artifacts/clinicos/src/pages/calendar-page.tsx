@@ -31,7 +31,7 @@ type AppointmentRow = {
 type BookingOptions = {
   patients: Array<{ id: string; name: string }>;
   slots: Array<{ id: string; startTime: string; doctorId: string; serviceId: string }>;
-  doctors: Array<{ id: string; name: string }>;
+  doctors: Array<{ id: string; name: string; specialization?: string | null }>;
   services: Array<{ id: string; name: string }>;
 };
 
@@ -51,11 +51,19 @@ async function getCalendarAppointments(signal?: AbortSignal): Promise<Appointmen
   }));
 }
 
-async function getBookingOptions(signal?: AbortSignal): Promise<BookingOptions | null> {
-  const response = await fetch("/api/appointments?includeOptions=true", { credentials: "include", signal });
-  if (!response.ok) return null;
+async function getBookingOptions(
+  signal?: AbortSignal,
+  filters?: { doctorId?: string; date?: string }
+): Promise<{ options: BookingOptions; error: string | null }> {
+  const params = new URLSearchParams({ includeOptions: "true" });
+  if (filters?.doctorId) params.set("doctorId", filters.doctorId);
+  if (filters?.date) params.set("date", filters.date);
+  const response = await fetch(`/api/appointments?${params.toString()}`, { credentials: "include", signal });
   const data = await response.json().catch(() => null);
-  return data?.options || null;
+  if (!response.ok) {
+    return { options: { patients: [], doctors: [], services: [], slots: [] }, error: data?.error || "تعذر تحميل خيارات الحجز من الخادم." };
+  }
+  return { options: data?.options || { patients: [], doctors: [], services: [], slots: [] }, error: null };
 }
 
 function getWeekDays(baseDate: Date): Date[] {
@@ -116,7 +124,25 @@ export default function CalendarPage() {
   const [baseDate, setBaseDate] = useState<Date>(today);
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [bookingForm, setBookingForm] = useState({ patientId: "", slotId: "", notes: "" });
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [bookingForm, setBookingForm] = useState({
+    patientMode: "existing" as "existing" | "new",
+    patientId: "",
+    newPatient: { name: "", phone: "", age: "", address: "" },
+    doctorId: "",
+    date: todayStr,
+    slotId: "",
+    notes: "",
+  });
+  const resetBookingForm = () => setBookingForm({
+    patientMode: "existing",
+    patientId: "",
+    newPatient: { name: "", phone: "", age: "", address: "" },
+    doctorId: "",
+    date: new Date().toISOString().slice(0, 10),
+    slotId: "",
+    notes: "",
+  });
 
   const query = useQuery({
     queryKey: ["calendar-appointments", selectedBranchId],
@@ -126,22 +152,24 @@ export default function CalendarPage() {
   });
 
   const optionsQuery = useQuery({
-    queryKey: ["booking-options"],
-    queryFn: ({ signal }) => getBookingOptions(signal),
+    queryKey: ["booking-options", bookingForm.doctorId, bookingForm.date],
+    queryFn: ({ signal }) => getBookingOptions(signal, { doctorId: bookingForm.doctorId || undefined, date: bookingForm.date || undefined }),
     enabled: bookingOpen,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
+  const optionsError = optionsQuery.error instanceof Error ? optionsQuery.error.message : optionsQuery.data?.error ?? null;
 
   const bookMutation = useMutation({
-    mutationFn: async (form: { patientId: string; slotId: string; notes: string }) => {
+    mutationFn: async (form: { patientId: string; slotId: string; notes?: string }) => {
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
         credentials: "include",
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error("تعذر حجز الموعد");
-      return res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "تعذر حجز الموعد");
+      return data;
     },
     onSuccess: async (created: { queuePath?: string }) => {
       if (created.queuePath) {
@@ -156,12 +184,12 @@ export default function CalendarPage() {
         toast.success(en ? "Appointment booked successfully" : "تم حجز الموعد بنجاح");
       }
       setBookingOpen(false);
-      setBookingForm({ patientId: "", slotId: "", notes: "" });
+      resetBookingForm();
       queryClient.invalidateQueries({ queryKey: ["calendar-appointments"] });
       query.refetch();
     },
-    onError: () => {
-      toast.error(en ? "Failed to book appointment" : "تعذر إتمام الحجز");
+    onError: (error: Error) => {
+      toast.error(error.message || (en ? "Failed to book appointment" : "تعذر إتمام الحجز"));
     },
   });
 
@@ -231,17 +259,43 @@ export default function CalendarPage() {
     ? `${formatDateShort(weekDays[0], en)} — ${formatDateShort(weekDays[6], en)} · ${formatMonthYear(weekDays[3], en)}`
     : formatDateShort(baseDate, en);
 
-  const options = optionsQuery.data;
+  const options = optionsQuery.data?.options ?? null;
   const doctorName = (id: string) => options?.doctors.find((d) => d.id === id)?.name || (en ? "Doctor" : "الطبيب");
   const serviceName = (id: string) => options?.services.find((s) => s.id === id)?.name || (en ? "Service" : "الخدمة");
 
-  const handleBookSubmit = (e: React.FormEvent) => {
+  const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookingForm.patientId || !bookingForm.slotId) {
-      toast.error(en ? "Please select a patient and a time slot" : "يرجى اختيار المريض والموعد المتاح");
+    let patientId = bookingForm.patientId;
+    if (bookingForm.patientMode === "new") {
+      if (!bookingForm.newPatient.name.trim() || !bookingForm.newPatient.phone.trim()) {
+        toast.error(en ? "Patient name and phone are required" : "اسم المريض ورقم هاتفه مطلوبان");
+        return;
+      }
+      try {
+        const res = await fetch("/api/patients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: bookingForm.newPatient.name.trim(),
+            phone: bookingForm.newPatient.phone.trim(),
+            age: bookingForm.newPatient.age ? Number(bookingForm.newPatient.age) : undefined,
+            address: bookingForm.newPatient.address.trim() || undefined,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.id) throw new Error(data?.error || "تعذر حفظ المريض الجديد");
+        patientId = String(data.id);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "تعذر حفظ المريض الجديد");
+        return;
+      }
+    }
+    if (!patientId || !bookingForm.slotId) {
+      toast.error(en ? "Select a patient and an available slot" : "اختر المريض والموعد المتاح");
       return;
     }
-    bookMutation.mutate(bookingForm);
+    bookMutation.mutate({ patientId, slotId: bookingForm.slotId, notes: bookingForm.notes.trim() || undefined });
   };
 
   return (
@@ -491,21 +545,35 @@ export default function CalendarPage() {
               <button type="button" onClick={() => setBookingOpen(false)} aria-label={en ? "Close" : "إغلاق"}><X size={18} /></button>
             </div>
 
-            <label className="block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
-              {en ? "Patient *" : "المريض *"}
-              <select
-                required
-                value={bookingForm.patientId}
-                onChange={(e) => setBookingForm({ ...bookingForm, patientId: e.target.value, slotId: "" })}
-                className="input-field mt-1.5 w-full"
-                data-testid="select-calendar-patient"
-              >
-                <option value="">{en ? "Select a patient from the clinic" : "اختر مريضاً من العيادة"}</option>
-                {options?.patients.map((p) => (
-                  <option value={p.id} key={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
+                {en ? "Doctor *" : "الطبيب *"}
+                <select
+                  required
+                  value={bookingForm.doctorId}
+                  onChange={(e) => setBookingForm({ ...bookingForm, doctorId: e.target.value, slotId: "" })}
+                  className="input-field mt-1.5 w-full"
+                  data-testid="select-calendar-doctor"
+                >
+                  <option value="">{en ? "All doctors" : "كل الأطباء"}</option>
+                  {options?.doctors.map((d) => (
+                    <option value={d.id} key={d.id}>{d.specialization ? `${d.name} — ${d.specialization}` : d.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
+                {en ? "Date *" : "التاريخ *"}
+                <input
+                  type="date"
+                  required
+                  value={bookingForm.date}
+                  onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value, slotId: "" })}
+                  className="input-field mt-1.5 w-full"
+                  dir="ltr"
+                  data-testid="input-calendar-date"
+                />
+              </label>
+            </div>
 
             <label className="block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
               {en ? "Available slot *" : "الموعد المتاح *"}
@@ -525,11 +593,51 @@ export default function CalendarPage() {
               </select>
             </label>
 
-            {options && options.slots.length === 0 && (
+            {optionsError ? (
+              <p className="rounded-xl bg-[#fff7f6] p-3 text-xs leading-6 text-[#a54c46] dark:bg-[#3d1f1b] dark:text-[#eb9a90]" role="alert" data-testid="alert-booking-options-error">{optionsError}</p>
+            ) : null}
+
+            {options && options.slots.length === 0 && !optionsError && (
               <p className="rounded-xl bg-[#fffaf0] p-3 text-xs leading-6 text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]">
-                {en ? "No available slots currently configured in this clinic." : "لا توجد مواعيد متاحة مسجلة حالياً في هذه العيادة."}
+                {en ? "No open slots for this doctor on this date — try another date, or generate slots from Settings > Clinic calendar." : "لا توجد مواعيد متاحة لهذا الطبيب في هذا اليوم — جرّب تاريخاً آخر أو ولّد مواعيد من الإعدادات > تقويم العيادة."}
               </p>
             )}
+
+            <div className="rounded-xl border border-[#edf1f3] p-3 dark:border-[#1e3a4d]">
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setBookingForm({ ...bookingForm, patientMode: "existing" })} className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold ${bookingForm.patientMode === "existing" ? "bg-[#3c7e93] text-white" : "border border-[#dbe5ea] text-[#66808e] dark:border-[#1e3a4d] dark:text-[#7e939e]"}`} data-testid="button-patient-existing">
+                  {en ? "Existing patient" : "مريض مسجّل"}
+                </button>
+                <button type="button" onClick={() => setBookingForm({ ...bookingForm, patientMode: "new", patientId: "" })} className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold ${bookingForm.patientMode === "new" ? "bg-[#3c7e93] text-white" : "border border-[#dbe5ea] text-[#66808e] dark:border-[#1e3a4d] dark:text-[#7e939e]"}`} data-testid="button-patient-new">
+                  {en ? "New patient" : "مريض جديد"}
+                </button>
+              </div>
+
+              {bookingForm.patientMode === "existing" ? (
+                <label className="mt-3 block text-xs font-bold text-[#527080] dark:text-[#a8bfc9]">
+                  {en ? "Patient *" : "المريض *"}
+                  <select
+                    required
+                    value={bookingForm.patientId}
+                    onChange={(e) => setBookingForm({ ...bookingForm, patientId: e.target.value })}
+                    className="input-field mt-1.5 w-full"
+                    data-testid="select-calendar-patient"
+                  >
+                    <option value="">{en ? "Select a patient from the clinic" : "اختر مريضاً من العيادة"}</option>
+                    {options?.patients.map((p) => (
+                      <option value={p.id} key={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input required value={bookingForm.newPatient.name} onChange={(e) => setBookingForm({ ...bookingForm, newPatient: { ...bookingForm.newPatient, name: e.target.value } })} placeholder={en ? "Patient name *" : "اسم المريض *"} className="input-field" data-testid="input-new-patient-name" />
+                  <input required dir="ltr" value={bookingForm.newPatient.phone} onChange={(e) => setBookingForm({ ...bookingForm, newPatient: { ...bookingForm.newPatient, phone: e.target.value } })} placeholder={en ? "Phone number *" : "رقم الهاتف *"} className="input-field" data-testid="input-new-patient-phone" />
+                  <input inputMode="numeric" value={bookingForm.newPatient.age} onChange={(e) => setBookingForm({ ...bookingForm, newPatient: { ...bookingForm.newPatient, age: e.target.value } })} placeholder={en ? "Age" : "السن"} className="input-field" data-testid="input-new-patient-age" />
+                  <input value={bookingForm.newPatient.address} onChange={(e) => setBookingForm({ ...bookingForm, newPatient: { ...bookingForm.newPatient, address: e.target.value } })} placeholder={en ? "Address" : "العنوان"} className="input-field" data-testid="input-new-patient-address" />
+                </div>
+              )}
+            </div>
 
             <textarea
               value={bookingForm.notes}
@@ -546,7 +654,7 @@ export default function CalendarPage() {
               <button
                 type="submit"
                 className="primary-button"
-                disabled={bookMutation.isPending || !options?.slots.length}
+                disabled={bookMutation.isPending || !bookingForm.slotId}
                 data-testid="button-submit-calendar-booking"
               >
                 {bookMutation.isPending ? (en ? "Booking..." : "جارٍ الحجز...") : (en ? "Confirm Booking" : "تأكيد الحجز")}

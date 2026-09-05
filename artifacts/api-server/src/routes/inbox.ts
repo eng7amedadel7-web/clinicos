@@ -371,13 +371,18 @@ router.post("/inbox/:id/messages", async (req, res) => {
     }
   }
 
-  // 3. Outbound dispatch (WasapFlow, Telegram, n8n webhook)
+  // 3. Outbound dispatch (WasapFlow, Telegram, Meta, n8n webhook)
+  let deliveryError: string | null = null;
   try {
     if (conversationId && messageId) {
-      await dispatchOutbound(conversationId, messageId);
+      const delivery = await dispatchOutbound(conversationId, messageId);
+      if (!delivery?.delivered) {
+        deliveryError = "تم حفظ الرسالة لكن تعذر تسليمها للمريض — تأكد من ربط قناة الواتساب من الإعدادات.";
+      }
     }
   } catch (error) {
     console.warn("[Inbox] Outbound dispatch warning (message saved in DB):", error);
+    deliveryError = "تم حفظ الرسالة لكن تعذر الاتصال بخدمة الإرسال.";
   }
 
   // 4. Realtime event emission and response
@@ -388,7 +393,8 @@ router.post("/inbox/:id/messages", async (req, res) => {
     content,
     direction: "outgoing",
     sender_type: "clinic",
-    message_status: "sent",
+    message_status: deliveryError ? "failed" : "sent",
+    deliveryError,
     created_at: new Date().toISOString(),
   });
 });

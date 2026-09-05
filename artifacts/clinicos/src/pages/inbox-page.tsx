@@ -105,6 +105,8 @@ export default function InboxPage() {
     },
     onSuccess: (data, variables, context) => {
       const persisted = data && typeof data === "object" && "id" in data ? data as InboxMessage : null;
+      const deliveryError = data && typeof data === "object" && "deliveryError" in data ? String((data as { deliveryError?: string }).deliveryError ?? "") : "";
+      if (deliveryError) toast.error(deliveryError);
       if (persisted?.id) {
         queryClient.setQueryData<{ messages: InboxMessage[] }>(["inbox", variables.id], (current) => {
           if (!current || current.messages.some((message) => message.id === persisted.id)) return current;

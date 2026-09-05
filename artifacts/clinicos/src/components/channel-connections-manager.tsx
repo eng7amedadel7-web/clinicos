@@ -218,7 +218,11 @@ export function ChannelConnectionsManager() {
 
       setWaDevOtp(data.devOtp || null);
       setWaStep('otp');
-      toast.success(isArabic ? `تم إرسال كود التحقق إلى ${waPhone} 📲` : 'Verification code sent!');
+      if (data.devOtp) {
+        toast.message(isArabic ? 'رمز التحقق ظاهر في الأسفل — التسليم التلقائي غير مفعّل قبل إكمال الربط' : 'Code shown below — auto-delivery activates after linking');
+      } else {
+        toast.success(isArabic ? `تم إرسال كود التحقق إلى ${waPhone} 📲` : 'Verification code sent!');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error sending verification code');
     } finally {
@@ -514,6 +518,11 @@ export function ChannelConnectionsManager() {
                       <div>
                         <label className="block text-slate-300 font-semibold mb-1">
                           {isArabic ? 'أدخل رمز التحقق (6 أرقام):' : 'Enter 6-Digit Code:'}
+                        {waDevOtp ? (
+                          <span className="mt-1 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" data-testid="text-wa-dev-otp">
+                            {isArabic ? 'رمز التحقق:' : 'Your code:'} <bdi dir="ltr" className="font-mono text-sm">{waDevOtp}</bdi>
+                          </span>
+                        ) : null}
                         </label>
                         <input
                           type="text"

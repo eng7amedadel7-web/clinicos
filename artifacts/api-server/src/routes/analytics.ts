@@ -13,10 +13,11 @@ type AppointmentRow = {
 
 type ConversationRow = {
   id?: string;
-  channel_type?: string;
-  mode?: string;
+  channel_id?: string;
   status?: string;
+  ai_status?: string;
   created_at?: string;
+  channels?: { type?: string } | null;
 };
 
 type MessageRow = {
@@ -66,11 +67,11 @@ router.get("/analytics/summary", async (req, res) => {
       { headers }
     ),
     supabaseRequest<ConversationRow[]>(
-      `/rest/v1/inbox_conversations?select=id,channel_type,mode,status,created_at&${clinicFilter}&created_at=gte.${encodeURIComponent(last30Days)}&limit=2000`,
+      `/rest/v1/conversations?select=id,status,ai_status,channel_id,created_at,channels(type)&${clinicFilter}&created_at=gte.${encodeURIComponent(last30Days)}&limit=2000`,
       { headers }
     ),
     supabaseRequest<MessageRow[]>(
-      `/rest/v1/inbox_messages?select=id,created_at,direction,sender_type&${clinicFilter}&created_at=gte.${encodeURIComponent(last30Days)}&limit=5000`,
+      `/rest/v1/messages?select=id,created_at,direction,sender_type&${clinicFilter}&created_at=gte.${encodeURIComponent(last30Days)}&limit=5000`,
       { headers }
     ),
     supabaseRequest<{ id: string }[]>(
@@ -124,14 +125,14 @@ router.get("/analytics/summary", async (req, res) => {
   // Channel distribution for conversations
   const channelMap: Record<string, number> = {};
   for (const conv of conversations) {
-    const ch = conv.channel_type ?? "unknown";
+    const ch = conv.channels?.type ?? "unknown";
     channelMap[ch] = (channelMap[ch] ?? 0) + 1;
   }
   const channelDistribution = Object.entries(channelMap).map(([channel, count]) => ({ channel, count }));
 
   // AI vs Human breakdown
-  const aiConvs = conversations.filter((c) => c.mode === "AI").length;
-  const humanConvs = conversations.filter((c) => c.mode === "Human").length;
+  const aiConvs = conversations.filter((c) => c.ai_status === "active").length;
+  const humanConvs = conversations.filter((c) => c.ai_status !== "active").length;
 
   // Messages stats
   const inboundMessages = messages.filter((m) => m.direction === "incoming").length;

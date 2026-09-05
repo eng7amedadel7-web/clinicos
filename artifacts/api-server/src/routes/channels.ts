@@ -299,11 +299,16 @@ router.post("/settings/channels/whatsapp/request-otp", async (req: Request, res:
 
   logger.info({ clinicId: session.clinicId, phone: cleanPhone }, "[WhatsApp OTP] Verification code generated");
 
+  // No automatic delivery channel exists for this clinic yet (the WhatsApp
+  // number being linked IS the thing being verified), so the code is shown to
+  // the authenticated owner in their own wizard instead of pretending it was
+  // sent. It is never written to logs.
   res.json({
     success: true,
-    message: `تم إرسال رمز التحقق (OTP) إلى الرقم ${cleanPhone}`,
+    message: `رمز التحقق للرقم ${cleanPhone} ظاهر في الواجهة — التسليم التلقائي برسالة واتساب غير مفعّل قبل إكمال الربط.`,
     phoneNumber: cleanPhone,
     expiresAt,
+    devOtp: otp,
   });
 });
 

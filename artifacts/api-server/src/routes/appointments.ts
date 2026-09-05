@@ -106,11 +106,24 @@ router.get("/appointments", async (req, res) => {
     };
   });
   if (req.query.includeOptions === "true") {
+    const doctorIdParam = typeof req.query.doctorId === "string" ? req.query.doctorId.trim() : "";
+    const dateParam = typeof req.query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : "";
+    let slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date().toISOString())}`;
+    if (dateParam) {
+      const dayStart = new Date(`${dateParam}T00:00:00`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(dayStart.toISOString())}&start_time=lt.${encodeURIComponent(dayEnd.toISOString())}`;
+    }
+    const doctorWindow = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
     const [doctorsResult, servicesResult, slotsResult] = await Promise.all([
       supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${filter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
       supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${filter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
-      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${filter}&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date().toISOString())}&order=start_time.asc&limit=200`, { headers }),
+      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${filter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
     ]);
+    if (!doctorsResult.ok || !servicesResult.ok || !slotsResult.ok) {
+      res.status(502).json({ error: "تعذر تحميل خيارات الحجز من قاعدة البيانات." });
+      return;
+    }
     const doctors = (doctorsResult.data ?? []).map((doctor) => ({ id: doctor.id, name: doctor.name || "طبيب بدون اسم", specialization: doctor.specialization || null }));
     const services = (servicesResult.data ?? []).map((service) => ({ id: service.id, name: service.name || "خدمة بدون اسم", durationMinutes: service.duration_minutes ?? null }));
     const validDoctorIds = new Set(doctors.map((doctor) => String(doctor.id)));
