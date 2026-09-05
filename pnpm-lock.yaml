@@ -234,8 +234,8 @@ importers:
   artifacts/clinicos:
     dependencies:
       '@paddle/paddle-js':
-        specifier: 1.4.2
-        version: 1.4.2
+        specifier: 1.6.5
+        version: 1.6.5
       '@supabase/supabase-js':
         specifier: ^2.112.4
         version: 2.112.4
@@ -874,8 +874,8 @@ packages:
   '@orval/zod@8.23.0':
     resolution: {integrity: sha512-As/epqTSLpuzvmXwpYtQk1wanBfcgZ77MBnnuVAdGD+fna1x4b9Ah5PA/J/157PdUeoIzQQwC+9NpDeWGTSr0g==}
 
-  '@paddle/paddle-js@1.4.2':
-    resolution: {integrity: sha512-pY9jYS+g3vk6ecc7GbCsVSuBEo1Yh+hxYE4i2XoY5/ZBAZLuCkQi/80hOmSBkFoaETohOpDmurILlQdgUHUcvw==}
+  '@paddle/paddle-js@1.6.5':
+    resolution: {integrity: sha512-uFRvptUzYRqRlqTU5XmfcZWC9BGVYpZNdANd3giJjZbJlHesnE4gn8PyjtYpesU1ar2ZGPuJxHvrrSIV9jjdVw==}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -3624,7 +3624,7 @@ snapshots:
       - supports-color
       - typescript
 
-  '@paddle/paddle-js@1.4.2': {}
+  '@paddle/paddle-js@1.6.5': {}
 
   '@pinojs/redact@0.4.0': {}
 
