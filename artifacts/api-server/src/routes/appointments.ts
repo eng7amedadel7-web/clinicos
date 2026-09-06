@@ -160,10 +160,12 @@ router.get("/appointments", async (req, res) => {
       slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(`${dateParam}T00:00:00Z`)}&start_time=lt.${encodeURIComponent(`${dateParam}T23:59:59.999Z`)}`;
     }
     const doctorWindow = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
+    // فلتر التاريخ يخص جدول المواعيد فقط — الأطباء والخدمات والـslots
+    // معندهمش scheduled_at فكان الاستعلام بيرجع 400 ويسقط التبويبات كلها.
     const [doctorsResult, servicesResult, slotsResult] = await Promise.all([
-      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${filter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
-      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${filter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
-      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${filter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
+      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${scopeFilter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
+      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${scopeFilter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
+      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${scopeFilter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
     ]);
     if (!doctorsResult.ok || !servicesResult.ok || !slotsResult.ok) {
       res.status(502).json({ error: "تعذر تحميل خيارات الحجز من قاعدة البيانات." });

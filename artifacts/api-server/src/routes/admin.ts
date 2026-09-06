@@ -429,4 +429,82 @@ router.post("/admin/trial-codes", async (req: Request, res: Response) => {
   res.status(201).json({ code: mintResult.data, intendedEmail: parsed.data.intendedEmail ?? null, durationDays: parsed.data.durationDays });
 });
 
+// 6. POST /admin/trial-codes/:code/revoke - Kill a code's validity at any time.
+//    - Unused code: marked revoked, can never be redeemed.
+//    - Used code: ALSO terminates the trial it opened (clinic_subscriptions row
+//      goes back to canceled), locking the clinic behind the activation gate
+//      again — unless the clinic has since upgraded to a real Paddle
+//      subscription, which is never touched.
+router.post("/admin/trial-codes/:code/revoke", async (req: Request, res: Response) => {
+  if (!verifyAdminAccess(req)) {
+    res.status(401).json({ error: "Unauthorized: Invalid or missing admin secret key." });
+    return;
+  }
+
+  const code = String(req.params.code ?? "").trim();
+  if (!code) {
+    res.status(400).json({ error: "رمز التفعيل مطلوب." });
+    return;
+  }
+
+  const codeResult = await supabaseAdminRequest<Array<{
+    id?: string;
+    code?: string;
+    status?: string;
+    used_by_clinic_id?: string | null;
+    note?: string | null;
+  }>>(`/rest/v1/trial_codes?select=id,code,status,used_by_clinic_id,note&code=eq.${encodeURIComponent(code)}&limit=1`);
+  const codeRow = codeResult.ok ? codeResult.data?.[0] : undefined;
+  if (!codeRow?.id) {
+    res.status(404).json({ error: "الرمز غير موجود." });
+    return;
+  }
+  if (codeRow.status === "revoked") {
+    res.status(400).json({ error: "الرمز ملغي بالفعل." });
+    return;
+  }
+
+  let terminatedTrial = false;
+  let trialNote: string | null = null;
+
+  if (codeRow.status === "used" && codeRow.used_by_clinic_id) {
+    const clinicId = codeRow.used_by_clinic_id;
+    const subscriptionResult = await supabaseAdminRequest<Array<{
+      status?: string | null;
+      paddle_subscription_id?: string | null;
+    }>>(`/rest/v1/clinic_subscriptions?select=status,paddle_subscription_id&clinic_id=eq.${encodeURIComponent(clinicId)}&limit=1`);
+    const subscription = subscriptionResult.ok ? subscriptionResult.data?.[0] : undefined;
+
+    if (subscription?.paddle_subscription_id) {
+      res.status(409).json({ error: "العيادة اشتركت بقال فعلًا باشتراك مدفوع — الإلغاء مش هيلمس الاشتراك المدفوع." });
+      return;
+    }
+    if (subscription?.status === "trialing") {
+      const patch = await supabaseAdminRequest<unknown>(`/rest/v1/clinic_subscriptions?clinic_id=eq.${encodeURIComponent(clinicId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "canceled", current_period_ends_at: new Date().toISOString() }),
+      });
+      if (!patch.ok) {
+        req.log?.error({ status: patch.status, clinicId }, "[Admin] Trial termination on revoke failed");
+        res.status(502).json({ error: "تعذر إنهاء التجربة الشغالة. حاول مرة أخرى." });
+        return;
+      }
+      terminatedTrial = true;
+      trialNote = `trial terminated at ${new Date().toISOString()}`;
+    }
+  }
+
+  const suffix = terminatedTrial ? " | revoked after use; trial terminated" : " | revoked";
+  const nextNote = codeRow.note ? `${codeRow.note}${suffix}` : suffix.replace(/^ \| /, "");
+  await supabaseAdminRequest(`/rest/v1/trial_codes?id=eq.${encodeURIComponent(codeRow.id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "revoked", note: nextNote }),
+  });
+
+  req.log?.info({ code, terminatedTrial }, "[Admin] Trial code revoked");
+  res.json({ revoked: true, terminatedTrial, clinicId: codeRow.used_by_clinic_id ?? null });
+});
+
 export default router;
