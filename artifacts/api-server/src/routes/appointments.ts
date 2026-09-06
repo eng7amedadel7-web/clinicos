@@ -17,7 +17,7 @@ type CheckinRow = { status?: string; checked_in_at?: string | null; called_at?: 
 type FollowUpRow = { status?: string; followup_goal?: string | null; next_due_at?: string | null; created_at?: string | null };
 type NoShowRow = { case_status?: string; classification?: string | null; risk_level?: string | null; last_activity_at?: string | null; created_at?: string | null };
 
-async function protect(req: Parameters<typeof requireClinicPermission>[0], res: Parameters<typeof respondToPermissionError>[0], action: "read" | "create" | "update") {
+async function protect(req: Parameters<typeof requireClinicPermission>[0], res: Parameters<typeof respondToPermissionError>[0], action: "read" | "create" | "update" | "delete") {
   try {
     return await requireClinicPermission(req, "Appointments", "appointments", action);
   } catch (error) {
@@ -143,6 +143,7 @@ router.get("/appointments", async (req, res) => {
       name: patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || "مريض بدون اسم",
       scheduledAt: row.scheduled_at,
       status: row.appointment_status || "scheduled",
+      doctorId: row.doctor_id || null,
       doctorName: row.doctor_id ? (doctorsById.get(String(row.doctor_id)) ?? null) : null,
       serviceName: row.service_id ? (servicesById.get(String(row.service_id)) ?? null) : null,
       slotId: row.slot_id || null,
@@ -329,6 +330,21 @@ router.post("/appointments/:id/cancel", async (req, res) => {
     reason,
   });
   res.json(cancelled);
+});
+
+// حذف نهائي ناعم: يظل السجل في القاعدة للأرشفة والتدقيق لكنه يختفي من كل الواجهات،
+// ويحرر الـslot المرتبط ليصبح متاحاً للحجز من جديد.
+router.delete("/appointments/:id", async (req, res) => {
+  const session = await protect(req, res, "delete");
+  if (!session) return;
+  const path = `/rest/v1/appointments?id=eq.${encodeURIComponent(req.params.id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
+  const result = await supabaseRequest<AppointmentRow[]>(path, { method: "PATCH", headers: appointmentHeaders(session.accessToken, { Prefer: "return=representation" }), body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: session.userId, updated_by: session.userId }) });
+  if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حذف الموعد." }); return; }
+  const deleted = result.data?.[0];
+  if (!deleted?.id) { res.status(404).json({ error: "الموعد غير موجود." }); return; }
+  await restoreSlotAvailability(deleted.slot_id);
+  clinicEvents.emitClinicEvent(session.clinicId, "appointment.deleted", { appointmentId: req.params.id });
+  res.json({ success: true });
 });
 
 export default router;

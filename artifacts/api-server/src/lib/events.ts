@@ -14,6 +14,7 @@ export type ClinicEventType =
   | "appointment.booked"
   | "appointment.updated"
   | "appointment.cancelled"
+  | "appointment.deleted"
   | "appointment.checked_in"
   | "appointment.called"
   | "appointment.completed"

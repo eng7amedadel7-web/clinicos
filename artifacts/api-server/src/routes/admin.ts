@@ -352,4 +352,81 @@ router.post("/admin/send-welcome-kit", async (req: Request, res: Response) => {
   }
 });
 
+// 4. GET /admin/trial-codes - List recently issued trial codes
+router.get("/admin/trial-codes", async (req: Request, res: Response) => {
+  if (!verifyAdminAccess(req)) {
+    res.status(401).json({ error: "Unauthorized: Invalid or missing admin secret key." });
+    return;
+  }
+
+  const result = await supabaseAdminRequest<Array<{
+    code?: string;
+    intended_email?: string | null;
+    duration_days?: number;
+    status?: string;
+    used_by_clinic_id?: string | null;
+    used_at?: string | null;
+    expires_at?: string | null;
+    note?: string | null;
+    created_at?: string;
+  }>>("/rest/v1/trial_codes?select=code,intended_email,duration_days,status,used_by_clinic_id,used_at,expires_at,note,created_at&order=created_at.desc&limit=50");
+  if (!result.ok) {
+    req.log?.error({ status: result.status }, "[Admin] Trial codes lookup failed");
+    res.status(502).json({ error: "تعذر تحميل رموز التجربة. تأكد من تطبيق هجرة trial activation codes." });
+    return;
+  }
+
+  res.json({
+    items: (result.data ?? []).map((row) => ({
+      code: row.code ?? "",
+      intendedEmail: row.intended_email ?? null,
+      durationDays: row.duration_days ?? 14,
+      status: row.status ?? "unused",
+      usedByClinicId: row.used_by_clinic_id ?? null,
+      usedAt: row.used_at ?? null,
+      expiresAt: row.expires_at ?? null,
+      note: row.note ?? null,
+      createdAt: row.created_at ?? null,
+    })),
+  });
+});
+
+// 5. POST /admin/trial-codes - Mint a single-use trial code to hand to a clinic
+const trialCodeSchema = z.object({
+  intendedEmail: z.string().email().optional(),
+  durationDays: z.number().int().min(1).max(90).optional().default(14),
+  note: z.string().trim().max(200).optional(),
+});
+
+router.post("/admin/trial-codes", async (req: Request, res: Response) => {
+  if (!verifyAdminAccess(req)) {
+    res.status(401).json({ error: "Unauthorized: Invalid or missing admin secret key." });
+    return;
+  }
+
+  const parsed = trialCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات غير صالحة. تحقق من البريد والمدة.", details: parsed.error.format() });
+    return;
+  }
+
+  const mintResult = await supabaseAdminRequest<string>("/rest/v1/rpc/fn_mint_trial_code", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      p_intended_email: parsed.data.intendedEmail ?? null,
+      p_duration_days: parsed.data.durationDays,
+      p_note: parsed.data.note ?? null,
+    }),
+  });
+  if (!mintResult.ok || typeof mintResult.data !== "string" || !mintResult.data) {
+    req.log?.error({ status: mintResult.status }, "[Admin] Trial code minting failed");
+    res.status(502).json({ error: "تعذر توليد الرمز. تأكد من تطبيق هجرة trial activation codes." });
+    return;
+  }
+
+  req.log?.info({ intendedEmail: parsed.data.intendedEmail ?? null }, "[Admin] Trial code minted");
+  res.status(201).json({ code: mintResult.data, intendedEmail: parsed.data.intendedEmail ?? null, durationDays: parsed.data.durationDays });
+});
+
 export default router;

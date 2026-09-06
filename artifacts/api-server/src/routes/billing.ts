@@ -14,6 +14,10 @@ const checkoutSchema = z.object({
   interval: z.enum(["month", "year"]),
 });
 
+const redeemTrialCodeSchema = z.object({
+  code: z.string().trim().min(6).max(40),
+});
+
 type BillingProfile = Awaited<ReturnType<typeof getProfile>>;
 type StoredSubscription = {
   id?: string;
@@ -218,6 +222,47 @@ router.get("/billing", async (req, res) => {
     clientToken: process.env.PADDLE_CLIENT_TOKEN ?? null,
     catalog: priceCatalog,
   });
+});
+
+// Redeems a platform-issued trial code and opens the clinic's trial window.
+// The heavy lifting (single-use check, email binding, subscription upsert)
+// lives in the security-definer RPC fn_redeem_trial_code.
+router.post("/billing/redeem-trial-code", async (req, res) => {
+  const context = await requireClinic(req, res);
+  if (!context) return;
+  const parsed = redeemTrialCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "أدخل رمز التفعيل كما استلمته." });
+    return;
+  }
+
+  const result = await supabaseRequest<{ ok?: boolean; error?: string; trial_ends_at?: string; duration_days?: number }>(
+    "/rest/v1/rpc/fn_redeem_trial_code",
+    {
+      method: "POST",
+      headers: { ...authHeaders(context.session.accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ p_code: parsed.data.code }),
+    },
+  );
+  if (!result.ok || !result.data) {
+    req.log?.error({ status: result.status }, "Trial code redemption RPC failed");
+    res.status(502).json({ error: "تعذر تفعيل الرمز الآن. حاول مرة أخرى." });
+    return;
+  }
+  if (!result.data.ok) {
+    const errorMessages: Record<string, string> = {
+      invalid_code: "الرمز غير صحيح، أو مستخدم من قبل، أو انتهت صلاحيته.",
+      email_mismatch: "هذا الرمز صادر لبريد آخر. سجّل الدخول بنفس البريد اللي استلم عليه الرمز.",
+      already_active: "عيادتك مفعلة بالفعل ومش محتاجة رمز.",
+      no_clinic: "حسابك غير مرتبط بعيادة نشطة.",
+      auth_required: "يلزم تسجيل الدخول أولًا.",
+    };
+    res.status(400).json({ error: errorMessages[result.data.error ?? ""] ?? "تعذر تفعيل الرمز. تحقق من الرمز وحاول مرة أخرى." });
+    return;
+  }
+
+  req.log?.info({ clinicId: context.session.clinicId, trialEndsAt: result.data.trial_ends_at }, "Trial code redeemed");
+  res.status(201).json({ trialEndsAt: result.data.trial_ends_at, durationDays: result.data.duration_days ?? null });
 });
 
 router.post("/billing/checkout", async (req, res) => {

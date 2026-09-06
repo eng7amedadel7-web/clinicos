@@ -1,8 +1,15 @@
 import type { Request, Response } from "express";
 import { readSession, type SessionPayload } from "./session";
 import { supabaseRequest } from "./supabase";
+import { CLINIC_NOT_ACTIVATED_MESSAGE, getClinicActivation } from "./activation";
 
 export type ClinicPermissionAction = "create" | "read" | "update" | "delete" | "manage" | "handoff";
+
+// Live-operation modules stay closed until the clinic redeems its trial code
+// (or subscribes). Setup surfaces (Settings: branches, staff, doctors,
+// services, slots, channels, billing) remain open so the onboarding checklist
+// works pre-activation. Reads stay open as well — RLS already scopes them.
+const ACTIVATION_GATED_MODULES = new Set(["Patients", "Appointments", "inbox", "Operations", "Voice"]);
 
 export function requireSession(req: Request): SessionPayload {
   const session = readSession(req);
@@ -22,6 +29,14 @@ export async function requireClinicPermission(
   branchId?: string | null,
 ) {
   const session = requireSession(req);
+  if (ACTIVATION_GATED_MODULES.has(module) && action !== "read") {
+    const activation = await getClinicActivation(session.accessToken, session.clinicId);
+    if (!activation.activated) {
+      const error = new Error(CLINIC_NOT_ACTIVATED_MESSAGE);
+      Object.assign(error, { statusCode: 403, code: "clinic_not_activated", phase: activation.phase });
+      throw error;
+    }
+  }
   const result = await supabaseRequest<boolean>("/rest/v1/rpc/fn_has_clinic_permission", {
     method: "POST",
     headers: {

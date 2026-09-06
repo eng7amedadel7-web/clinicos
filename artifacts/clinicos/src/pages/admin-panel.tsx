@@ -40,6 +40,18 @@ interface Webhooks {
   voiceAgentPage: string;
 }
 
+interface TrialCodeItem {
+  code: string;
+  intendedEmail: string | null;
+  durationDays: number;
+  status: string;
+  usedByClinicId: string | null;
+  usedAt: string | null;
+  expiresAt: string | null;
+  note: string | null;
+  createdAt: string | null;
+}
+
 interface ClinicOwner {
   id: string;
   fullName: string;
@@ -114,6 +126,13 @@ export default function AdminPanelPage() {
   // Copied state tracker
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Trial Codes State (free-trial activation codes handed to clinic owners)
+  const [trialCodes, setTrialCodes] = useState<TrialCodeItem[]>([]);
+  const [trialForm, setTrialForm] = useState({ intendedEmail: '', durationDays: 14, note: '' });
+  const [mintingCode, setMintingCode] = useState(false);
+  const [loadingCodes, setLoadingCodes] = useState(false);
+  const [lastMintedCode, setLastMintedCode] = useState<string | null>(null);
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(label);
@@ -159,8 +178,62 @@ export default function AdminPanelPage() {
   useEffect(() => {
     if (adminKey) {
       fetchClinics(adminKey);
+      fetchTrialCodes(adminKey);
     }
   }, [adminKey]);
+
+  const fetchTrialCodes = async (key: string) => {
+    setLoadingCodes(true);
+    try {
+      const res = await fetch('/api/admin/trial-codes', {
+        headers: { 'x-admin-key': key },
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      setTrialCodes(Array.isArray(data.items) ? data.items : []);
+    } catch {
+      toast.error('تعذر جلب رموز التجربة');
+    } finally {
+      setLoadingCodes(false);
+    }
+  };
+
+  const handleMintTrialCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mintingCode) return;
+    setMintingCode(true);
+    try {
+      const res = await fetch('/api/admin/trial-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminKey,
+        },
+        body: JSON.stringify({
+          intendedEmail: trialForm.intendedEmail.trim() || undefined,
+          durationDays: trialForm.durationDays,
+          note: trialForm.note.trim() || undefined,
+        }),
+      });
+      if (res.status === 401) {
+        toast.error('مفتاح المشرف غير صحيح');
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      const data = await res.json();
+      setLastMintedCode(data.code);
+      setTrialForm({ intendedEmail: '', durationDays: 14, note: '' });
+      toast.success('تم توليد رمز التفعيل — انسخه وأرسله لصاحب العيادة');
+      fetchTrialCodes(adminKey);
+    } catch (err) {
+      toast.error(`تعذر توليد الرمز: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setMintingCode(false);
+    }
+  };
 
   const handleKeySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -596,6 +669,115 @@ export default function AdminPanelPage() {
                   <tr>
                     <td colSpan={6} className="text-center py-12 text-slate-500 text-xs">
                       لا توجد عيادات مطابقة للبحث
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Trial Activation Codes */}
+        <div className="bg-[#0d2134] border border-[#1e3a4d] rounded-2xl p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-sky-500/10 text-sky-300 border border-sky-500/20"><Key className="size-5" /></span>
+              <div>
+                <h2 className="font-bold text-white text-sm">رموز تفعيل التجربة المجانية</h2>
+                <p className="mt-0.5 text-[11px] text-slate-400">ولّد رمزًا واحد الاستخدام وأرسله لصاحب العيادة ليفعل تجربته (14 يوم افتراضيًا).</p>
+              </div>
+            </div>
+            <button
+              onClick={() => fetchTrialCodes(adminKey)}
+              disabled={loadingCodes}
+              className="p-2 bg-[#081624] hover:bg-[#142c44] border border-[#1e3a4d] rounded-xl text-slate-300 hover:text-white transition-all text-xs font-semibold flex items-center gap-1.5"
+              title="تحديث الرموز"
+            >
+              <RefreshCw className={`size-3.5 ${loadingCodes ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          <form onSubmit={handleMintTrialCode} className="mt-4 grid gap-2 md:grid-cols-[1.2fr_.5fr_1fr_auto]">
+            <input
+              type="email"
+              dir="ltr"
+              value={trialForm.intendedEmail}
+              onChange={(e) => setTrialForm({ ...trialForm, intendedEmail: e.target.value })}
+              placeholder="بريد العيادة (اختياري — يمنع استخدام الرمز من بريد آخر)"
+              className="bg-[#081624] border border-[#1e3a4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+            />
+            <select
+              value={trialForm.durationDays}
+              onChange={(e) => setTrialForm({ ...trialForm, durationDays: Number(e.target.value) })}
+              className="bg-[#081624] border border-[#1e3a4d] rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:border-sky-500 focus:outline-none"
+            >
+              <option value={7}>تجربة 7 أيام</option>
+              <option value={14}>تجربة 14 يوم</option>
+              <option value={30}>تجربة 30 يوم</option>
+            </select>
+            <input
+              value={trialForm.note}
+              onChange={(e) => setTrialForm({ ...trialForm, note: e.target.value })}
+              placeholder="ملاحظة داخلية (اسم العيادة مثلًا)"
+              className="bg-[#081624] border border-[#1e3a4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={mintingCode}
+              className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 disabled:opacity-60"
+            >
+              <Key className="size-3.5" />
+              <span>{mintingCode ? 'جارٍ التوليد...' : 'توليد رمز'}</span>
+            </button>
+          </form>
+
+          {lastMintedCode ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+              <CheckCircle2 className="size-4 text-emerald-400" />
+              <span className="text-[11px] text-emerald-200">الرمز الجديد:</span>
+              <code className="min-w-0 flex-1 truncate font-mono text-sm font-bold tracking-wider text-white" dir="ltr">{lastMintedCode}</code>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(lastMintedCode, 'رمز التفعيل')}
+                className="flex items-center gap-1.5 rounded-xl border border-[#1e3a4d] bg-[#081624] px-3 py-1.5 text-[10px] font-bold text-slate-200 hover:border-sky-500/50"
+              >
+                {copiedKey === 'رمز التفعيل' ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}
+                نسخ
+              </button>
+            </div>
+          ) : null}
+
+          <div className="mt-4 overflow-x-auto rounded-xl border border-[#1e3a4d]">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-[#081624] text-slate-400">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold">الرمز</th>
+                  <th className="px-4 py-2.5 font-semibold">بريد العيادة</th>
+                  <th className="px-4 py-2.5 font-semibold">المدة</th>
+                  <th className="px-4 py-2.5 font-semibold">الحالة</th>
+                  <th className="px-4 py-2.5 font-semibold">تاريخ الاستخدام</th>
+                  <th className="px-4 py-2.5 font-semibold">ملاحظة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#12283c]">
+                {trialCodes.map((item) => (
+                  <tr key={item.code} className="hover:bg-[#0a1c2e]/60">
+                    <td className="px-4 py-2.5 font-mono font-bold text-slate-100" dir="ltr">{item.code}</td>
+                    <td className="px-4 py-2.5 text-slate-300" dir="ltr">{item.intendedEmail || '—'}</td>
+                    <td className="px-4 py-2.5 text-slate-300">{item.durationDays} يوم</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.status === 'used' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : item.status === 'revoked' ? 'bg-red-500/10 text-red-300 border border-red-500/30' : 'bg-sky-500/10 text-sky-300 border border-sky-500/30'}`}>
+                        {item.status === 'used' ? 'مستخدم' : item.status === 'revoked' ? 'ملغي' : 'متاح'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-400">{item.usedAt ? new Date(item.usedAt).toLocaleDateString('ar-EG') : '—'}</td>
+                    <td className="px-4 py-2.5 text-slate-400">{item.note || '—'}</td>
+                  </tr>
+                ))}
+                {trialCodes.length === 0 && !loadingCodes && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-slate-500 text-xs">
+                      لا توجد رموز بعد — ولّد أول رمز من الفورم أعلاه
                     </td>
                   </tr>
                 )}

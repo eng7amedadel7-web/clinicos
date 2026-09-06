@@ -1,16 +1,18 @@
 import { Router } from "express";
 import { requireClinicPermission } from "../lib/permissions";
 import { supabaseRequest } from "../lib/supabase";
+import { getClinicActivation } from "../lib/activation";
 
 // First-run clinic setup status for the dashboard onboarding checklist.
 // Read-only: counts a handful of clinic-scoped rows and reports which setup
 // steps are already done, so the UI can guide a newly registered clinic owner.
+// Activation (trial-code redemption) is intentionally the LAST item.
 const router = Router();
 
 type IdRow = { id?: string };
 type ClinicRow = { location_config?: Record<string, unknown> };
 
-type OnboardingItemId = "clinicProfile" | "doctors" | "services" | "slots" | "channels" | "team";
+type OnboardingItemId = "clinicProfile" | "doctors" | "services" | "slots" | "channels" | "team" | "activation";
 
 function hasRows(result: { ok: boolean; data?: IdRow[] | null }): boolean {
   return result.ok && (result.data?.length ?? 0) > 0;
@@ -28,7 +30,7 @@ router.get("/status", async (req, res) => {
 
   const clinicFilter = `clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
-  const [clinicResult, doctorsResult, servicesResult, slotsResult, channelsResult, staffResult] = await Promise.all([
+  const [clinicResult, doctorsResult, servicesResult, slotsResult, channelsResult, staffResult, activation] = await Promise.all([
     supabaseRequest<ClinicRow[]>(
       `/rest/v1/clinics?select=location_config&id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&limit=1`,
       { headers },
@@ -38,6 +40,7 @@ router.get("/status", async (req, res) => {
     supabaseRequest<IdRow[]>(`/rest/v1/appointment_slots?select=id&${clinicFilter}&limit=1`, { headers }),
     supabaseRequest<IdRow[]>(`/rest/v1/channels?select=id&${clinicFilter}&limit=1`, { headers }),
     supabaseRequest<IdRow[]>(`/rest/v1/clinic_staff?select=id&${clinicFilter}&limit=50`, { headers }),
+    getClinicActivation(session.accessToken, session.clinicId),
   ]);
 
   const clinic = clinicResult.ok ? clinicResult.data?.[0] : undefined;
@@ -54,9 +57,14 @@ router.get("/status", async (req, res) => {
     { id: "slots", done: hasRows(slotsResult) },
     { id: "channels", done: hasRows(channelsResult) },
     { id: "team", done: hasRows(staffResult) && (staffResult.data?.length ?? 0) > 1 },
+    { id: "activation", done: activation.activated },
   ];
 
-  res.json({ items, complete: items.every((item) => item.done) });
+  res.json({
+    items,
+    complete: items.every((item) => item.done),
+    activation: { activated: activation.activated, phase: activation.phase, trialEndsAt: activation.trialEndsAt },
+  });
 });
 
 export default router;
