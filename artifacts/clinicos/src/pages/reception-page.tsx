@@ -254,3 +254,5 @@ export function ReceptionPage() {
     </div>
   </WorkspacePage>;
 }
+
+export default ReceptionPage;
