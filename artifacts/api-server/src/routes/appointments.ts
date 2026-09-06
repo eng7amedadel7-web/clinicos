@@ -347,4 +347,59 @@ router.delete("/appointments/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// نقل حجز محجوز إلى موعد متاح آخر لنفس الطبيب: يقلب حالتي الـslot
+// (القديم متاح، الجديد محجوز) ويحدّث وقت الموعد — بأمان تراجعي.
+router.post("/appointments/:id/move", async (req, res) => {
+  const session = await protect(req, res, "update");
+  if (!session) return;
+  const targetSlotId = typeof req.body?.targetSlotId === "string" ? req.body.targetSlotId.trim() : "";
+  if (!targetSlotId) { res.status(400).json({ error: "الموعد الهدف مطلوب." }); return; }
+
+  const apptHeaders = appointmentHeaders(session.accessToken, { Prefer: "return=representation" });
+  const apptPath = `/rest/v1/appointments?select=id,clinic_id,doctor_id,slot_id,scheduled_at,appointment_status&clinic_id=eq.${encodeURIComponent(session.clinicId)}&id=eq.${encodeURIComponent(req.params.id)}&deleted_at=is.null&limit=1`;
+  const apptResult = await supabaseRequest<Array<{ id: string; clinic_id: string; doctor_id: string | null; slot_id: string | null; scheduled_at: string; appointment_status: string }>>(apptPath, { headers: apptHeaders });
+  if (!apptResult.ok) { res.status(apptResult.status || 502).json({ error: "تعذر تحميل الموعد." }); return; }
+  const appointment = apptResult.data?.[0];
+  if (!appointment?.id) { res.status(404).json({ error: "الموعد غير موجود." }); return; }
+  if (appointment.appointment_status === "cancelled") { res.status(409).json({ error: "لا يمكن نقل موعد ملغى — احجز موعداً جديداً." }); return; }
+  if (appointment.slot_id && appointment.slot_id === targetSlotId) { res.status(409).json({ error: "الموعد محجوز على هذا الوقت بالفعل." }); return; }
+
+  const targetResult = await supabaseAdminRequest<Array<{ id: string; doctor_id: string; start_time: string; end_time: string; slot_status: string }>>(
+    `/rest/v1/appointment_slots?select=id,doctor_id,start_time,end_time,slot_status&clinic_id=eq.${encodeURIComponent(session.clinicId)}&id=eq.${encodeURIComponent(targetSlotId)}&deleted_at=is.null&limit=1`,
+  );
+  const targetSlot = targetResult.data?.[0];
+  if (!targetSlot) { res.status(404).json({ error: "الموعد الهدف غير موجود." }); return; }
+  if (targetSlot.slot_status !== "available") { res.status(409).json({ error: "الموعد الهدف لم يبق متاحاً — اختر وقتاً آخر." }); return; }
+  if (appointment.doctor_id && targetSlot.doctor_id !== appointment.doctor_id) { res.status(409).json({ error: "لا يمكن نقل الحجز لطبيب مختلف — اختر موعداً لنفس الطبيب." }); return; }
+
+  // 1) Book the target slot first (service-role: slots are backend-owned state).
+  const bookTarget = await supabaseAdminRequest(`/rest/v1/appointment_slots?id=eq.${encodeURIComponent(targetSlot.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ slot_status: "booked", updated_at: new Date().toISOString() }),
+  });
+  if (!bookTarget.ok) { res.status(502).json({ error: "تعذر حجز الموعد الهدف — لم يتم أي تغيير." }); return; }
+
+  // 2) Move the appointment under the caller's own identity.
+  const moved = await supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?id=eq.${encodeURIComponent(appointment.id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}`, {
+    method: "PATCH",
+    headers: apptHeaders,
+    body: JSON.stringify({ slot_id: targetSlot.id, scheduled_at: targetSlot.start_time, updated_by: session.userId }),
+  });
+  if (!moved.ok) {
+    await supabaseAdminRequest(`/rest/v1/appointment_slots?id=eq.${encodeURIComponent(targetSlot.id)}`, { method: "PATCH", body: JSON.stringify({ slot_status: "available" }) });
+    res.status(moved.status || 502).json({ error: "تعذر نقل الموعد — تم التراجع." });
+    return;
+  }
+
+  // 3) Free the old slot (best effort).
+  if (appointment.slot_id) await restoreSlotAvailability(appointment.slot_id);
+
+  clinicEvents.emitClinicEvent(session.clinicId, "appointment.updated", {
+    appointmentId: appointment.id,
+    status: appointment.appointment_status,
+    scheduledAt: targetSlot.start_time,
+  });
+  res.json({ success: true, appointment: moved.data?.[0] ?? null, scheduledAt: targetSlot.start_time });
+});
+
 export default router;

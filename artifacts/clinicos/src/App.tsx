@@ -56,7 +56,6 @@ import { NotificationsBell } from '@/components/notifications-panel';
 import { ShortcutsModal } from '@/components/shortcuts-modal';
 import { NetworkStatusBanner } from '@/components/network-status';
 import { OnboardingTour } from '@/components/onboarding-tour';
-import { ActivationGate } from '@/components/activation-gate';
 import { QuickAddModal } from '@/components/quick-add-modal';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
@@ -551,10 +550,10 @@ function ProtectedShell() {
           <ShellCommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
           <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} en={language === 'en'} />
           <NetworkStatusBanner />
-          <OnboardingTour />
-          {/* Mandatory trial-activation gate: locks the whole shell until the
-              clinic owner pastes the platform-issued trial code. */}
-          <ActivationGate clinicId={session.clinic.id} />
+          {/* Welcome tour doubles as the mandatory trial-code flow: an
+              unactivated clinic gets a fifth card with no way to close the
+              tour until the platform-issued code is redeemed. */}
+          <OnboardingTour clinicId={session.clinic.id} />
           <QuickAddModal />
           <div className="workspace-route flex min-h-0 flex-1 flex-col">
             <Suspense fallback={<RouteLoadingFallback />}>
