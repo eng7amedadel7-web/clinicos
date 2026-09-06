@@ -12,10 +12,10 @@ type Journey = {
     appointment_status?: string;
     scheduled_at?: string;
     booking_number?: string | null;
-    patientName?: string;
-    patientPhone?: string;
-    doctorName?: string;
-    serviceName?: string;
+    patientName?: string | null;
+    patientPhone?: string | null;
+    doctorName?: string | null;
+    serviceName?: string | null;
   };
   events: Array<{
     id?: string;
@@ -71,6 +71,8 @@ export default function AppointmentJourneyPage() {
             <p className="text-[11px] font-bold text-[hsl(var(--primary))]">{en ? "Appointments / Journey" : "المواعيد / الرحلة"}</p>
             <h1 className="text-[27px] font-extrabold tracking-tight dark:text-[#e2ecf1]">{en ? "Appointment Journey" : "رحلة الموعد"}</h1>
             <p className="mt-1 text-[13px] text-[hsl(var(--muted-foreground))]">{dateLabel(data.appointment.scheduled_at)} · {data.appointment.appointment_status || (en ? "Unspecified" : "غير محدد")}</p>
+            {data.appointment.patientName ? <p className="mt-1 text-[13px] font-bold dark:text-[#e2ecf1]">{data.appointment.patientName}{data.appointment.patientPhone ? <span className="ms-2 font-normal text-[#718591] dark:text-[#7e939e]" dir="ltr">{data.appointment.patientPhone}</span> : null}</p> : null}
+            {data.appointment.doctorName || data.appointment.serviceName ? <p className="mt-0.5 text-xs text-[#718591] dark:text-[#7e939e]">{[data.appointment.doctorName, data.appointment.serviceName].filter(Boolean).join(" · ")}</p> : null}
           </div>
         </div>
 
@@ -94,7 +96,9 @@ export default function AppointmentJourneyPage() {
             <div className="space-y-3 text-xs">
               <div className="flex items-center justify-between"><span className="text-[hsl(var(--muted-foreground))]">{en ? "Status" : "الحالة"}</span><strong className="dark:text-[#e2ecf1]">{data.appointment.appointment_status || (en ? "Unspecified" : "غير محدد")}</strong></div>
               <div className="flex items-center justify-between"><span className="text-[hsl(var(--muted-foreground))]">{en ? "Booking number" : "رقم الحجز"}</span><strong className="dark:text-[#e2ecf1]">{data.appointment.booking_number || "—"}</strong></div>
-              <div className="flex items-center justify-between"><span className="text-[hsl(var(--muted-foreground))]">{en ? "Patient ID" : "معرّف المريض"}</span><strong className="max-w-[190px] truncate dark:text-[#e2ecf1]" dir="ltr">{data.appointment.patient_id || "—"}</strong></div>
+              {data.appointment.patient_id ? <div className="flex items-center justify-between"><span className="text-[hsl(var(--muted-foreground))]">{en ? "Patient" : "المريض"}</span><Link href={`/patients/${data.appointment.patient_id}`} className="text-xs font-bold text-[#347b98] underline-offset-2 hover:underline dark:text-[#8cc3dd]" data-testid="link-journey-patient">{data.appointment.patientName || (en ? "Open record" : "فتح الملف")}</Link></div> : null}
+              {data.appointment.doctorName ? <div className="flex items-center justify-between"><span className="text-[hsl(var(--muted-foreground))]">{en ? "Doctor" : "الطبيب"}</span><strong className="dark:text-[#e2ecf1]">{data.appointment.doctorName}</strong></div> : null}
+              {data.appointment.serviceName ? <div className="flex items-center justify-between"><span className="text-[hsl(var(--muted-foreground))]">{en ? "Service" : "الخدمة"}</span><strong className="dark:text-[#e2ecf1]">{data.appointment.serviceName}</strong></div> : null}
             </div>
           </section>
           <section className="surface p-5">

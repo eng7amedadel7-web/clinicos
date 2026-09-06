@@ -8,7 +8,7 @@ const router = Router();
 
 type AppointmentRow = { id?: string; public_id?: string; clinic_id?: string; patient_id?: string; branch_id?: string; doctor_id?: string; service_id?: string; slot_id?: string; appointment_status?: string; scheduled_at?: string; booking_number?: string | null; queue_number?: number | null; notes?: string | null; created_at?: string | null; updated_at?: string | null; confirmed_at?: string | null; completed_at?: string | null; cancelled_at?: string | null; cancellation_reason?: string | null };
 type CreatedAppointmentRow = { appointment_id?: string; booking_id?: string; booking_number?: string | null; queue_number?: number | null; queue_path?: string | null; queue_expires_at?: string | null };
-type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string };
+type PatientRow = { id?: string; name?: string; first_name?: string; last_name?: string; phone?: string | null; };
 type DoctorRow = { id?: string; name?: string; specialization?: string | null };
 type ServiceRow = { id?: string; name?: string; duration_minutes?: number };
 type SlotRow = { id?: string; doctor_id?: string; service_id?: string; start_time?: string; end_time?: string; slot_status?: string };
@@ -385,14 +385,22 @@ router.get("/appointments/:id/journey", async (req, res) => {
   }
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   const appointmentResult = await supabaseRequest<AppointmentRow[]>(
-    `/rest/v1/appointments?select=id,public_id,clinic_id,patient_id,branch_id,scheduled_at,appointment_status,booking_number,queue_number,created_at,updated_at,confirmed_at,completed_at,cancelled_at,cancellation_reason&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(req.params.id)}&limit=1`,
+    `/rest/v1/appointments?select=id,public_id,clinic_id,patient_id,branch_id,doctor_id,service_id,scheduled_at,appointment_status,booking_number,queue_number,created_at,updated_at,confirmed_at,completed_at,cancelled_at,cancellation_reason&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(req.params.id)}&limit=1`,
     { headers },
   );
   if (!appointmentResult.ok) { res.status(appointmentResult.status || 502).json({ error: "تعذر تحميل بيانات الموعد." }); return; }
   const appointment = appointmentResult.data?.[0];
   if (!appointment?.id) { res.status(404).json({ error: "الموعد غير موجود في العيادة الحالية." }); return; }
 
-  const [checkinsResult, followUpsResult, noShowsResult] = await Promise.all([
+  // هوية الموعد: أسماء المريض والطبيب والخدمة بدل معرفاتها الخام.
+  const [patientResult, doctorResult, serviceResult, checkinsResult, followUpsResult, noShowsResult] = await Promise.all([
+    supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name,phone&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(String(appointment.patient_id ?? ""))}&limit=1`, { headers }),
+    appointment.doctor_id
+      ? supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(String(appointment.doctor_id))}&limit=1`, { headers })
+      : Promise.resolve({ ok: true, status: 200, data: [] as DoctorRow[] }),
+    appointment.service_id
+      ? supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name&${clinicFilter(session.clinicId)}&id=eq.${encodeURIComponent(String(appointment.service_id))}&limit=1`, { headers })
+      : Promise.resolve({ ok: true, status: 200, data: [] as ServiceRow[] }),
     supabaseRequest<CheckinRow[]>(`/rest/v1/appointment_checkins?select=status,checked_in_at,called_at,in_service_at,completed_at,cancelled_at,created_at&${clinicFilter(session.clinicId)}&appointment_id=eq.${encodeURIComponent(appointment.id)}&order=created_at.desc&limit=1`, { headers }),
     supabaseRequest<FollowUpRow[]>(`/rest/v1/follow_up_cases?select=status,followup_goal,next_due_at,created_at&${clinicFilter(session.clinicId)}&appointment_id=eq.${encodeURIComponent(appointment.id)}&order=created_at.desc&limit=1`, { headers }),
     supabaseRequest<NoShowRow[]>(`/rest/v1/no_show_cases?select=case_status,classification,risk_level,last_activity_at,created_at&${clinicFilter(session.clinicId)}&appointment_id=eq.${encodeURIComponent(appointment.id)}&order=created_at.desc&limit=1`, { headers }),
@@ -411,8 +419,15 @@ router.get("/appointments/:id/journey", async (req, res) => {
   addEvent("cancelled", "تم إلغاء الموعد", appointment.cancelled_at || checkin?.cancelled_at);
   events.sort((left, right) => Date.parse(left.occurred_at) - Date.parse(right.occurred_at));
 
+  const patient = patientResult.ok ? patientResult.data?.[0] : undefined;
   res.json({
-    appointment,
+    appointment: {
+      ...appointment,
+      patientName: patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || null,
+      patientPhone: patient?.phone || null,
+      doctorName: doctorResult.ok ? doctorResult.data?.[0]?.name ?? null : null,
+      serviceName: serviceResult.ok ? serviceResult.data?.[0]?.name ?? null : null,
+    },
     events,
     followUp: followUpsResult.data?.[0] || null,
     noShow: noShowsResult.data?.[0] || null,
