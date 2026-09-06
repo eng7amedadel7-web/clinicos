@@ -169,7 +169,6 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
   const { language, theme, t, toggleLanguage, toggleTheme, selectedBranchId, setSelectedBranchId, branches, branchesLoading, branchesError, loadBranches } = usePreferences();
   const navGroups: Array<{ id: string; title: string; links: Array<{ href: string; label: string; icon: typeof Home }> }> = [
     { id: 'operations', title: language === 'ar' ? 'التشغيل' : 'Operations', links: [
-      { href: '/reception', label: language === 'ar' ? 'الاستقبال' : 'Reception', icon: ConciergeBell },
       { href: '/dashboard', label: t('overview'), icon: Home },
       { href: '/calendar', label: language === 'ar' ? 'التقويم' : 'Calendar', icon: CalendarDays },
       { href: '/waitlist', label: language === 'ar' ? 'طلبات معلّقة' : 'Pending requests', icon: Clock3 },
@@ -177,6 +176,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
       { href: '/no-shows', label: t('noShowsOpen'), icon: ShieldCheck },
     ] },
     { id: 'patients', title: language === 'ar' ? 'المرضى' : 'Patients', links: [
+      { href: '/reception', label: language === 'ar' ? 'الاستقبال' : 'Reception', icon: ConciergeBell },
       { href: '/patients', label: t('patients'), icon: UsersRound },
       { href: '/appointments', label: t('appointments'), icon: Clock3 },
       { href: '/inbox', label: t('inbox'), icon: Inbox },
