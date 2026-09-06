@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Router } from "express";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
-import { supabaseRequest } from "../lib/supabase";
+import { supabaseAdminRequest, supabaseRequest } from "../lib/supabase";
 import { clinicEvents } from "../lib/events";
 
 const router = Router();
@@ -48,6 +48,20 @@ function appointmentInput(body: AppointmentInput) {
 
 function clinicFilter(clinicId: string) {
   return `clinic_id=eq.${encodeURIComponent(clinicId)}&deleted_at=is.null`;
+}
+
+// أفضل جهد: إرجاع slot إلى available عند إلغاء الموعد؛ لا تفشل العملية الأساسية إن تعذر
+async function restoreSlotAvailability(slotId: string | undefined | null) {
+  if (!slotId) return;
+  try {
+    await supabaseAdminRequest(`/rest/v1/appointment_slots?id=eq.${encodeURIComponent(slotId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slot_status: "available" }),
+    });
+  } catch {
+    // non-fatal by design
+  }
 }
 
 router.get("/appointments/options", async (req, res) => {
@@ -236,7 +250,9 @@ router.patch("/appointments/:id", async (req, res) => {
   const data = appointmentInput(req.body ?? {});
   const changes: Record<string, string> = {};
   if (data.scheduledAt) changes.scheduled_at = data.scheduledAt;
-  if (data.status) changes.appointment_status = data.status;
+  // لا نطبق status افتراضيًا على PATCH؛ فقط عند إرساله صراحةً حتى لا يُعاد موعد ملغى/مكتمل إلى scheduled
+  const rawStatus = typeof req.body?.status === "string" ? req.body.status.trim() : "";
+  if (rawStatus && validStatuses.has(rawStatus)) changes.appointment_status = rawStatus;
   if (data.notes) changes.notes = data.notes;
   if (!Object.keys(changes).length) { res.status(400).json({ error: "لا توجد تغييرات." }); return; }
   const path = `/rest/v1/appointments?id=eq.${encodeURIComponent(req.params.id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
@@ -244,6 +260,9 @@ router.patch("/appointments/:id", async (req, res) => {
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر تحديث الموعد." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "الموعد غير موجود." }); return; }
   const updated = result.data[0];
+  if (changes.appointment_status === "cancelled" || changes.appointment_status === "no_show") {
+    await restoreSlotAvailability(updated.slot_id);
+  }
   clinicEvents.emitClinicEvent(session.clinicId, "appointment.updated", {
     appointmentId: req.params.id,
     status: updated.appointment_status,
@@ -261,6 +280,7 @@ router.post("/appointments/:id/cancel", async (req, res) => {
   if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر إلغاء الموعد." }); return; }
   if (!result.data?.length) { res.status(404).json({ error: "الموعد غير موجود." }); return; }
   const cancelled = result.data[0];
+  await restoreSlotAvailability(cancelled.slot_id);
   clinicEvents.emitClinicEvent(session.clinicId, "appointment.cancelled", {
     appointmentId: req.params.id,
     reason,

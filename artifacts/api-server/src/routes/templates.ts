@@ -1,6 +1,5 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
-import { readSession } from "../lib/session";
 import { supabaseRequest } from "../lib/supabase";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { clinicEvents } from "../lib/events";
@@ -18,6 +17,17 @@ type TemplateRow = {
   created_at?: string;
   updated_at?: string;
 };
+
+function toTemplate(row: TemplateRow) {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    category: row.category ?? "general",
+    shortcut: row.shortcut,
+    usageCount: row.usage_count ?? 0,
+  };
+}
 
 const defaultTemplates = [
   { id: "t1", title: "تأكيد الحجز", content: "السلام عليكم {{patient_name}}، تم تأكيد موعدك في {{clinic_name}} بتاريخ {{appointment_time}}. نتطلع لخدمتك.", category: "appointments", shortcut: "/confirm", usageCount: 47 },
@@ -39,44 +49,28 @@ const templateSchema = z.object({
 
 // GET /api/templates
 router.get("/templates", async (req: Request, res: Response) => {
-  const session = readSession(req);
-  if (!session) {
-    res.status(401).json({ error: "Unauthorized" });
+  let session;
+  try { session = await requireClinicPermission(req, "Settings", "clinic_settings", "read"); } catch (error) { respondToPermissionError(res, error); return; }
+
+  const result = await supabaseRequest<TemplateRow[]>(
+    `/rest/v1/saved_replies?clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=created_at.desc`,
+    { headers: { Authorization: `Bearer ${session.accessToken}` } }
+  );
+  if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر تحميل القوالب الجاهزة." }); return; }
+
+  if (Array.isArray(result.data) && result.data.length > 0) {
+    res.json(result.data.map(toTemplate));
     return;
   }
 
-  try {
-    const result = await supabaseRequest<TemplateRow[]>(
-      `/rest/v1/saved_replies?clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=created_at.desc`,
-      { headers: { Authorization: `Bearer ${session.accessToken}` } }
-    );
-
-    if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
-      const mapped = result.data.map(row => ({
-        id: row.id,
-        title: row.title,
-        content: row.content,
-        category: row.category ?? "general",
-        shortcut: row.shortcut,
-        usageCount: row.usage_count ?? 0,
-      }));
-      res.json(mapped);
-      return;
-    }
-  } catch {
-    // Fallback to default starters if database table is not yet migrated
-  }
-
+  // Fresh clinic with no saved replies yet: fall back to the default starters.
   res.json(defaultTemplates);
 });
 
 // POST /api/templates
 router.post("/templates", async (req: Request, res: Response) => {
-  const session = readSession(req);
-  if (!session) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  let session;
+  try { session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage"); } catch (error) { respondToPermissionError(res, error); return; }
 
   const parsed = templateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -84,47 +78,35 @@ router.post("/templates", async (req: Request, res: Response) => {
     return;
   }
 
-  const newId = `t-${Date.now()}`;
-  const template = {
-    id: newId,
-    title: parsed.data.title,
-    content: parsed.data.content,
-    category: parsed.data.category,
-    shortcut: parsed.data.shortcut,
-    usageCount: 0,
-  };
+  const result = await supabaseRequest<TemplateRow[]>("/rest/v1/saved_replies", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      clinic_id: session.clinicId,
+      title: parsed.data.title,
+      content: parsed.data.content,
+      category: parsed.data.category,
+      shortcut: parsed.data.shortcut,
+      created_by: session.userId,
+    }),
+  });
+  if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حفظ القالب الجديد." }); return; }
 
-  try {
-    await supabaseRequest("/rest/v1/saved_replies", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        id: newId,
-        clinic_id: session.clinicId,
-        title: parsed.data.title,
-        content: parsed.data.content,
-        category: parsed.data.category,
-        shortcut: parsed.data.shortcut,
-      }),
-    });
-  } catch {
-    // Return template even if table is not yet created
-  }
+  const created = result.data?.[0];
+  if (!created) { res.status(result.status || 502).json({ error: "تعذر حفظ القالب الجديد." }); return; }
 
-  clinicEvents.emitClinicEvent(session.clinicId, "template.created" as any, { templateId: newId, title: parsed.data.title });
-  res.status(201).json(template);
+  clinicEvents.emitClinicEvent(session.clinicId, "template.created" as any, { templateId: created.id, title: parsed.data.title });
+  res.status(201).json(toTemplate(created));
 });
 
 // PATCH /api/templates/:id
 router.patch("/templates/:id", async (req: Request, res: Response) => {
-  const session = readSession(req);
-  if (!session) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  let session;
+  try { session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage"); } catch (error) { respondToPermissionError(res, error); return; }
 
   const id = typeof req.params.id === "string" ? req.params.id : String(req.params.id ?? "");
   const parsed = templateSchema.partial().safeParse(req.body);
@@ -133,40 +115,47 @@ router.patch("/templates/:id", async (req: Request, res: Response) => {
     return;
   }
 
-  try {
-    await supabaseRequest(`/rest/v1/saved_replies?id=eq.${encodeURIComponent(id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}`, {
+  const result = await supabaseRequest<TemplateRow[]>(
+    `/rest/v1/saved_replies?id=eq.${encodeURIComponent(id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}`,
+    {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
         "Content-Type": "application/json",
+        Prefer: "return=representation",
       },
-      body: JSON.stringify(parsed.data),
-    });
-  } catch {
-    // Proceed
-  }
+      body: JSON.stringify({ ...parsed.data, updated_at: new Date().toISOString() }),
+    }
+  );
+  if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر تحديث القالب." }); return; }
+
+  const updated = result.data?.[0];
+  if (!updated) { res.status(404).json({ error: "القالب غير موجود." }); return; }
 
   clinicEvents.emitClinicEvent(session.clinicId, "template.updated" as any, { templateId: id });
-  res.json({ id, ...parsed.data });
+  res.json(toTemplate(updated));
 });
 
 // DELETE /api/templates/:id
 router.delete("/templates/:id", async (req: Request, res: Response) => {
-  const session = readSession(req);
-  if (!session) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  let session;
+  try { session = await requireClinicPermission(req, "Settings", "clinic_settings", "manage"); } catch (error) { respondToPermissionError(res, error); return; }
 
   const id = typeof req.params.id === "string" ? req.params.id : String(req.params.id ?? "");
-  try {
-    await supabaseRequest(`/rest/v1/saved_replies?id=eq.${encodeURIComponent(id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}`, {
+  const result = await supabaseRequest<TemplateRow[]>(
+    `/rest/v1/saved_replies?id=eq.${encodeURIComponent(id)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}`,
+    {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${session.accessToken}` },
-    });
-  } catch {
-    // Proceed
-  }
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        Prefer: "return=representation",
+      },
+    }
+  );
+  if (!result.ok) { res.status(result.status || 502).json({ error: "تعذر حذف القالب." }); return; }
+
+  const deleted = result.data?.[0];
+  if (!deleted) { res.status(404).json({ error: "القالب غير موجود." }); return; }
 
   clinicEvents.emitClinicEvent(session.clinicId, "template.deleted" as any, { templateId: id });
   res.json({ success: true, id });
