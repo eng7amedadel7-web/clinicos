@@ -244,6 +244,90 @@ router.post("/appointments", async (req, res) => {
   });
 });
 
+// جدول اليوم لأي دكتور: كل الـslots في النطاق الزمني (متاح ومحجوز) مع اسم
+// المريض والحجز المرتبط بالمحجوز — ده لوحة الصفحة الرئيسية لصفحة المواعيد.
+router.get("/appointments/schedule", async (req, res) => {
+  const session = await protect(req, res, "read");
+  if (!session) return;
+  const dateParam = typeof req.query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : new Date().toISOString().slice(0, 10);
+  const doctorIdParam = typeof req.query.doctorId === "string" ? req.query.doctorId.trim() : "";
+  const branchFilter = typeof req.query.branchId === "string" && req.query.branchId.trim() ? `&branch_id=eq.${encodeURIComponent(req.query.branchId.trim())}` : "";
+
+  const probe = new Date(`${dateParam}T12:00:00Z`);
+  const tzParts = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Cairo", timeZoneName: "shortOffset" }).formatToParts(probe);
+  const tzName = tzParts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
+  const tzMatch = /GMT([+-])(\d{1,2})/.exec(tzName);
+  const offsetMs = (tzMatch?.[1] === "-" ? -1 : 1) * Number(tzMatch?.[2] ?? 3) * 60 * 60_000;
+  const clinicTzRow = await supabaseRequest<Array<{ timezone?: string | null }>>(
+    `/rest/v1/clinics?select=timezone&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
+    { headers: { Authorization: `Bearer ${session.accessToken}` } },
+  );
+  const clinicTz = clinicTzRow.ok ? clinicTzRow.data?.[0]?.timezone?.trim() || "Asia/Riyadh" : "Asia/Riyadh";
+  const tzParts2 = new Intl.DateTimeFormat("en-US", { timeZone: clinicTz, timeZoneName: "shortOffset" }).formatToParts(probe);
+  const tzName2 = tzParts2.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
+  const tzMatch2 = /GMT([+-])(\d{1,2})/.exec(tzName2);
+  const offsetMs2 = (tzMatch2?.[1] === "-" ? -1 : 1) * Number(tzMatch2?.[2] ?? 3) * 60 * 60_000;
+  const dayStart = new Date(`${dateParam}T00:00:00Z`);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const windowStart = new Date(dayStart.getTime() - offsetMs2).toISOString();
+  const windowEnd = new Date(dayEnd.getTime() - offsetMs2).toISOString();
+
+  const clinicFilterStr = `clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+  const doctorFilter = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
+
+  const slotsResult = await supabaseRequest<Array<{ id: string; doctor_id: string; service_id: string; start_time: string; end_time: string; slot_status: string }>>(
+    `/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${clinicFilterStr}${doctorFilter}${branchFilter}&start_time=gte.${encodeURIComponent(windowStart)}&start_time=lt.${encodeURIComponent(windowEnd)}&order=start_time.asc&limit=500`,
+    { headers },
+  );
+  if (!slotsResult.ok) { res.status(slotsResult.status || 502).json({ error: "تعذر تحميل جدول المواعيد." }); return; }
+  const slots = slotsResult.data ?? [];
+
+  const slotIds = slots.map((slot) => slot.id).filter(Boolean);
+  const appointmentsBySlot = new Map<string, { id: string; patient_id: string; appointment_status: string; notes: string | null }>();
+  if (slotIds.length) {
+    const apptsResult = await supabaseRequest<Array<{ id: string; slot_id: string; patient_id: string; appointment_status: string; notes: string | null }>>(
+      `/rest/v1/appointments?select=id,slot_id,patient_id,appointment_status,notes&${clinicFilterStr}&slot_id=in.(${slotIds.map((id) => encodeURIComponent(id)).join(",")})&deleted_at=is.null&limit=500`,
+      { headers },
+    );
+    if (apptsResult.ok) for (const appt of apptsResult.data ?? []) if (appt.slot_id) appointmentsBySlot.set(String(appt.slot_id), appt);
+  }
+  const patientIds = [...new Set([...appointmentsBySlot.values()].map((appt) => String(appt.patient_id)).filter(Boolean))];
+  const patientsById = new Map<string, { name: string; phone: string | null }>();
+  if (patientIds.length) {
+    const patientsResult = await supabaseRequest<Array<{ id: string; name: string; first_name: string; last_name: string; phone: string | null }>>(
+      `/rest/v1/patients?select=id,name,first_name,last_name,phone&id=in.(${patientIds.map((id) => encodeURIComponent(id)).join(",")})&limit=500`,
+      { headers },
+    );
+    if (patientsResult.ok) for (const patient of patientsResult.data ?? []) patientsById.set(String(patient.id), { name: patient.name || [patient.first_name, patient.last_name].filter(Boolean).join(" ") || "مريض بدون اسم", phone: patient.phone || null });
+  }
+  const serviceIds = [...new Set(slots.map((slot) => String(slot.service_id)).filter(Boolean))];
+  const servicesById = new Map<string, string>();
+  if (serviceIds.length) {
+    const servicesResult = await supabaseRequest<Array<{ id: string; name: string }>>(
+      `/rest/v1/services?select=id,name&id=in.(${serviceIds.map((id) => encodeURIComponent(id)).join(",")})&limit=500`,
+      { headers },
+    );
+    if (servicesResult.ok) for (const service of servicesResult.data ?? []) servicesById.set(String(service.id), service.name || "خدمة بدون اسم");
+  }
+
+  const schedule = slots.map((slot) => {
+    const appt = appointmentsBySlot.get(String(slot.id));
+    const patient = appt ? patientsById.get(String(appt.patient_id)) : undefined;
+    return {
+      id: slot.id,
+      doctorId: slot.doctor_id,
+      startTime: slot.start_time,
+      endTime: slot.end_time,
+      status: slot.slot_status,
+      serviceName: servicesById.get(String(slot.service_id)) ?? null,
+      appointment: appt ? { id: appt.id, status: appt.appointment_status, notes: appt.notes, patientName: patient?.name ?? "مريض بدون اسم", patientPhone: patient?.phone ?? null } : null,
+    };
+  });
+
+  res.json({ date: dateParam, timezone: clinicTz, slots: schedule });
+});
+
 router.get("/appointments/:id/journey", async (req, res) => {
   let session;
   try {

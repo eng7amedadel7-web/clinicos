@@ -16,6 +16,11 @@ export function setClinicTimezone(timezone?: string | null): void {
   if (tz) clinicTimezone = tz;
 }
 
+// Today's date (YYYY-MM-DD) in the clinic timezone — for day pickers.
+export function clinicToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: clinicTimezone }).format(new Date());
+}
+
 function localeFor(language?: string) {
   return language === "en" ? "en-EG" : "ar-EG";
 }
