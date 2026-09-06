@@ -16,6 +16,8 @@ type AppointmentInput = { patientId?: unknown; slotId?: unknown; scheduledAt?: u
 type CheckinRow = { status?: string; checked_in_at?: string | null; called_at?: string | null; in_service_at?: string | null; completed_at?: string | null; cancelled_at?: string | null; created_at?: string | null };
 type FollowUpRow = { status?: string; followup_goal?: string | null; next_due_at?: string | null; created_at?: string | null };
 type NoShowRow = { case_status?: string; classification?: string | null; risk_level?: string | null; last_activity_at?: string | null; created_at?: string | null };
+type ReceptionPatientRow = { id?: string; name?: string; first_name?: string; last_name?: string; phone?: string | null; age?: number | null };
+type ConversationRow = { id?: string; patient_id?: string; channel_id?: string };
 
 async function protect(req: Parameters<typeof requireClinicPermission>[0], res: Parameters<typeof respondToPermissionError>[0], action: "read" | "create" | "update" | "delete") {
   try {
@@ -49,6 +51,9 @@ function appointmentInput(body: AppointmentInput) {
 function clinicFilter(clinicId: string) {
   return `clinic_id=eq.${encodeURIComponent(clinicId)}&deleted_at=is.null`;
 }
+
+// بديل جاهز عند غياب المعرفات: نتجنب استعلام id=in.() الفارغ الذي يرفضه postgREST.
+const emptyOk = <T>() => Promise.resolve({ ok: true, status: 200, data: [] as T[] });
 
 // أفضل جهد: إرجاع slot إلى available عند إلغاء الموعد؛ لا تفشل العملية الأساسية إن تعذر
 async function restoreSlotAvailability(slotId: string | undefined | null) {
@@ -244,6 +249,130 @@ router.get("/appointments/schedule", async (req, res) => {
   });
 
   res.json({ date: dateParam, slots: schedule });
+});
+
+// مركز أوامر الاستقبال: نقطة واحدة تُغذي صفحة الاستقبال بمواعيد العيادة كاملة
+// مع بيانات المريض والطبيب والخدمة وآخر محادثة لكل مريض، مقسمة على فترات
+// (اليوم/غدًا/الأسبوع/لاحقًا/الماضي) بحسب توقيت العيادة نفسه لا توقيت السيرفر.
+router.get("/appointments/reception", async (req, res) => {
+  const session = await protect(req, res, "read");
+  if (!session) return;
+  const windowParam = typeof req.query.window === "string" ? req.query.window.trim() : "";
+  const searchQuery = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+  const filter = clinicFilter(session.clinicId);
+
+  const [appointmentsResult, conversationsResult, clinicResult] = await Promise.all([
+    supabaseRequest<AppointmentRow[]>(
+      `/rest/v1/appointments?select=id,public_id,patient_id,doctor_id,service_id,slot_id,branch_id,scheduled_at,appointment_status,booking_number,queue_number,notes,created_at&${filter}&order=scheduled_at.asc&limit=500`,
+      { headers },
+    ),
+    // آخر محادثة لكل مريض: بعد ترتيب تنازلي بحسب آخر نشاط، أول صف لكل patient_id هو الأحدث.
+    supabaseRequest<ConversationRow[]>(
+      `/rest/v1/conversations?select=id,patient_id,channel_id&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=last_activity_at.desc&limit=500`,
+      { headers },
+    ),
+    supabaseRequest<Array<{ timezone?: string | null }>>(`/rest/v1/clinics?select=timezone&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`, { headers }),
+  ]);
+  if (!appointmentsResult.ok) { res.status(appointmentsResult.status || 502).json({ error: "تعذر تحميل مواعيد الاستقبال." }); return; }
+  const appointmentRows = appointmentsResult.data ?? [];
+
+  // توقيت العيادة مع رجوع آمن إلى Asia/Riyadh عند غيابه أو صيغته غير الصالحة.
+  const clinicTimezone = clinicResult.data?.[0]?.timezone;
+  let timeZone = typeof clinicTimezone === "string" && clinicTimezone.trim() ? clinicTimezone.trim() : "Asia/Riyadh";
+  let dayFormatter: Intl.DateTimeFormat;
+  try {
+    dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  } catch {
+    timeZone = "Asia/Riyadh";
+    dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  }
+  const dayKeyInClinicTz = (value: Date) => dayFormatter.format(value);
+  const shiftDayKey = (key: string, days: number) => {
+    const [year, month, day] = key.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+  };
+  const todayKey = dayKeyInClinicTz(new Date());
+  const tomorrowKey = shiftDayKey(todayKey, 1);
+  const weekEndKey = shiftDayKey(todayKey, 6); // نافذة الأسبوع: 7 أيام تبدأ من اليوم شاملة
+  type Bucket = "today" | "tomorrow" | "thisWeek" | "later" | "past";
+  const bucketForDayKey = (key: string): Bucket => {
+    if (!key) return "later";
+    if (key < todayKey) return "past";
+    if (key === todayKey) return "today";
+    if (key === tomorrowKey) return "tomorrow";
+    return key <= weekEndKey ? "thisWeek" : "later";
+  };
+
+  // البحث بالاسم أو الهاتف: شرط or= على الأعمدة الأربعة يُطبق ضمن استعلام المرضى بالجملة نفسه.
+  const patientIds = Array.from(new Set(appointmentRows.map((row) => row.patient_id || "").filter(Boolean)));
+  const searchOrFilter = searchQuery
+    ? `&or=(name.ilike.*${encodeURIComponent(searchQuery)}*,first_name.ilike.*${encodeURIComponent(searchQuery)}*,last_name.ilike.*${encodeURIComponent(searchQuery)}*,phone.ilike.*${encodeURIComponent(searchQuery)}*)`
+    : "";
+  const doctorIds = Array.from(new Set(appointmentRows.map((row) => row.doctor_id || "").filter(Boolean)));
+  const serviceIds = Array.from(new Set(appointmentRows.map((row) => row.service_id || "").filter(Boolean)));
+  const [patientsResult, doctorsResult, servicesResult] = await Promise.all([
+    patientIds.length
+      ? supabaseRequest<ReceptionPatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name,phone,age&id=in.(${patientIds.map((id) => encodeURIComponent(id)).join(",")})${searchOrFilter}&limit=500`, { headers })
+      : emptyOk<ReceptionPatientRow>(),
+    doctorIds.length
+      ? supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&id=in.(${doctorIds.map((id) => encodeURIComponent(id)).join(",")})&limit=500`, { headers })
+      : emptyOk<DoctorRow>(),
+    serviceIds.length
+      ? supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name&id=in.(${serviceIds.map((id) => encodeURIComponent(id)).join(",")})&limit=500`, { headers })
+      : emptyOk<ServiceRow>(),
+  ]);
+  if (searchQuery && !patientsResult.ok) { res.status(patientsResult.status || 502).json({ error: "تعذر تنفيذ البحث عن المرضى." }); return; }
+  const patientsData = patientsResult.ok ? patientsResult.data ?? [] : [];
+  const patientsById = new Map(patientsData.map((patient) => [String(patient.id), patient]));
+  const doctorsById = new Map((doctorsResult.data ?? []).map((doctor) => [String(doctor.id), doctor.name || "طبيب بدون اسم"]));
+  const servicesById = new Map((servicesResult.data ?? []).map((service) => [String(service.id), service.name || "خدمة بدون اسم"]));
+
+  const latestConversationByPatient = new Map<string, string>();
+  for (const conversation of conversationsResult.data ?? []) {
+    if (!conversation.id || !conversation.patient_id) continue;
+    const key = String(conversation.patient_id);
+    if (!latestConversationByPatient.has(key)) latestConversationByPatient.set(key, conversation.id);
+  }
+
+  // عند وجود بحث نُبقي الموعد فقط إذا تطابق مريضه مع نتيجة البحث؛ وإلا نعرض كل المواعيد.
+  const visibleRows = searchQuery ? appointmentRows.filter((row) => patientsById.has(String(row.patient_id))) : appointmentRows;
+
+  const allItems = visibleRows.map((row) => {
+    const parsedAt = row.scheduled_at ? new Date(row.scheduled_at) : null;
+    const dayKey = parsedAt && !Number.isNaN(parsedAt.getTime()) ? dayKeyInClinicTz(parsedAt) : "";
+    const patient = patientsById.get(String(row.patient_id));
+    return {
+      id: row.id,
+      bucket: bucketForDayKey(dayKey),
+      scheduledAt: row.scheduled_at,
+      dayKey,
+      status: row.appointment_status || "scheduled",
+      patientId: row.patient_id || null,
+      patientName: patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || "مريض بدون اسم",
+      patientPhone: patient?.phone || null,
+      patientAge: patient?.age ?? null,
+      doctorId: row.doctor_id || null,
+      doctorName: row.doctor_id ? (doctorsById.get(String(row.doctor_id)) ?? null) : null,
+      serviceId: row.service_id || null,
+      serviceName: row.service_id ? (servicesById.get(String(row.service_id)) ?? null) : null,
+      notes: row.notes || null,
+      bookingNumber: row.booking_number || null,
+      queueNumber: row.queue_number ?? null,
+      conversationId: latestConversationByPatient.get(String(row.patient_id)) ?? null,
+    };
+  });
+
+  const counts: Record<Bucket, number> = { today: 0, tomorrow: 0, thisWeek: 0, later: 0, past: 0 };
+  for (const item of allItems) counts[item.bucket] += 1;
+
+  // window يقصّ العناصر على فترة واحدة؛ all (الافتراضي) يرجع الكل مع الحقل bucket
+  // حتى يستطيع العميل التجميع بنفسه بغض النظر عن قيمة window.
+  const windowBuckets: Partial<Record<string, Bucket[]>> = { today: ["today"], tomorrow: ["tomorrow"], week: ["thisWeek"] };
+  const allowedBuckets = windowBuckets[windowParam];
+  const items = allowedBuckets ? allItems.filter((item) => allowedBuckets.includes(item.bucket)) : allItems;
+
+  res.json({ timezone: timeZone, counts: { today: counts.today, tomorrow: counts.tomorrow, week: counts.thisWeek, later: counts.later, past: counts.past }, items });
 });
 
 router.get("/appointments/:id/journey", async (req, res) => {
