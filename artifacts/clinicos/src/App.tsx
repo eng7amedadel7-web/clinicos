@@ -102,6 +102,7 @@ const AnalyticsPage = lazy(() => import('@/pages/analytics-page'));
 const WaitlistPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.WaitlistPage })));
 const FollowUpsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.FollowUpsPage })));
 const NoShowsPage = lazy(() => import('@/pages/live-operations-pages').then((module) => ({ default: module.NoShowsPage })));
+const ReceptionPage = lazy(() => import('@/pages/reception-page'));
 const PublicQueuePage = lazy(() => import('@/pages/public-queue-page'));
 const LoginPage = lazy(() => import('@/pages/login-page'));
 const RegisterPage = lazy(() => import('@/pages/register-page'));
@@ -561,6 +562,7 @@ function ProtectedShell() {
             <Suspense fallback={<RouteLoadingFallback />}>
               <Switch>
                 <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
+                <Route path="/reception" component={ReceptionPage} />
                 <Route path="/patients" component={LivePatientsPage} />
                 <Route path="/patients/:id" component={Patient360Page} />
                 <Route path="/appointments" component={LiveAppointmentsPage} />
