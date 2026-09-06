@@ -310,6 +310,58 @@ async function callOperation(req: Request, res: Response, rpc: string, table: st
   }
 }
 
+// تسجيل مريض في قائمة الانتظار: يستدعي RPC القياسي المتاح لـauthenticated
+// (create_waitlist_entry) بهوية المستخدم نفسها — الأرقام والتواريخ اختيارية
+// ويتم تحديد افتراضيًا صلاحية 30 يوماً للطلب.
+router.post("/operations/waitlist", async (req, res) => {
+  const session = await protect(req, res, "Appointments", "appointments", "create");
+  if (!session) return;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const patientId = typeof body.patientId === "string" ? body.patientId.trim() : "";
+  if (!patientId) { res.status(400).json({ error: "المريض مطلوب لإضافة طلب انتظار." }); return; }
+
+  // تحقق ملكية سريع: المريض والطبيب والخدمة يجب أن يكونوا من نفس العيادة.
+  const owned = await supabaseRequest<Array<{ id?: string }>>(
+    `/rest/v1/patients?select=id&clinic_id=eq.${encodeURIComponent(session.clinicId)}&id=eq.${encodeURIComponent(patientId)}&deleted_at=is.null&limit=1`,
+    { headers: headers(session) },
+  );
+  if (!owned.ok || !owned.data?.length) { res.status(400).json({ error: "المريض غير موجود في هذه العيادة." }); return; }
+
+  const asDate = (value: unknown) => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? value.trim() : null);
+  const asTime = (value: unknown) => (typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim()) ? value.trim() : null);
+  const priorityRaw = Number(body.priority);
+  const priority = Number.isFinite(priorityRaw) ? Math.min(9, Math.max(1, Math.round(priorityRaw))) : null;
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const result = await supabaseRequest<unknown>(`/rest/v1/rpc/create_waitlist_entry`, {
+    method: "POST",
+    headers: headers(session),
+    body: JSON.stringify({
+      p_clinic_id: session.clinicId,
+      p_patient_id: patientId,
+      p_service_id: typeof body.serviceId === "string" && body.serviceId.trim() ? body.serviceId.trim() : null,
+      p_branch_id: null,
+      p_doctor_id: typeof body.doctorId === "string" && body.doctorId.trim() ? body.doctorId.trim() : null,
+      p_priority: priority,
+      p_preferred_date_from: asDate(body.dateFrom),
+      p_preferred_date_to: asDate(body.dateTo),
+      p_preferred_time_from: asTime(body.timeFrom),
+      p_preferred_time_to: asTime(body.timeTo),
+      p_expires_at: expiresAt,
+      p_metadata: typeof body.notes === "string" && body.notes.trim() ? { notes: body.notes.trim() } : {},
+      p_correlation_id: crypto.randomUUID(),
+      p_idempotency_key: crypto.randomUUID(),
+    }),
+  });
+  if (!result.ok) {
+    const rpcError = String((result.data as { message?: string; error?: string } | null)?.message || (result.data as { error?: string } | null)?.error || "");
+    res.status(result.status || 502).json({ error: rpcError || "تعذر إضافة طلب الانتظار." });
+    return;
+  }
+  clinicEvents.emitClinicEvent(session.clinicId, "operations.waitlist_updated", { patientId, rpc: "create_waitlist_entry" });
+  res.status(201).json({ success: true, entry: result.data ?? null });
+});
+
 router.post("/operations/waitlist/:id/pause", async (req, res) => callOperation(req, res, "pause_waitlist_entry", "appointment_waitlists", req.params.id, { p_waitlist_id: req.params.id, p_correlation_id: crypto.randomUUID() }));
 router.post("/operations/waitlist/:id/cancel", async (req, res) => callOperation(req, res, "cancel_waitlist_entry", "appointment_waitlists", req.params.id, { p_waitlist_id: req.params.id, p_correlation_id: crypto.randomUUID() }));
 router.post("/operations/follow-ups/:id/decision", async (req, res) => callOperation(req, res, "followup_record_agent_decision", "follow_up_cases", req.params.id, {

@@ -170,8 +170,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
     { id: 'operations', title: language === 'ar' ? 'التشغيل' : 'Operations', links: [
       { href: '/dashboard', label: t('overview'), icon: Home },
       { href: '/calendar', label: language === 'ar' ? 'التقويم' : 'Calendar', icon: CalendarDays },
-      { href: '/tasks', label: language === 'ar' ? 'المهام' : 'Tasks', icon: ListTodo },
-      { href: '/waitlist', label: t('waitlist'), icon: Clock3 },
+      { href: '/waitlist', label: language === 'ar' ? 'طلبات معلّقة' : 'Pending requests', icon: Clock3 },
       { href: '/follow-ups', label: t('followUps'), icon: Sparkles },
       { href: '/no-shows', label: t('noShowsOpen'), icon: ShieldCheck },
     ] },

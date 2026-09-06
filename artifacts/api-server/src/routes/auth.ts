@@ -242,7 +242,28 @@ function safeSlug(value: string, fallback: string) {
 router.post("/forgot-password", async (req, res) => {
   const parsed = passwordRecoverySchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Please enter a valid email address." });
+    res.status(400).json({ error: "يرجى إدخال بريد إلكتروني صحيح." });
+    return;
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+
+  // Product decision (owner request): explicitly reject emails that are not
+  // registered instead of GoTrue's silent ignore, so users learn immediately
+  // when their address has no account. Trade-off accepted: this endpoint can
+  // probe which emails exist; the recovery limiter caps that abuse.
+  const existsResult = await supabaseAdminRequest<boolean>("/rest/v1/rpc/fn_email_registered", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_email: email }),
+  });
+  if (!existsResult.ok) {
+    req.log?.error({ status: existsResult.status }, "[Auth] Email existence check failed");
+    res.status(502).json({ error: "تعذر تنفيذ الطلب الآن. حاول مرة أخرى بعد قليل." });
+    return;
+  }
+  if (existsResult.data !== true) {
+    res.status(404).json({ error: "لا يوجد حساب مسجل بهذا البريد الإلكتروني. تأكد من البريد أو أنشئ حساب عيادة جديدًا." });
     return;
   }
 
@@ -250,19 +271,18 @@ router.post("/forgot-password", async (req, res) => {
   const result = await supabaseAuthRequest<{ message?: string }>(
     "/auth/v1/recover",
     {
-      email: parsed.data.email.trim().toLowerCase(),
+      email,
       ...(origin ? { options: { redirectTo: `${origin}/reset-password` } } : {}),
     },
   );
 
-  // Keep the response generic so this endpoint cannot be used for account enumeration,
-  // but do not claim success when the email provider rejected the request.
+  // Do not claim success when the email provider rejected the request.
   if (!result.ok) {
     req.log?.error({ status: result.status }, "[Auth] Password recovery provider rejected request");
-    res.status(502).json({ error: "Password recovery email delivery is temporarily unavailable." });
+    res.status(502).json({ error: "تعذر إرسال بريد الاستعادة مؤقتًا. حاول مرة أخرى بعد قليل." });
     return;
   }
-  res.json({ message: "If an account exists for that email, a recovery link will be sent." });
+  res.json({ message: "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني." });
 });
 
 router.post("/reset-password", async (req, res) => {

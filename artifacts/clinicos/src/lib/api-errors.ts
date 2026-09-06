@@ -17,6 +17,7 @@ export type AuthErrorKey =
   | 'invalidRecoveryLink'
   | 'sessionExpired'
   | 'emailExists'
+  | 'emailNotFound'
   | 'invalidRegisterDetails'
   | 'confirmEmail'
   | 'onboardingFailed'
@@ -64,6 +65,8 @@ const MESSAGE_MATCHERS: Array<[RegExp, AuthErrorKey]> = [
   [/عدد محاولات الدخول/i, 'tooManyAttempts'],
   // e.g. "هذا البريد الإلكتروني مسجل مسبقاً في النظام. ..."
   [/مسجل مسبقاً/i, 'emailExists'],
+  // e.g. "لا يوجد حساب مسجل بهذا البريد الإلكتروني. ..." (explicit forgot-password rejection)
+  [/لا يوجد حساب مسجل/i, 'emailNotFound'],
   // e.g. "يرجى إدخال اسم كامل، واسم للعيادة، وبريد إلكتروني صحيح، وكلمة مرور 8 أحرف على الأقل."
   [/اسم كامل|وكلمة مرور 8 أحرف/i, 'invalidRegisterDetails'],
   // e.g. login: "البريد الإلكتروني غير مؤكد بعد في سوبابيز. ..." and register:
