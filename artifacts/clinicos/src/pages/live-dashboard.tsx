@@ -22,8 +22,9 @@ import {
 import { Link } from "wouter";
 import { usePreferences } from "@/lib/preferences";
 import { getOperationsSummary } from "@/lib/operations-api";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 
-type Session = { user: { fullName: string }; clinic: { name: string; city: string } };
+type Session = { user: { fullName: string }; clinic: { id: string; name: string; city: string } };
 
 const clinicTimeZone = "Africa/Cairo";
 
@@ -280,6 +281,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
     </header>
 
     <div className="flex w-full flex-col gap-6 p-5 md:p-8">
+      <OnboardingChecklist clinicId={session.clinic.id} />
       {busy ? <div className="space-y-6" data-testid="state-dashboard-loading">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <div className="skeleton h-40" key={item} />)}</div>
         <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]"><div className="skeleton h-80" /><div className="skeleton h-80" /></div>

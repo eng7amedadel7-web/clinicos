@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Building2, Mail, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
-import { getGetAuthSessionQueryKey, useRegister } from '@workspace/api-client-react';
+import { getGetAuthSessionQueryKey, useGetAuthSession, useRegister } from '@workspace/api-client-react';
 import { matchAuthErrorKey } from '@/lib/api-errors';
 import {
   AuthLocaleProvider,
@@ -93,6 +93,12 @@ export function RegisterPageInner() {
   const [, setLocation] = useLocation();
   const client = useQueryClient();
   const register = useRegister();
+  // A signed-in visitor has no business re-registering: send them to the
+  // workspace instead (sign out first to create another clinic account).
+  const sessionQuery = useGetAuthSession({ query: { retry: false, staleTime: 60_000, queryKey: getGetAuthSessionQueryKey() } });
+  useEffect(() => {
+    if (sessionQuery.data) setLocation('/dashboard');
+  }, [sessionQuery.data, setLocation]);
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<RegisterValues>({
     defaultValues: { fullName: '', clinicName: '', email: '', password: '', terms: false },

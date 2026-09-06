@@ -56,7 +56,7 @@ type ChatMessage = { from: 'patient' | 'agent'; text: string; booked?: boolean }
 
 type Copy = {
   nav: { method: string; capabilities: string; voice: string; roi: string; pricing: string; faq: string };
-  actions: { login: string; demo: string; start: string; explore: string; play: string; send: string; close: string; submit: string };
+  actions: { login: string; register: string; demo: string; start: string; explore: string; play: string; send: string; close: string; submit: string };
   hero: { eyebrow: string; title: string; accent: string; body: string; proof: string; clinics: string };
   demo: { live: string; welcome: string; appointments: string; attendance: string; week: string; confirmed: string; newMessage: string };
   trust: { label: string; dental: string; primary: string; networks: string; always: string };
@@ -94,7 +94,7 @@ type Copy = {
 const copy: Record<Lang, Copy> = {
   en: {
     nav: { method: 'How it works', capabilities: 'Capabilities', voice: 'AI voice', roi: 'ROI calculator', pricing: 'Plans', faq: 'FAQ' },
-    actions: { login: 'Sign in', demo: 'Book a demo', start: 'Start live demo', explore: 'See how it works', play: 'Play call audio', send: 'Send', close: 'Close', submit: 'Request my demo' },
+    actions: { login: 'Sign in', register: 'Register your clinic', demo: 'Book a demo', start: 'Start live demo', explore: 'See how it works', play: 'Play call audio', send: 'Send', close: 'Close', submit: 'Request my demo' },
     hero: { eyebrow: 'CLINIC OPERATIONS / ALWAYS ON', title: 'A calmer way to run', accent: 'any clinic.', body: 'Bring patients, appointments, conversations, AI voice reception, and daily operations into one clear workspace your whole team can trust.', proof: 'Designed specifically for modern clinics in Saudi Arabia and the UAE.', clinics: 'Seamless WhatsApp & Phone AI Voice Integration' },
     demo: { live: 'LIVE FRONT DESK', welcome: 'Good morning, Doctor', appointments: 'confirmed appointments', attendance: 'attendance rate', week: 'This week', confirmed: 'Appointment confirmed', newMessage: 'New patient message' },
     trust: { label: 'BUILT FOR THE MOMENTS BETWEEN PATIENTS', dental: 'Dental practices', primary: 'Primary care', networks: 'Multi-site networks', always: 'Teams that never close' },
@@ -149,7 +149,7 @@ const copy: Record<Lang, Copy> = {
   },
   ar: {
     nav: { method: 'كيف يعمل', capabilities: 'الإمكانات', voice: 'الصوت الذكي', roi: 'حاسبة العائد', pricing: 'الخطط', faq: 'الأسئلة الشائعة' },
-    actions: { login: 'تسجيل الدخول', demo: 'احجز عرضاً', start: 'ابدأ التجربة الحية', explore: 'اكتشف كيف يعمل', play: 'تشغيل المكالمة الصوتية', send: 'إرسال', close: 'إغلاق', submit: 'أرسل طلب العرض' },
+    actions: { login: 'تسجيل الدخول', register: 'سجّل عيادتك الآن', demo: 'احجز عرضاً', start: 'ابدأ التجربة الحية', explore: 'اكتشف كيف يعمل', play: 'تشغيل المكالمة الصوتية', send: 'إرسال', close: 'إغلاق', submit: 'أرسل طلب العرض' },
     hero: { eyebrow: 'تشغيل العيادة / دائماً حاضر', title: 'طريقة أكثر هدوءاً لإدارة', accent: 'أي عيادة.', body: 'اجمع المرضى والمواعيد والمحادثات واستقبال المكالمات بالذكاء الاصطناعي والعمليات اليومية في مساحة عمل واضحة يثق بها فريقك بالكامل.', proof: 'مصمم خصيصاً لبيئة عمل العيادات في السعودية والإمارات.', clinics: 'ربط مباشر بالواتساب والمكالمات الهاتفية' },
     demo: { live: 'الاستقبال مباشر', welcome: 'مرحباً بك، دكتور', appointments: 'مواعيد مؤكدة', attendance: 'نسبة الحضور', week: 'هذا الأسبوع', confirmed: 'تم تأكيد الموعد', newMessage: 'رسالة مريض جديدة' },
     trust: { label: 'مصمم للحظات بين المرضى', dental: 'عيادات الأسنان', primary: 'الرعاية الأولية', networks: 'شبكات متعددة الفروع', always: 'فرق لا تغلق أبوابها' },
@@ -431,6 +431,7 @@ function App() {
             <button type="button" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} data-testid="button-language" aria-label={isArabic ? 'تبديل اللغة' : 'Switch language'} className="cf-theme-control inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[11px] font-bold transition-colors hover:border-[hsl(var(--primary))]"><Languages className="size-3.5" />{lang === 'en' ? 'عربي' : 'EN'}</button>
             <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} data-testid="button-theme" aria-label="Toggle theme" className="cf-theme-control flex size-9 items-center justify-center rounded-full transition-colors hover:border-[hsl(var(--primary))]">{theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}</button>
             <a href="/login" data-testid="button-login" className="px-3 text-[12px] font-bold text-[hsl(var(--muted-foreground))] transition-colors hover:text-[hsl(var(--primary))]">{t.actions.login}</a>
+            <a href="/register" data-testid="button-register" className="cf-button-ghost inline-flex items-center justify-center rounded-full px-4 py-2.5 text-[12px] font-bold transition-colors hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--primary))]">{t.actions.register}</a>
             <PrimaryButton onClick={openDemo} testId="button-header-demo" className="px-5 py-2.5 text-[12px]">{t.actions.demo}</PrimaryButton>
           </div>
           <button type="button" onClick={() => setMobileOpen((open) => !open)} data-testid="button-mobile-menu" aria-expanded={mobileOpen} aria-label={mobileOpen ? t.actions.close : (isArabic ? 'فتح القائمة' : 'Open menu')} className="cf-theme-control flex size-10 items-center justify-center rounded-full md:hidden">{mobileOpen ? <X className="size-4" /> : <Menu className="size-4" />}</button>
@@ -443,7 +444,8 @@ function App() {
               <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} data-testid="button-mobile-theme" className="cf-button-ghost flex size-11 items-center justify-center rounded-xl">{theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}</button>
             </div>
             <a href="/login" onClick={() => setMobileOpen(false)} data-testid="button-mobile-login" className="cf-button-ghost mt-2 flex items-center justify-center rounded-xl px-4 py-3 text-[13px] font-bold">{t.actions.login}</a>
-            <button type="button" onClick={openDemo} data-testid="button-mobile-demo" className="cf-button-primary mt-2 rounded-xl px-4 py-3 text-[13px] font-bold">{t.actions.demo}</button>
+            <a href="/register" onClick={() => setMobileOpen(false)} data-testid="button-mobile-register" className="cf-button-primary mt-2 flex items-center justify-center rounded-xl px-4 py-3 text-[13px] font-bold">{t.actions.register}</a>
+            <button type="button" onClick={openDemo} data-testid="button-mobile-demo" className="cf-button-ghost mt-2 rounded-xl px-4 py-3 text-[13px] font-bold">{t.actions.demo}</button>
           </nav>
         </div>}
       </header>
@@ -498,6 +500,7 @@ function App() {
               </p>
               <div className="cf-reveal cf-reveal-delay-2 mt-8 flex flex-wrap items-center gap-4">
                 <PrimaryButton onClick={openDemo} testId="button-hero-demo">{t.actions.start}</PrimaryButton>
+                <a href="/register" data-testid="link-hero-register" className="cf-button-ghost inline-flex items-center justify-center rounded-full px-6 py-3.5 text-[12px] font-bold text-[hsl(var(--primary))] transition-colors">{t.actions.register}</a>
                 <a href="#how-it-works" data-testid="link-hero-method" className="group inline-flex items-center gap-2 px-2 py-3 text-[12px] font-bold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]">
                   <span className="flex size-8 items-center justify-center rounded-full border border-[hsl(var(--border))] transition-colors group-hover:border-[hsl(var(--primary))]">
                     <Play className="size-3 fill-current" />
@@ -798,6 +801,7 @@ function App() {
             <p className="cf-body-muted mx-auto mt-5 max-w-[510px] text-[15px] leading-[1.9]">{t.cta.body}</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <PrimaryButton onClick={openDemo} testId="button-final-demo">{t.actions.demo}</PrimaryButton>
+              <a href="/register" data-testid="link-final-register" className="cf-button-ghost inline-flex items-center justify-center rounded-full px-5 py-3 text-[12px] font-bold transition-colors">{t.actions.register}</a>
               <button type="button" onClick={() => setToast(t.cta.details)} data-testid="button-final-contact" className="cf-button-ghost inline-flex items-center justify-center rounded-full px-5 py-3 text-[12px] font-bold transition-colors">{t.cta.details}</button>
             </div>
           </div>

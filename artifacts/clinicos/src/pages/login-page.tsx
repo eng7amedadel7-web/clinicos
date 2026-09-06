@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Mail, RefreshCw, ShieldCheck, Sparkles } from 'l
 import {
   getGetAuthSessionQueryKey,
   getHealthCheckQueryKey,
+  useGetAuthSession,
   useHealthCheck,
   useLogin,
   useRecoverPassword,
@@ -361,6 +362,13 @@ export function LoginPageInner() {
   const [path, setLocation] = useLocation();
   const client = useQueryClient();
   const login = useLogin();
+  // Returning clients with a live session skip the form entirely: visiting
+  // /login, /forgot-password, or /reset-password while signed in goes straight
+  // to the workspace (sign out first to switch accounts).
+  const sessionQuery = useGetAuthSession({ query: { retry: false, staleTime: 60_000, queryKey: getGetAuthSessionQueryKey() } });
+  useEffect(() => {
+    if (sessionQuery.data) setLocation('/dashboard');
+  }, [sessionQuery.data, setLocation]);
   const [recoveryToken, clearRecoveryToken] = useRecoveryAccessToken();
   const [showPassword, setShowPassword] = useState(false);
   const [greeting] = useState(getGreetingKey);
@@ -373,9 +381,9 @@ export function LoginPageInner() {
   const isDev = import.meta.env.DEV;
   const ForwardArrow = lang === 'ar' ? ArrowLeft : ArrowRight;
 
-  const onSubmit = (values: LoginValues) => {
+  const performLogin = (email: string, password: string, remember = true) => {
     login.mutate(
-      { data: { email: values.email.trim(), password: values.password, rememberDevice: values.remember } },
+      { data: { email, password, rememberDevice: remember } },
       {
         onSuccess: (session: unknown) => {
           client.setQueryData(getGetAuthSessionQueryKey(), session);
@@ -385,6 +393,8 @@ export function LoginPageInner() {
       }
     );
   };
+
+  const onSubmit = (values: LoginValues) => performLogin(values.email.trim(), values.password, values.remember);
 
   const apiError = useLocalizedApiError(login.error);
 
@@ -436,10 +446,7 @@ export function LoginPageInner() {
             <button
               type="button"
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs font-bold text-sky-800 transition-colors hover:bg-sky-100 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-300 dark:hover:bg-sky-400/15"
-              onClick={() => {
-                form.setValue('email', 'demo@meruna.app');
-                form.setValue('password', 'demo1234');
-              }}
+              onClick={() => performLogin('demo@meruna.app', 'demo1234')}
               data-testid="button-demo-login"
             >
               <Sparkles className="size-4 text-sky-600 dark:text-sky-400" />

@@ -27,10 +27,19 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+const tabKeys: readonly Tab[] = ["branches", "staff", "roles", "calendar", "channels", "integrations"];
+
+// Deep-link support: /organization?tab=calendar is used by the dashboard
+// onboarding checklist so a setup step lands directly on its surface.
+function initialTabFromUrl(): Tab {
+  const value = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+  return value && tabKeys.includes(value) ? value : "branches";
+}
+
 export default function OrganizationSettings() {
   const { language } = usePreferences();
   const en = language === "en";
-  const [tab, setTab] = useState<Tab>("branches");
+  const [tab, setTab] = useState<Tab>(initialTabFromUrl);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);

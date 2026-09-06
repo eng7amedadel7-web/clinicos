@@ -338,7 +338,12 @@ function SettingsPage({ session }: { session: { user: { fullName: string; email:
   const settingsQuery = useGetClinicSettings();
   const updateSettings = useUpdateClinicSettings();
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'account' | 'branches' | 'channels'>('account');
+  // Deep-link support: /settings?tab=channels is used by the dashboard
+  // onboarding checklist so a setup step lands directly on its surface.
+  const [activeTab, setActiveTab] = useState<'account' | 'branches' | 'channels'>(() => {
+    const value = new URLSearchParams(window.location.search).get('tab');
+    return value === 'branches' || value === 'channels' ? value : 'account';
+  });
   const { language } = usePreferences();
   const en = language === 'en';
   const form = useForm({ defaultValues: { fullName: session.user.fullName, email: session.user.email, clinicName: session.clinic.name, city: session.clinic.city } });

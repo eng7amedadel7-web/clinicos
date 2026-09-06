@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Building2, Stethoscope, HeartPulse, CalendarDays, MessageSquare, UsersRound, X, ListChecks } from 'lucide-react';
 import { Link } from 'wouter';
 import { usePreferences } from '@/lib/preferences';
