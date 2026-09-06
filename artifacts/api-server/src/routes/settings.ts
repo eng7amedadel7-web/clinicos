@@ -59,7 +59,7 @@ router.patch("/settings", async (req, res) => {
     Prefer: "return=representation",
   };
   const clinicResult = await supabaseRequest<ClinicRow[]>(
-    `/rest/v1/clinics?select=id,name,status,location_config&id=eq.${encodeURIComponent(current.session.clinicId)}&deleted_at=is.null&limit=1`,
+    `/rest/v1/clinics?select=id,name,status,timezone,location_config&id=eq.${encodeURIComponent(current.session.clinicId)}&deleted_at=is.null&limit=1`,
     { headers },
   );
   const clinic = clinicResult.ok ? clinicResult.data?.[0] : undefined;

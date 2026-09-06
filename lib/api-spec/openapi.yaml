@@ -434,5 +434,9 @@ components:
         isHandoff:
           type: boolean
       required: [ok, messageId, conversationId]
+      timezone:
+        type: string
+        description: IANA timezone of the clinic (multi-tenant Gulf markets)
+
 
 

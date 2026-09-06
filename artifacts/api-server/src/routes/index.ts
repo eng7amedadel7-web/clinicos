@@ -19,6 +19,7 @@ import importRouter from "./import";
 import integrationsRouter from "./integrations";
 import channelsRouter from "./channels";
 import clinicSetupRouter from "./clinic-setup";
+import onboardingRouter from "./onboarding";
 import cronRouter from "./cron";
 
 const router: IRouter = Router();
@@ -43,6 +44,7 @@ router.use(importRouter);
 router.use(integrationsRouter);
 router.use(channelsRouter);
 router.use(clinicSetupRouter);
+router.use("/onboarding", onboardingRouter);
 // Mounted without a prefix on purpose: paths are absolute (/cron/reminders,
 // /cron/trial-expiry) so they match the Vercel Cron entries in vercel.json
 // (/api/cron/reminders, /api/cron/trial-expiry) after the /api rewrite.

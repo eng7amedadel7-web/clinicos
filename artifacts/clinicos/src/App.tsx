@@ -60,6 +60,7 @@ import { QuickAddModal } from '@/components/quick-add-modal';
 import { BrandMark } from '@/components/brand';
 import { PreferencesProvider, usePreferences, type TranslationKey } from '@/lib/preferences';
 import { NotificationsProvider, useClinicNotifications } from '@/lib/notifications-context';
+import { setClinicTimezone } from '@/lib/datetime';
 import { RealtimeStatusContext, useRealtimeSync } from '@/lib/realtime';
 
 const ChannelConnectionsManager = lazy(() =>
@@ -492,6 +493,14 @@ function ProtectedShell() {
   const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
   const needsLogin = sessionQuery.isError || !sessionQuery.data;
   const realtimeStatus = useRealtimeSync(sessionQuery.data?.clinic.id);
+
+  // Multi-tenant Gulf markets: the timezone belongs to the CLINIC, and every
+  // date/time display reads it through lib/datetime. The OpenAPI Clinic type
+  // predates the field, hence the narrow cast.
+  useEffect(() => {
+    const tz = (sessionQuery.data?.clinic as { timezone?: string } | undefined)?.timezone;
+    if (tz) setClinicTimezone(tz);
+  }, [sessionQuery.data]);
 
   useEffect(() => {
     if (needsLogin && location !== '/login') {

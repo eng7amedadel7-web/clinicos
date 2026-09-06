@@ -155,10 +155,15 @@ router.get("/appointments", async (req, res) => {
     let slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date().toISOString())}`;
     if (dateParam) {
       // Vercel functions run in UTC: `${date}T00:00:00` would parse as UTC and
-      // drop the clinic's 00:00-03:00 local slots. Build the window for the
-      // clinic's Cairo day (UTC+2 winter / UTC+3 DST) instead.
+      // drop the clinic's early-morning local slots. Build the window for the
+      // CLINIC'S own day using its stored timezone (multi-tenant Gulf markets).
+      const clinicTzRow = await supabaseRequest<Array<{ timezone?: string | null }>>(
+        `/rest/v1/clinics?select=timezone&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
+        { headers: { Authorization: `Bearer ${session.accessToken}` } },
+      );
+      const clinicTz = clinicTzRow.ok ? clinicTzRow.data?.[0]?.timezone?.trim() || "Asia/Riyadh" : "Asia/Riyadh";
       const probe = new Date(`${dateParam}T12:00:00Z`);
-      const tzParts = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Cairo", timeZoneName: "shortOffset" }).formatToParts(probe);
+      const tzParts = new Intl.DateTimeFormat("en-US", { timeZone: clinicTz, timeZoneName: "shortOffset" }).formatToParts(probe);
       const tzName = tzParts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
       const tzMatch = /GMT([+-])(\d{1,2})/.exec(tzName);
       const offsetMs = (tzMatch?.[1] === "-" ? -1 : 1) * Number(tzMatch?.[2] ?? 3) * 60 * 60_000;

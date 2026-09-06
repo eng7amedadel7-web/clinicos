@@ -159,6 +159,7 @@ export async function getProfile(user: SupabaseAuthUser, accessToken: string) {
       name: clinic.name,
       status: clinic.status ?? "active",
       city: clinicCity(clinic),
+      timezone: clinic.timezone ?? "Asia/Riyadh",
     },
   };
 }
