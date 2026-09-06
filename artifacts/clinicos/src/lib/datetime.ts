@@ -21,6 +21,39 @@ export function clinicToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: clinicTimezone }).format(new Date());
 }
 
+// SLOT/APPOINTMENT TIMES use the product's documented storage convention:
+// wall-clock times stored as UTC, displayed with UTC getters — the HH:MM the
+// clinic typed is exactly the HH:MM every screen shows. Never convert these
+// through a timezone.
+function wallLocale(language?: string) {
+  return language === "en" ? "en-GB" : "ar-EG";
+}
+
+export function formatWallTime(value: string | Date | null | undefined, language?: string): string {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat(wallLocale(language), {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(d);
+}
+
+export function formatWallDate(value: string | Date | null | undefined, language?: string, options?: Intl.DateTimeFormatOptions): string {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat(wallLocale(language), {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+    ...options,
+  }).format(d);
+}
+
 function localeFor(language?: string) {
   return language === "en" ? "en-EG" : "ar-EG";
 }

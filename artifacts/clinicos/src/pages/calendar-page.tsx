@@ -99,7 +99,7 @@ function statusLabel(status: string, en: boolean) {
   return pair ? (en ? pair[1] : pair[0]) : status;
 }
 
-import { formatClinicTime as formatTime } from "@/lib/datetime";
+import { formatWallTime as formatTime, formatWallDate as formatDayLabel } from "@/lib/datetime";
 
 function formatDateShort(d: Date, en: boolean) {
   return new Intl.DateTimeFormat(en ? "en-US" : "ar-EG", { weekday: "short", day: "numeric" }).format(d);

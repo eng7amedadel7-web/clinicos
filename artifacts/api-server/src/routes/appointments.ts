@@ -155,28 +155,15 @@ router.get("/appointments", async (req, res) => {
     const dateParam = typeof req.query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : "";
     let slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date().toISOString())}`;
     if (dateParam) {
-      // Vercel functions run in UTC: `${date}T00:00:00` would parse as UTC and
-      // drop the clinic's early-morning local slots. Build the window for the
-      // CLINIC'S own day using its stored timezone (multi-tenant Gulf markets).
-      const clinicTzRow = await supabaseRequest<Array<{ timezone?: string | null }>>(
-        `/rest/v1/clinics?select=timezone&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
-        { headers: { Authorization: `Bearer ${session.accessToken}` } },
-      );
-      const clinicTz = clinicTzRow.ok ? clinicTzRow.data?.[0]?.timezone?.trim() || "Asia/Riyadh" : "Asia/Riyadh";
-      const probe = new Date(`${dateParam}T12:00:00Z`);
-      const tzParts = new Intl.DateTimeFormat("en-US", { timeZone: clinicTz, timeZoneName: "shortOffset" }).formatToParts(probe);
-      const tzName = tzParts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
-      const tzMatch = /GMT([+-])(\d{1,2})/.exec(tzName);
-      const offsetMs = (tzMatch?.[1] === "-" ? -1 : 1) * Number(tzMatch?.[2] ?? 3) * 60 * 60_000;
-      const dayStart = new Date(`${dateParam}T00:00:00Z`);
-      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-      slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date(dayStart.getTime() - offsetMs).toISOString())}&start_time=lt.${encodeURIComponent(new Date(dayEnd.getTime() - offsetMs).toISOString())}`;
+      // Wall-clock-as-UTC convention: the day window is the plain UTC day so
+      // the HH:MM the clinic generated is exactly what the picker shows.
+      slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(`${dateParam}T00:00:00Z`)}&start_time=lt.${encodeURIComponent(`${dateParam}T23:59:59.999Z`)}`;
     }
     const doctorWindow = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
     const [doctorsResult, servicesResult, slotsResult] = await Promise.all([
-      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${scopeFilter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
-      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${scopeFilter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
-      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${scopeFilter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
+      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${filter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
+      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${filter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
+      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${filter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
     ]);
     if (!doctorsResult.ok || !servicesResult.ok || !slotsResult.ok) {
       res.status(502).json({ error: "تعذر تحميل خيارات الحجز من قاعدة البيانات." });
@@ -194,90 +181,19 @@ router.get("/appointments", async (req, res) => {
   res.json(appointments);
 });
 
-router.post("/appointments", async (req, res) => {
-  const session = await protect(req, res, "create");
-  if (!session) return;
-  const data = appointmentInput(req.body ?? {});
-  if (!data.patientId || !data.slotId) { res.status(400).json({ error: "المريض والموعد المتاح مطلوبان." }); return; }
-
-  const idempotencyKey = (req.get("Idempotency-Key") || randomBytes(32).toString("hex")).trim();
-  const queueToken = createHash("sha256")
-    .update(`meruna-queue:${session.clinicId}:${idempotencyKey}`, "utf8")
-    .digest("base64url");
-  const result = await supabaseRequest<CreatedAppointmentRow[]>("/rest/v1/rpc/create_appointment_with_queue_link", {
-    method: "POST",
-    headers: appointmentHeaders(session.accessToken),
-    body: JSON.stringify({
-      p_clinic_id: session.clinicId,
-      p_patient_id: data.patientId,
-      p_slot_id: data.slotId,
-      p_appointment_status: data.status,
-      p_notes: data.notes || null,
-      p_appointment_type: data.appointmentType,
-      p_create_idempotency_key: idempotencyKey,
-      p_queue_token: queueToken,
-    }),
-  });
-  if (!result.ok) {
-    const status = result.status === 409 || result.status === 400 ? 409 : (result.status || 502);
-    res.status(status).json({ error: status === 409 ? "هذا الـslot لم يعد متاحًا أو تم تنفيذ الطلب مسبقًا." : "تعذر حجز الموعد." });
-    return;
-  }
-
-  const created = result.data?.[0];
-  if (!created?.appointment_id || !created.booking_id || !created.queue_path) {
-    res.status(502).json({ error: "تعذر إكمال رابط الكيو للحجز." });
-    return;
-  }
-  clinicEvents.emitClinicEvent(session.clinicId, "appointment.booked", {
-    appointmentId: created.appointment_id,
-    queueNumber: created.queue_number ?? null,
-    scheduledAt: data.scheduledAt || null,
-  });
-  res.status(201).json({
-    id: created.appointment_id,
-    bookingId: created.booking_id,
-    bookingNumber: created.booking_number ?? null,
-    queueNumber: created.queue_number ?? null,
-    queuePath: created.queue_path,
-    queueExpiresAt: created.queue_expires_at ?? null,
-  });
-});
-
-// جدول اليوم لأي دكتور: كل الـslots في النطاق الزمني (متاح ومحجوز) مع اسم
-// المريض والحجز المرتبط بالمحجوز — ده لوحة الصفحة الرئيسية لصفحة المواعيد.
+// جدول اليوم لأي دكتور: كل الـslots في اليوم (متاح ومحجوز) مع المريض على المحجوز.
+// الأوقات تتبع اتفاقية wall-clock-as-UTC: نافذة اليوم هي يوم UTC الصريح.
 router.get("/appointments/schedule", async (req, res) => {
   const session = await protect(req, res, "read");
   if (!session) return;
   const dateParam = typeof req.query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : new Date().toISOString().slice(0, 10);
   const doctorIdParam = typeof req.query.doctorId === "string" ? req.query.doctorId.trim() : "";
-  const branchFilter = typeof req.query.branchId === "string" && req.query.branchId.trim() ? `&branch_id=eq.${encodeURIComponent(req.query.branchId.trim())}` : "";
-
-  const probe = new Date(`${dateParam}T12:00:00Z`);
-  const tzParts = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Cairo", timeZoneName: "shortOffset" }).formatToParts(probe);
-  const tzName = tzParts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
-  const tzMatch = /GMT([+-])(\d{1,2})/.exec(tzName);
-  const offsetMs = (tzMatch?.[1] === "-" ? -1 : 1) * Number(tzMatch?.[2] ?? 3) * 60 * 60_000;
-  const clinicTzRow = await supabaseRequest<Array<{ timezone?: string | null }>>(
-    `/rest/v1/clinics?select=timezone&id=eq.${encodeURIComponent(session.clinicId)}&limit=1`,
-    { headers: { Authorization: `Bearer ${session.accessToken}` } },
-  );
-  const clinicTz = clinicTzRow.ok ? clinicTzRow.data?.[0]?.timezone?.trim() || "Asia/Riyadh" : "Asia/Riyadh";
-  const tzParts2 = new Intl.DateTimeFormat("en-US", { timeZone: clinicTz, timeZoneName: "shortOffset" }).formatToParts(probe);
-  const tzName2 = tzParts2.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
-  const tzMatch2 = /GMT([+-])(\d{1,2})/.exec(tzName2);
-  const offsetMs2 = (tzMatch2?.[1] === "-" ? -1 : 1) * Number(tzMatch2?.[2] ?? 3) * 60 * 60_000;
-  const dayStart = new Date(`${dateParam}T00:00:00Z`);
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-  const windowStart = new Date(dayStart.getTime() - offsetMs2).toISOString();
-  const windowEnd = new Date(dayEnd.getTime() - offsetMs2).toISOString();
-
   const clinicFilterStr = `clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null`;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   const doctorFilter = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
 
   const slotsResult = await supabaseRequest<Array<{ id: string; doctor_id: string; service_id: string; start_time: string; end_time: string; slot_status: string }>>(
-    `/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${clinicFilterStr}${doctorFilter}${branchFilter}&start_time=gte.${encodeURIComponent(windowStart)}&start_time=lt.${encodeURIComponent(windowEnd)}&order=start_time.asc&limit=500`,
+    `/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${clinicFilterStr}${doctorFilter}&start_time=gte.${encodeURIComponent(`${dateParam}T00:00:00Z`)}&start_time=lt.${encodeURIComponent(`${dateParam}T23:59:59.999Z`)}&order=start_time.asc&limit=500`,
     { headers },
   );
   if (!slotsResult.ok) { res.status(slotsResult.status || 502).json({ error: "تعذر تحميل جدول المواعيد." }); return; }
@@ -325,7 +241,7 @@ router.get("/appointments/schedule", async (req, res) => {
     };
   });
 
-  res.json({ date: dateParam, timezone: clinicTz, slots: schedule });
+  res.json({ date: dateParam, slots: schedule });
 });
 
 router.get("/appointments/:id/journey", async (req, res) => {
