@@ -25,7 +25,7 @@ export function resolveOutboundDispatcherConfig(env: Partial<Record<"N8N_INBOX_O
   };
 }
 
-export async function dispatchOutbound(conversationId: string, messageId?: string | null): Promise<{ delivered: boolean }> {
+export async function dispatchOutbound(conversationId: string, messageId?: string | null): Promise<{ delivered: boolean; reason?: "telegram" }> {
   try {
     // 1. Fetch conversation details
     const convLookup = await supabaseAdminRequest<Array<{
@@ -149,6 +149,51 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
       }
     }
 
+    // Delivery 2c: Gupshup WhatsApp — production clinics run their WhatsApp
+    // number through Gupshup (channel provider gupshup with app_id + source
+    // number in config, API key in channel_secrets). Verified live: POST
+    // api.gupshup.io/wa/api/v1/msg returns 202 {status:"submitted"}.
+    if (channel?.type === "whatsapp" && channel?.provider === "gupshup" && recipientPhone && channel?.id) {
+      try {
+        const secretRes = await supabaseAdminRequest<Array<{ api_token?: string }>>("/rest/v1/rpc/get_channel_secret_db", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ p_channel_id: channel.id }),
+        });
+        const gupshupKey = secretRes.ok ? (secretRes.data?.[0]?.api_token ?? "").trim() : "";
+        const gupshupSource = String(channel.config?.gupshup_source_number ?? "").trim();
+        const gupshupApp = String(channel.config?.gupshup_app_id ?? "").trim();
+        if (gupshupKey && gupshupSource && gupshupApp) {
+          const form = new URLSearchParams({
+            channel: "whatsapp",
+            source: gupshupSource,
+            destination: recipientPhone.replace(/^\+/, ""),
+            "src.name": gupshupApp,
+            message: JSON.stringify({ type: "text", text: msg.content }),
+          });
+          const gsRes = await fetch("https://api.gupshup.io/wa/api/v1/msg", {
+            method: "POST",
+            headers: { apikey: gupshupKey, "Content-Type": "application/x-www-form-urlencoded" },
+            body: form.toString(),
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (gsRes.ok) {
+            await supabaseAdminRequest(`/rest/v1/messages?id=eq.${encodeURIComponent(msg.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({ message_status: "delivered" }),
+            });
+            logger.info({ conversationId, messageId: msg.id }, "[Outbound] Message delivered via Gupshup WhatsApp");
+            return { delivered: true };
+          }
+          logger.warn({ conversationId, providerStatus: gsRes.status }, "[Outbound] Gupshup WhatsApp send rejected");
+        } else {
+          logger.warn({ conversationId }, "[Outbound] Gupshup config/secret incomplete for channel");
+        }
+      } catch (gsErr) {
+        logger.warn({ gsErr, conversationId }, "[Outbound] Gupshup send failed, trying fallbacks");
+      }
+    }
+
     // Delivery 3: Meta Messenger / Instagram Direct
     const pageToken = channel?.config?.access_token || channel?.config?.accessToken || clinicChannelsConfig?.messenger?.accessToken || clinicChannelsConfig?.instagram?.accessToken;
     const isMeta = (channel?.type === "messenger" || channel?.type === "instagram") && Boolean(pageToken);
@@ -209,7 +254,7 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
       body: JSON.stringify({ message_status: "failed" }),
     });
     logger.error({ conversationId, messageId: msg.id }, "[Outbound] All delivery paths failed; message marked failed");
-    return { delivered: false };
+    return { delivered: false, reason: channel?.type === "telegram" ? "telegram" : undefined };
   } catch (error) {
     logger.error({ error, conversationId }, "[Outbound] Unexpected error in dispatchOutbound");
     return { delivered: false };

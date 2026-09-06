@@ -381,7 +381,9 @@ router.post("/inbox/:id/messages", async (req, res) => {
     if (conversationId && messageId) {
       const delivery = await dispatchOutbound(conversationId, messageId);
       if (!delivery?.delivered) {
-        deliveryError = "تم حفظ الرسالة لكن تعذر تسليمها للمريض — تأكد من ربط قناة الواتساب من الإعدادات.";
+        deliveryError = delivery?.reason === "telegram"
+          ? "تم حفظ الرسالة لكن تعذر تسليمها على تلجرام — تأكد من توكن البوت في إعدادات القناة."
+          : "تم حفظ الرسالة لكن تعذر تسليمها للمريض — تأكد من ربط القناة من الإعدادات.";
       }
     }
   } catch (error) {
