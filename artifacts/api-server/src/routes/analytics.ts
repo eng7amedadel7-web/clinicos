@@ -40,7 +40,7 @@ function dayKey(isoString: string) {
   return isoString.slice(0, 10); // YYYY-MM-DD
 }
 
-router.get("/analytics/summary", async (req, res) => {
+router.get("/summary", async (req, res) => {
   // Fail closed: analytics exposes clinic-wide numbers, so it requires the same
   // permission gate as every other sensitive route (no session-only fallback).
   let session;

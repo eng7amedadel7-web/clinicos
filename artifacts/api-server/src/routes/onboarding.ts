@@ -16,7 +16,7 @@ function hasRows(result: { ok: boolean; data?: IdRow[] | null }): boolean {
   return result.ok && (result.data?.length ?? 0) > 0;
 }
 
-router.get("/onboarding/status", async (req, res) => {
+router.get("/status", async (req, res) => {
   let session;
   try {
     session = await requireClinicPermission(req, "Operations", "workspace", "read");
