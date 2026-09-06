@@ -276,7 +276,9 @@ export function ChatWindow({
                 {en ? "Select Reply Template" : "اختر قالباً جاهزاً"}
               </span>
               <button
+                type="button"
                 onClick={() => setCannedRepliesOpen(false)}
+                aria-label={en ? "Close templates" : "إغلاق القوالب"}
                 className="text-muted-foreground hover:text-foreground text-xs"
               >
                 ✕

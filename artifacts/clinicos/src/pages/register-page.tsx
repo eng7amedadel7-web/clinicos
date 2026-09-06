@@ -16,6 +16,7 @@ import {
   fieldClasses,
   PasswordFieldToggle,
   SUBMIT_BUTTON_CLASS,
+  SuccessAlert,
   useAuthLocale,
 } from '@/components/auth-shell';
 
@@ -39,6 +40,7 @@ const pageCopy = {
     loading: 'جارٍ إنشاء الحساب...',
     haveAccount: 'لديك حساب بالفعل؟',
     login: 'تسجيل الدخول',
+    confirmHint: 'أنشأنا حسابك! راجع بريدك لتأكيده ثم سجّل الدخول',
     success: 'تم تسجيل العيادة بنجاح. أهلاً بك في ميرونا!',
     requiredName: 'الاسم مطلوب',
     validName: 'الاسم لا يقل عن حرفين',
@@ -67,6 +69,7 @@ const pageCopy = {
     loading: 'Creating account...',
     haveAccount: 'Already have an account?',
     login: 'Sign in',
+    confirmHint: 'Account created! Check your email to confirm it, then sign in.',
     success: 'Clinic registered successfully. Welcome to Meruna!',
     requiredName: 'Name is required',
     validName: 'Must be at least 2 characters',
@@ -98,7 +101,13 @@ export function RegisterPageInner() {
   const { lang, text } = useAuthLocale();
   const copy = pageCopy[lang];
   const field = fieldClasses();
-  const apiError = register.error ? text.errors[matchAuthErrorKey(register.error) ?? 'generic'] : undefined;
+  // The server's "account created, confirm your email" reply (key confirmEmail)
+  // is a success-hint outcome, not a failure: it renders as a green hint with a
+  // sign-in button instead of the red error alert.
+  const matchedErrorKey = register.error ? matchAuthErrorKey(register.error) : null;
+  const needsEmailConfirmation = matchedErrorKey === 'confirmEmail';
+  const apiError =
+    register.error && !needsEmailConfirmation ? text.errors[matchedErrorKey ?? 'generic'] : undefined;
   const ForwardArrow = lang === 'ar' ? ArrowLeft : ArrowRight;
 
   const onSubmit = (values: RegisterValues) =>
@@ -126,7 +135,22 @@ export function RegisterPageInner() {
           </p>
         </div>
 
-        {apiError ? (
+        {needsEmailConfirmation ? (
+          <div className="mt-5" data-testid="state-register-confirm-email">
+            <SuccessAlert testid="alert-register-confirm-email" message={copy.confirmHint} />
+            <button
+              type="button"
+              className={`${SUBMIT_BUTTON_CLASS} mt-3`}
+              onClick={() => setLocation('/login')}
+              data-testid="button-register-confirm-login"
+            >
+              <span>
+                <BidiText>{copy.login}</BidiText>
+              </span>
+              <ForwardArrow className="size-4" />
+            </button>
+          </div>
+        ) : apiError ? (
           <div className="mt-5">
             <ErrorAlert testid="alert-register-error" message={apiError} />
           </div>

@@ -80,11 +80,11 @@ function SectionError({ error }: { error: string }) {
 }
 
 function SectionEmpty({ label }: { label: string }) {
-  return <div className="rounded-xl border border-dashed border-[#dbe5ea] dark:border-[#1e3a4d] p-8 text-center text-xs text-[#8999a1] dark:text-[#7e939e]">{label}</div>;
+  return <div className="rounded-xl border border-dashed border-[#dbe5ea] dark:border-[#1e3a4d] p-8 text-center text-xs text-[#526b78] dark:text-[#7e939e]">{label}</div>;
 }
 
 function LoadingRow({ label }: { label: string }) {
-  return <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#8999a1] dark:text-[#7e939e]"><Loader2 size={14} className="animate-spin" /> {label}</div>;
+  return <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#526b78] dark:text-[#7e939e]"><Loader2 size={14} className="animate-spin" /> {label}</div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ function DoctorsSection({ en }: { en: boolean }) {
             <span className="grid size-9 place-items-center rounded-lg bg-[#dcebef] dark:bg-[#143242] text-[#3c7e93] dark:text-[#8cc3dd]"><UserRound size={16} /></span>
             <div className="min-w-0 flex-1">
               <strong className="block text-xs dark:text-[#e2ecf1]">{doctor.name}</strong>
-              <span className="mt-1 block text-[10px] text-[#8999a1] dark:text-[#7e939e]">{doctor.specialization || (en ? "No specialty" : "بدون تخصص")}</span>
+              <span className="mt-1 block text-[10px] text-[#526b78] dark:text-[#7e939e]">{doctor.specialization || (en ? "No specialty" : "بدون تخصص")}</span>
             </div>
             <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${doctor.isActive ? "bg-[#f2faf6] dark:bg-[#123528] text-[#39755f] dark:text-[#7fd0b4]" : "bg-[#fff7f6] dark:bg-[#3d1f1b] text-[#a54c46] dark:text-[#eb9a90]"}`}>{doctor.isActive ? (en ? "Active" : "نشط") : (en ? "Inactive" : "متوقف")}</span>
             <button onClick={() => setForm({ id: doctor.id, name: doctor.name, specialization: doctor.specialization || "", isActive: doctor.isActive })} disabled={busy} className="rounded-lg border px-2.5 py-1.5 text-[10px] font-bold dark:border-[#1e3a4d] dark:text-[#e2ecf1]"><Pencil size={12} className="inline" /> {en ? "Edit" : "تعديل"}</button>
@@ -233,7 +233,7 @@ function ServicesSection({ en }: { en: boolean }) {
             <span className="grid size-9 place-items-center rounded-lg bg-[#dcebef] dark:bg-[#143242] text-[#3c7e93] dark:text-[#8cc3dd]"><Briefcase size={16} /></span>
             <div className="min-w-0 flex-1">
               <strong className="block text-xs dark:text-[#e2ecf1]">{service.name}</strong>
-              <span className="mt-1 block text-[10px] text-[#8999a1] dark:text-[#7e939e]">
+              <span className="mt-1 block text-[10px] text-[#526b78] dark:text-[#7e939e]">
                 {service.durationMinutes ? `${service.durationMinutes} ${en ? "min" : "دقيقة"}` : (en ? "No duration" : "بدون مدة")}
                 {service.price !== null ? ` · ${service.price} ${en ? "SAR" : "ر.س"}` : ""}
                 {service.description ? ` · ${service.description}` : ""}
@@ -377,7 +377,7 @@ function SlotsSection({ en }: { en: boolean }) {
         </label>
         <button disabled={busy || !canGenerate} className="primary-button"><Sparkles size={15} /> {en ? "Generate slots" : "توليد المواعيد"}</button>
       </div>
-      <p className="text-[10px] text-[#8999a1] dark:text-[#7e939e]">{en ? "Leave the date empty and pick a weekday to generate for its next occurrence. Existing slots at the same times are skipped." : "اترك التاريخ فارغًا واختر يومًا من الأسبوع للتوليد في أقرب موعد له. المواعيد الموجودة مسبقًا في نفس الأوقات يتم تجاهلها."}</p>
+      <p className="text-[10px] text-[#526b78] dark:text-[#7e939e]">{en ? "Leave the date empty and pick a weekday to generate for its next occurrence. Existing slots at the same times are skipped." : "اترك التاريخ فارغًا واختر يومًا من الأسبوع للتوليد في أقرب موعد له. المواعيد الموجودة مسبقًا في نفس الأوقات يتم تجاهلها."}</p>
     </form>
 
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -424,7 +424,7 @@ function SlotsSection({ en }: { en: boolean }) {
               <span className="grid size-9 place-items-center rounded-lg bg-[#dcebef] dark:bg-[#143242] text-[#3c7e93] dark:text-[#8cc3dd]"><CalendarClock size={16} /></span>
               <div className="min-w-0 flex-1">
                 <strong className="block text-xs dark:text-[#e2ecf1]" dir="ltr">{isoToDateInput(slot.startTime)} · {isoToTimeInput(slot.startTime)} → {isoToTimeInput(slot.endTime)}</strong>
-                <span className="mt-1 block text-[10px] text-[#8999a1] dark:text-[#7e939e]">{doctorName(slot.doctorId)} · {serviceName(slot.serviceId)}</span>
+                <span className="mt-1 block text-[10px] text-[#526b78] dark:text-[#7e939e]">{doctorName(slot.doctorId)} · {serviceName(slot.serviceId)}</span>
               </div>
               <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${booked ? "bg-[#fff7f6] dark:bg-[#3d1f1b] text-[#a54c46] dark:text-[#eb9a90]" : "bg-[#f2faf6] dark:bg-[#123528] text-[#39755f] dark:text-[#7fd0b4]"}`}>{booked ? (en ? "Booked" : "محجوز") : (en ? "Available" : "متاح")}</span>
               <button onClick={() => setEditSlot({ id: slot.id, date: isoToDateInput(slot.startTime), from: isoToTimeInput(slot.startTime), to: isoToTimeInput(slot.endTime), status: slot.status })} disabled={busy} className="rounded-lg border px-2.5 py-1.5 text-[10px] font-bold dark:border-[#1e3a4d] dark:text-[#e2ecf1]"><Pencil size={12} className="inline" /> {en ? "Edit" : "تعديل"}</button>

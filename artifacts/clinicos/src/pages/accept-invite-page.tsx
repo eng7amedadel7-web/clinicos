@@ -116,7 +116,7 @@ export default function AcceptInvitePage() {
           {loading ? (
             <div className="py-10 text-center" role="status" data-testid="state-invite-loading">
               <RefreshCw size={26} className="mx-auto animate-spin text-[#528b9b]" />
-              <p className="mt-4 text-xs text-[#8999a1] dark:text-[#7e939e]">{en ? "Verifying the invite link..." : "جارٍ التحقق من رابط الدعوة..."}</p>
+              <p className="mt-4 text-xs text-[#526b78] dark:text-[#7e939e]">{en ? "Verifying the invite link..." : "جارٍ التحقق من رابط الدعوة..."}</p>
             </div>
           ) : successMessage ? (
             <div className="py-6 text-center" data-testid="state-invite-success">
@@ -128,7 +128,7 @@ export default function AcceptInvitePage() {
             <div className="py-6 text-center" data-testid="state-invite-error">
               <div className="mx-auto mb-5 grid size-14 place-items-center rounded-2xl bg-[#fff7f6] text-[#a54c46] dark:bg-[#3d1f1b] dark:text-[#eb9a90]"><AlertCircle size={26} /></div>
               <p className="text-sm font-bold leading-7 text-[#23475b] dark:text-[#e2ecf1]">{error || (en ? "The invite link is missing its token." : "رابط الدعوة لا يحتوي على توكن صالح.")}</p>
-              <p className="mt-2 text-xs leading-6 text-[#8999a1] dark:text-[#7e939e]">{en ? "Ask the clinic owner for a fresh invite link." : "اطلب من مالك العيادة رابط دعوة جديدًا."}</p>
+              <p className="mt-2 text-xs leading-6 text-[#526b78] dark:text-[#7e939e]">{en ? "Ask the clinic owner for a fresh invite link." : "اطلب من مالك العيادة رابط دعوة جديدًا."}</p>
               <button type="button" className="primary-button mt-6" onClick={() => setLocation("/login")}><LogIn size={16} /> {en ? "Go to sign in" : "تسجيل الدخول"}</button>
             </div>
           ) : preview ? (
@@ -141,7 +141,7 @@ export default function AcceptInvitePage() {
                     ? `You have been invited to join as ${roleLabel}.`
                     : `تمت دعوتك للانضمام إلى العيادة بدور ${roleLabel}.`}
                 </p>
-                <p className="mt-1 text-xs text-[#8999a1] dark:text-[#7e939e]" dir="ltr">{preview.email}</p>
+                <p className="mt-1 text-xs text-[#526b78] dark:text-[#7e939e]" dir="ltr">{preview.email}</p>
               </div>
               <form onSubmit={(event) => void submit(event)} className="mt-7 space-y-4">
                 <label className="block text-right">
@@ -156,7 +156,7 @@ export default function AcceptInvitePage() {
                     className="input-field"
                     data-testid="input-invite-password"
                   />
-                  <span className="mt-2 block text-[10px] leading-5 text-[#8999a1] dark:text-[#7e939e]">
+                  <span className="mt-2 block text-[10px] leading-5 text-[#526b78] dark:text-[#7e939e]">
                     {en
                       ? "If this email already has an account, you will be added to the clinic without changing your current password."
                       : "إذا كان لهذا البريد حساب بالفعل، فستُضاف إلى العيادة دون تغيير كلمة مرورك الحالية."}

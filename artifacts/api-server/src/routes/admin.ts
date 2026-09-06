@@ -57,6 +57,22 @@ function generateWebhooks(clinicId: string, baseUrl: string) {
   };
 }
 
+// إخفاء مفتاح الـ API الخارجي في قوائم العيادات حتى لا يتسرب كاملاً في استجابات القوائم
+function maskExternalApiKey(locationConfig: unknown): Record<string, unknown> {
+  if (!locationConfig || typeof locationConfig !== "object") return {};
+  const clone = { ...(locationConfig as Record<string, unknown>) };
+  const integrations = clone.integrations;
+  if (integrations && typeof integrations === "object") {
+    const integrationsClone = { ...(integrations as Record<string, unknown>) };
+    const apiKey = integrationsClone.apiKey;
+    if (typeof apiKey === "string" && apiKey) {
+      integrationsClone.apiKey = apiKey.length > 12 ? `${apiKey.slice(0, 8)}…${apiKey.slice(-4)}` : "…";
+    }
+    clone.integrations = integrationsClone;
+  }
+  return clone;
+}
+
 // 1. GET /admin/clinics - List all clinics with onboarding status
 router.get("/admin/clinics", async (req: Request, res: Response) => {
   if (!verifyAdminAccess(req)) {
@@ -111,7 +127,7 @@ router.get("/admin/clinics", async (req: Request, res: Response) => {
       name: clinic.name,
       status: clinic.status || "active",
       createdAt: clinic.created_at,
-      locationConfig: clinic.location_config,
+      locationConfig: maskExternalApiKey(clinic.location_config),
       owner: ownerUser
         ? {
             id: ownerUser.id,

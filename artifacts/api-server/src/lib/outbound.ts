@@ -103,12 +103,15 @@ export async function dispatchOutbound(conversationId: string, messageId?: strin
 
     const wabaId = channel?.config?.waba_id || channel?.config?.wabaId || clinicChannelsConfig?.whatsapp?.wabaId;
     const isWasapFlow = channel?.provider === "wasapflow" || Boolean(wabaId);
+    // حماية عبر القنوات: إرسال WasapFlow مسموح فقط حين تكون قناة المحادثة واتساب فعلاً،
+    // حتى لا تُرسل رسائل تليجرام أو ماسنجر عن طريق جسر واتساب بالخطأ
+    const isWhatsAppConversation = channel?.type === "whatsapp";
     const botToken = channel?.config?.bot_token || channel?.config?.botToken || clinicChannelsConfig?.telegram?.botToken;
     const isTelegram = channel?.type === "telegram" || channel?.provider === "telegram_direct" || Boolean(botToken);
     const tgChatId = conv.channel_conversation_id || recipientPhone;
 
     // Delivery 1: WasapFlow WhatsApp Bridge
-    if (isWasapFlow && wabaId && recipientPhone) {
+    if (isWasapFlow && isWhatsAppConversation && wabaId && recipientPhone) {
       try {
         const sendRes = await sendWasapFlowMessage(wabaId, recipientPhone, msg.content);
         if (sendRes.success) {

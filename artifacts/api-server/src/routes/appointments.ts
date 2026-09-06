@@ -91,19 +91,49 @@ router.get("/appointments", async (req, res) => {
   const session = await protect(req, res, "read");
   if (!session) return;
   const branchId = typeof req.query.branchId === "string" ? req.query.branchId.trim() : "";
-  const filter = `${clinicFilter(session.clinicId)}${branchId ? `&branch_id=eq.${encodeURIComponent(branchId)}` : ""}`;
+  // عقد قائمة المواعيد (list contract):
+  // - الافتراضي: المواعيد القادمة فقط، من اللحظة الحالية فصاعدًا، بترتيب زمني تصاعدي وحد أقصى 200 صف؛
+  //   هذا يمنع اختفاء الحجوزات الجديدة خلف أقدم 100 سجل كما كان يحدث سابقًا.
+  // - باراميترا from و to اختيارية بصيغة ISO لتقييد عمود scheduled_at بين تاريخين، وكل واحدة تعمل بمفردها.
+  // - باراميتر all بقيمة true يلغي فلتر الافتراضي "القادمة فقط" لعرض السجل الكامل، ويبقى حد الـ200 ساريًا.
+  const all = req.query.all === "true";
+  const parseDateParam = (value: unknown) => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const parsed = new Date(value.trim());
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+  const fromDate = parseDateParam(req.query.from);
+  const toDate = parseDateParam(req.query.to);
+  const horizonFrom = fromDate ?? (all ? null : new Date());
+  const dateWindow = `${horizonFrom ? `&scheduled_at=gte.${encodeURIComponent(horizonFrom.toISOString())}` : ""}${toDate ? `&scheduled_at=lte.${encodeURIComponent(toDate.toISOString())}` : ""}`;
+  const scopeFilter = `${clinicFilter(session.clinicId)}${branchId ? `&branch_id=eq.${encodeURIComponent(branchId)}` : ""}`;
+  const filter = `${scopeFilter}${dateWindow}`;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   if (branchId) {
     const branch = await supabaseRequest<{ id?: string }[]>(`/rest/v1/branches?select=id&id=eq.${encodeURIComponent(branchId)}&${clinicFilter(session.clinicId)}&is_active=eq.true&limit=1`, { headers });
     if (!branch.ok || !branch.data?.length) { res.status(400).json({ error: "Invalid branch." }); return; }
   }
   const [appointmentsResult, patientsResult] = await Promise.all([
-    supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?select=id,public_id,patient_id,branch_id,appointment_status,scheduled_at,booking_number,queue_number&${filter}&order=scheduled_at.asc&limit=100`, { headers }),
-    supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${filter}&limit=1000`, { headers }),
+    supabaseRequest<AppointmentRow[]>(`/rest/v1/appointments?select=id,public_id,patient_id,branch_id,doctor_id,service_id,slot_id,appointment_status,scheduled_at,booking_number,queue_number,notes&${filter}&order=scheduled_at.asc&limit=200`, { headers }),
+    supabaseRequest<PatientRow[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${scopeFilter}&limit=1000`, { headers }),
   ]);
   if (!appointmentsResult.ok) { res.status(appointmentsResult.status || 502).json({ error: "Appointments could not be loaded." }); return; }
+  const appointmentRows = appointmentsResult.data ?? [];
+  // نفس نمط بحث المرضى بالجملة: نجيب أسماء الأطباء والخدمات المرتبطة بالصفوف المعروضة دفعة واحدة،
+  // ولو فشل البحث نكمل بالأسماء null بدل إسقاط القائمة كلها.
+  const lookupNamesById = async (table: "doctors" | "services", ids: string[]) => {
+    if (!ids.length) return [] as Array<{ id?: string; name?: string }>;
+    const result = await supabaseRequest<Array<{ id?: string; name?: string }>>(`/rest/v1/${table}?select=id,name&${scopeFilter}&id=in.(${ids.map((id) => encodeURIComponent(id)).join(",")})&limit=500`, { headers });
+    return result.ok ? (result.data ?? []) : [];
+  };
+  const [doctorLookup, serviceLookup] = await Promise.all([
+    lookupNamesById("doctors", Array.from(new Set(appointmentRows.map((row) => row.doctor_id || "").filter(Boolean)))),
+    lookupNamesById("services", Array.from(new Set(appointmentRows.map((row) => row.service_id || "").filter(Boolean)))),
+  ]);
+  const doctorsById = new Map(doctorLookup.map((doctor) => [String(doctor.id), doctor.name || "طبيب بدون اسم"]));
+  const servicesById = new Map(serviceLookup.map((service) => [String(service.id), service.name || "خدمة بدون اسم"]));
   const patients = new Map((patientsResult.data ?? []).map((p) => [String(p.id), p]));
-  const appointments = (appointmentsResult.data ?? []).map((row) => {
+  const appointments = appointmentRows.map((row) => {
     const patient = patients.get(String(row.patient_id));
     return {
       id: row.id,
@@ -113,8 +143,8 @@ router.get("/appointments", async (req, res) => {
       name: patient?.name || [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") || "مريض بدون اسم",
       scheduledAt: row.scheduled_at,
       status: row.appointment_status || "scheduled",
-      doctorName: null,
-      serviceName: null,
+      doctorName: row.doctor_id ? (doctorsById.get(String(row.doctor_id)) ?? null) : null,
+      serviceName: row.service_id ? (servicesById.get(String(row.service_id)) ?? null) : null,
       slotId: row.slot_id || null,
       notes: row.notes || null,
     };
@@ -138,9 +168,9 @@ router.get("/appointments", async (req, res) => {
     }
     const doctorWindow = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
     const [doctorsResult, servicesResult, slotsResult] = await Promise.all([
-      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${filter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
-      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${filter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
-      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${filter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
+      supabaseRequest<DoctorRow[]>(`/rest/v1/doctors?select=id,name,specialization&${scopeFilter}&is_active=eq.true&order=name.asc&limit=200`, { headers }),
+      supabaseRequest<ServiceRow[]>(`/rest/v1/services?select=id,name,duration_minutes&${scopeFilter}&is_active=eq.true&order=sort_order.asc&limit=200`, { headers }),
+      supabaseRequest<SlotRow[]>(`/rest/v1/appointment_slots?select=id,doctor_id,service_id,start_time,end_time,slot_status&${scopeFilter}${doctorWindow}${slotWindow}&order=start_time.asc&limit=500`, { headers }),
     ]);
     if (!doctorsResult.ok || !servicesResult.ok || !slotsResult.ok) {
       res.status(502).json({ error: "تعذر تحميل خيارات الحجز من قاعدة البيانات." });

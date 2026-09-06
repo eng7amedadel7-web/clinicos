@@ -6,6 +6,8 @@ import router from "../templates";
 
 const readSessionMock = vi.fn();
 const supabaseRequestMock = vi.fn();
+const requireClinicPermissionMock = vi.fn();
+const respondToPermissionErrorMock = vi.fn();
 
 vi.mock("../../lib/session", () => ({
   readSession: (...args: unknown[]) => readSessionMock(...args),
@@ -14,8 +16,8 @@ vi.mock("../../lib/supabase", () => ({
   supabaseRequest: (...args: unknown[]) => supabaseRequestMock(...args),
 }));
 vi.mock("../../lib/permissions", () => ({
-  requireClinicPermission: vi.fn(),
-  respondToPermissionError: vi.fn(),
+  requireClinicPermission: (...args: unknown[]) => requireClinicPermissionMock(...args),
+  respondToPermissionError: (...args: unknown[]) => respondToPermissionErrorMock(...args),
 }));
 
 function buildApp() {
@@ -42,11 +44,22 @@ const session = { accessToken: "tok", userId: "u1", email: "e@x.com", clinicId: 
 afterEach(() => {
   readSessionMock.mockReset();
   supabaseRequestMock.mockReset();
+  requireClinicPermissionMock.mockReset();
+  respondToPermissionErrorMock.mockReset();
+});
+
+// Mirror the real helper: translate the caught error into a status + JSON body.
+respondToPermissionErrorMock.mockImplementation((res, error) => {
+  const statusCode =
+    typeof error === "object" && error && "statusCode" in error && typeof (error as { statusCode?: unknown }).statusCode === "number"
+      ? (error as { statusCode: number }).statusCode
+      : 403;
+  res.status(statusCode).json({ error: "غير مصرح" });
 });
 
 describe("templates route", () => {
   it("returns 401 when there is no session", async () => {
-    readSessionMock.mockReturnValue(null);
+    requireClinicPermissionMock.mockRejectedValue(Object.assign(new Error("unauthenticated"), { statusCode: 401 }));
     await withServer(async (base) => {
       const res = await fetch(`${base}/templates`);
       expect(res.status).toBe(401);
@@ -54,7 +67,7 @@ describe("templates route", () => {
   });
 
   it("rejects an invalid template body with 400", async () => {
-    readSessionMock.mockReturnValue(session);
+    requireClinicPermissionMock.mockResolvedValue(session as never);
     await withServer(async (base) => {
       const res = await fetch(`${base}/templates`, {
         method: "POST",
@@ -66,8 +79,8 @@ describe("templates route", () => {
   });
 
   it("creates a template with 201 on valid body", async () => {
-    readSessionMock.mockReturnValue(session);
-    supabaseRequestMock.mockResolvedValue({ ok: true, status: 201, data: [] });
+    requireClinicPermissionMock.mockResolvedValue(session as never);
+    supabaseRequestMock.mockResolvedValue({ ok: true, status: 201, data: [{ id: "t1", title: "ترحيب", content: "أهلاً", category: "general" }] });
     await withServer(async (base) => {
       const res = await fetch(`${base}/templates`, {
         method: "POST",
@@ -81,7 +94,7 @@ describe("templates route", () => {
   });
 
   it("falls back to default templates when the DB has none", async () => {
-    readSessionMock.mockReturnValue(session);
+    requireClinicPermissionMock.mockResolvedValue(session as never);
     supabaseRequestMock.mockResolvedValue({ ok: true, status: 200, data: [] });
     await withServer(async (base) => {
       const res = await fetch(`${base}/templates`);

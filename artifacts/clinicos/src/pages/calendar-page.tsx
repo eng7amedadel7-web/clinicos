@@ -138,6 +138,16 @@ export default function CalendarPage() {
     notes: "",
   });
 
+  // إغلاق نافذة الحجز بمفتاح Escape
+  useEffect(() => {
+    if (!bookingOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setBookingOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [bookingOpen]);
+
   const query = useQuery({
     queryKey: ["calendar-appointments", selectedBranchId],
     queryFn: ({ signal }) => getCalendarAppointments(signal),
@@ -516,7 +526,7 @@ export default function CalendarPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold dark:text-[#e2ecf1]">{appt.name}</p>
-                      {appt.serviceName && <p className="mt-0.5 truncate text-[10px] text-[#8496a0] dark:text-[#7e939e]">{appt.serviceName}</p>}
+                      {appt.serviceName && <p className="mt-0.5 truncate text-[10px] text-[#526b78] dark:text-[#7e939e]">{appt.serviceName}</p>}
                     </div>
                     <ChevronLeft size={15} className="shrink-0 text-[#a0adb3] dark:text-[#4a6475]" />
                   </Link>
@@ -530,11 +540,11 @@ export default function CalendarPage() {
       {/* Quick Booking Modal */}
       {bookingOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1824]/50 p-4" onClick={() => setBookingOpen(false)}>
-          <form className="surface w-full max-w-lg space-y-4 rounded-2xl p-6" dir="rtl" onClick={(e) => e.stopPropagation()} onSubmit={handleBookSubmit}>
+          <form role="dialog" aria-modal="true" aria-labelledby="booking-modal-title" className="surface w-full max-w-lg space-y-4 rounded-2xl p-6" dir="rtl" onClick={(e) => e.stopPropagation()} onSubmit={handleBookSubmit}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-bold text-[#3c7e93] dark:text-[#a8bfc9]">{en ? "Quick Booking" : "حجز فوري"}</p>
-                <h2 className="mt-1 text-lg font-extrabold text-[#18374d] dark:text-[#e2ecf1]">{en ? "Book New Appointment" : "حجز موعد جديد"}</h2>
+                <h2 id="booking-modal-title" className="mt-1 text-lg font-extrabold text-[#18374d] dark:text-[#e2ecf1]">{en ? "Book New Appointment" : "حجز موعد جديد"}</h2>
               </div>
               <button type="button" onClick={() => setBookingOpen(false)} aria-label={en ? "Close" : "إغلاق"}><X size={18} /></button>
             </div>

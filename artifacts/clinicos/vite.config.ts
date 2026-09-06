@@ -54,11 +54,28 @@ export default defineConfig({
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          supabase: ['@supabase/supabase-js'],
-          paddle: ['@paddle/paddle-js'],
-          charts: ['recharts'],
+        // Function form: the object form silently emitted an empty react-vendor
+        // chunk while react/react-dom stayed in the entry chunk.
+        manualChunks(id: string) {
+          const normalizedId = id.replace(/\\/g, '/');
+          if (!normalizedId.includes('/node_modules/')) return undefined;
+          if (
+            normalizedId.includes('/node_modules/react/') ||
+            normalizedId.includes('/node_modules/react-dom/') ||
+            normalizedId.includes('/node_modules/scheduler/')
+          ) {
+            return 'react-vendor';
+          }
+          if (normalizedId.includes('/node_modules/@supabase/')) return 'supabase';
+          if (normalizedId.includes('/node_modules/@paddle/')) return 'paddle';
+          if (
+            normalizedId.includes('/node_modules/recharts/') ||
+            normalizedId.includes('/node_modules/d3-') ||
+            normalizedId.includes('/node_modules/victory-vendor/')
+          ) {
+            return 'charts';
+          }
+          return undefined;
         },
       },
     },

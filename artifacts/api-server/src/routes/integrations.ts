@@ -1,11 +1,91 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { isIP } from "node:net";
+import { lookup } from "node:dns/promises";
 import { requireClinicPermission, respondToPermissionError } from "../lib/permissions";
 import { supabaseRequest, supabaseAdminRequest } from "../lib/supabase";
 import { clinicEvents } from "../lib/events";
 import { logger } from "../lib/logger";
 
 const router = Router();
+
+// ملاحظة أمنية: كان المفتاح الخارجي يُشتق حتمياً من clinic_id ويمكن تخمينه،
+// لذا أصبح يُولَّد عشوائياً ويُخزَّن في location_config.integrations.apiKey عند أول استخدام.
+function generateExternalApiKey(): string {
+  return `mrn_live_sk_${randomBytes(24).toString("base64url")}`;
+}
+
+function safeKeyEquals(stored: string, provided: string): boolean {
+  const a = Buffer.from(stored, "utf8");
+  const b = Buffer.from(provided, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+// حماية من SSRF: يُسمح فقط بروابط http وhttps بعناوين عامة، ويُمنع localhost والشبكات الخاصة.
+function isBlockedIpv4(ip: string): boolean {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return false;
+  const [a, b] = parts;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  return false;
+}
+
+function isBlockedIpv6(ip: string): boolean {
+  const lower = ip.toLowerCase();
+  const mapped = lower.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return isBlockedIpv4(mapped[1]);
+  if (lower === "::" || lower === "::1") return true;
+  if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
+  if (lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb")) return true;
+  return false;
+}
+
+function isBlockedIp(ip: string): boolean {
+  return isIP(ip) === 6 ? isBlockedIpv6(ip) : isBlockedIpv4(ip);
+}
+
+async function assertSafeWebhookTarget(rawUrl: string): Promise<URL> {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error("رابط الويب هوك غير صالح.");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("يُسمح فقط بروابط http أو https.");
+  }
+
+  let host = url.hostname.toLowerCase();
+  if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) {
+    throw new Error("لا يمكن استهداف أسماء نطاقات داخلية أو محلية.");
+  }
+
+  if (isIP(host)) {
+    if (isBlockedIp(host)) {
+      throw new Error("لا يمكن استهداف عناوين الشبكة الداخلية أو المحلية.");
+    }
+    return url;
+  }
+
+  let addresses: Array<{ address: string }>;
+  try {
+    addresses = await lookup(host, { all: true, verbatim: true });
+  } catch {
+    throw new Error("تعذر تحويل اسم النطاق؛ تحقق من صحة الرابط.");
+  }
+  if (!addresses.length || addresses.some((a) => isBlockedIp(a.address))) {
+    throw new Error("يشير الرابط إلى عنوان شبكة داخلي أو محلي، وهذا غير مسموح.");
+  }
+  return url;
+}
 
 type Session = { clinicId: string; userId: string; accessToken: string };
 
@@ -36,8 +116,29 @@ router.get("/integrations/config", async (req: Request, res: Response) => {
 
   const config = clinicRes.data?.[0]?.location_config?.integrations || {};
 
-  // Auto-generate API key if none exists
-  const apiKey = config.apiKey || `mrn_live_sk_${session.clinicId.slice(0, 8)}_${Buffer.from(session.clinicId).toString("hex").slice(0, 12)}`;
+  // توليد مفتاح عشوائي وتخزينه عند أول قراءة إذا لم يوجد مفتاح مخزن،
+  // بدلاً من الاشتقاق الحتمي من clinic_id القابل للتخمين
+  let apiKey = typeof config.apiKey === "string" ? config.apiKey : "";
+  if (!apiKey) {
+    apiKey = generateExternalApiKey();
+    const patchRes = await supabaseRequest(
+      `/rest/v1/clinics?id=eq.${encodeURIComponent(session.clinicId)}`,
+      {
+        method: "PATCH",
+        headers: headers(session),
+        body: JSON.stringify({
+          location_config: {
+            ...(clinicRes.data?.[0]?.location_config || {}),
+            integrations: { ...config, apiKey, updatedAt: new Date().toISOString() },
+          },
+        }),
+      }
+    );
+    if (!patchRes.ok) {
+      res.status(502).json({ error: "تعذر توليد مفتاح الـ API وتخزينه." });
+      return;
+    }
+  }
 
   res.json({
     apiKey,
@@ -83,9 +184,12 @@ router.post("/integrations/config", async (req: Request, res: Response) => {
   const currentLocConfig = existingRes.data?.[0]?.location_config || {};
   const currentIntegrations = currentLocConfig.integrations || {};
 
+  // إعادة التوليد تنتج مفتاحاً عشوائياً جديداً، وأي مفتاح يُحفظ هنا هو المفتاح العشوائي المخزن فقط
   const apiKey = parsed.data.regenerateKey
-    ? `mrn_live_sk_${session.clinicId.slice(0, 8)}_${Date.now().toString(36)}`
-    : (currentIntegrations.apiKey || `mrn_live_sk_${session.clinicId.slice(0, 8)}_${Buffer.from(session.clinicId).toString("hex").slice(0, 12)}`);
+    ? generateExternalApiKey()
+    : (typeof currentIntegrations.apiKey === "string" && currentIntegrations.apiKey
+        ? currentIntegrations.apiKey
+        : generateExternalApiKey());
 
   const updatedIntegrations = {
     ...currentIntegrations,
@@ -138,6 +242,18 @@ router.post("/integrations/test-webhook", async (req: Request, res: Response) =>
     return;
   }
 
+  // حماية من SSRF: نتحقق من الرابط ونحل اسم النطاق قبل أي طلب، ونرفض إعادة التوجيه
+  let target: URL;
+  try {
+    target = await assertSafeWebhookTarget(webhookUrl);
+  } catch (guardErr) {
+    res.status(400).json({
+      success: false,
+      error: guardErr instanceof Error ? guardErr.message : "رابط الويب هوك غير مسموح.",
+    });
+    return;
+  }
+
   try {
     const testPayload = {
       event: "test.ping",
@@ -149,12 +265,22 @@ router.post("/integrations/test-webhook", async (req: Request, res: Response) =>
       },
     };
 
-    const pingRes = await fetch(webhookUrl, {
+    const pingRes = await fetch(target, {
       method: "POST",
+      // نستخدم manual لمنع المتابعة التلقائية لأي إعادة توجيه قد تقود لعناوين داخلية
+      redirect: "manual",
       headers: { "Content-Type": "application/json", "User-Agent": "MERUNA-Webhook-Dispatcher/2.0" },
       body: JSON.stringify(testPayload),
       signal: AbortSignal.timeout(10_000),
     });
+
+    if (pingRes.status >= 300 && pingRes.status < 400) {
+      res.status(400).json({
+        success: false,
+        error: "رابط الويب هوك يعيد التوجيه، وإعادة التوجيه غير مسموحة لأسباب أمنية.",
+      });
+      return;
+    }
 
     res.json({
       success: pingRes.ok,
@@ -175,10 +301,12 @@ router.post("/integrations/test-webhook", async (req: Request, res: Response) =>
 // ==========================================
 
 async function resolveClinicByApiKey(req: Request): Promise<{ clinicId: string } | null> {
-  const apiKey = (req.headers["x-clinic-api-key"] || req.headers["authorization"]?.replace(/^Bearer\s+/i, "")) as string;
-  if (!apiKey || typeof apiKey !== "string") return null;
+  const rawKey = (req.headers["x-clinic-api-key"] || req.headers["authorization"]?.replace(/^Bearer\s+/i, "")) as string;
+  if (!rawKey || typeof rawKey !== "string") return null;
+  const provided = rawKey.trim();
+  if (!provided) return null;
 
-  // Search clinics where location_config->integrations->apiKey matches or fallback by ID prefix
+  // Search clinics where location_config->integrations->apiKey matches
   const clinicsRes = await supabaseAdminRequest<Array<{ id: string; location_config?: Record<string, any> }>>(
     `/rest/v1/clinics?select=id,location_config&deleted_at=is.null&limit=200`
   );
@@ -186,11 +314,16 @@ async function resolveClinicByApiKey(req: Request): Promise<{ clinicId: string }
   if (!clinicsRes.ok || !clinicsRes.data) return null;
 
   const match = clinicsRes.data.find((c) => {
-    const key = c.location_config?.integrations?.apiKey;
-    if (key && key === apiKey.trim()) return true;
-    // Default fallback check
-    const defaultKey = `mrn_live_sk_${c.id.slice(0, 8)}_${Buffer.from(c.id).toString("hex").slice(0, 12)}`;
-    return defaultKey === apiKey.trim();
+    const stored = c.location_config?.integrations?.apiKey;
+    // نتحقق دائماً بمقارنة timing-safe ضد المفتاح العشوائي المخزن فقط
+    if (typeof stored === "string" && stored && safeKeyEquals(stored, provided)) return true;
+    // ملاحظة انتقالية: نقبل المفتاح القديم المشتق من clinic_id فقط حين لا يوجد مفتاح مخزن بعد،
+    // وبمجرد فتح صفحة التكامل يُولَّد مفتاح عشوائي ويُخزَّن فيتوقف القديم عن العمل
+    if (!stored) {
+      const legacyKey = `mrn_live_sk_${c.id.slice(0, 8)}_${Buffer.from(c.id).toString("hex").slice(0, 12)}`;
+      return safeKeyEquals(legacyKey, provided);
+    }
+    return false;
   });
 
   return match ? { clinicId: match.id } : null;

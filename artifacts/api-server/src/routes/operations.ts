@@ -106,17 +106,30 @@ router.get("/operations/summary", async (req, res) => {
   const yesterdayStart = new Date(start);
   yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
   const auth = { headers: headers(session) };
+  const countAuth = { headers: headers(session, { Prefer: "count=exact" }) };
   const [appointments, patients, conversations, followUps, noShows, waitlist, channels, appointmentsYesterday] = await Promise.all([
     supabaseRequest<Row[]>(`/rest/v1/appointments?select=id,patient_id,scheduled_at,appointment_status,booking_number,queue_number&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(start.toISOString())}&scheduled_at=lt.${encodeURIComponent(end.toISOString())}&order=scheduled_at.asc&limit=100`, auth),
-    supabaseRequest<Row[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter}&limit=1000`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/patients?select=id&${clinicFilter}&limit=1`, countAuth),
     supabaseRequest<Row[]>(`/rest/v1/conversations?select=id,patient_id,channel_id,status,last_intent,last_patient_message,last_activity_at,assigned_staff_id,priority,is_handoff,is_archived,ai_status&${clinicFilter}&is_archived=eq.false&order=last_activity_at.desc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/follow_up_cases?select=id,patient_id,appointment_id,status,next_due_at,followup_goal,updated_at&${clinicOnly}&status=neq.closed&order=next_due_at.asc.nullslast&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/no_show_cases?select=id,patient_id,appointment_id,case_status,risk_level,last_activity_at,recovery_eligibility&${clinicOnly}&case_status=neq.closed&order=last_activity_at.desc.nullslast&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/appointment_waitlists?select=id,patient_id,service_id,doctor_id,branch_id,status,priority,created_at&${clinicOnly}&status=eq.active&order=priority.desc,created_at.asc&limit=100`, auth),
     supabaseRequest<Row[]>(`/rest/v1/channels?select=id,type,provider,status,is_enabled,config,updated_at&${clinicFilter}&is_enabled=eq.true&limit=100`, auth),
-    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(yesterdayStart.toISOString())}&scheduled_at=lt.${encodeURIComponent(start.toISOString())}&limit=500`, auth),
+    supabaseRequest<Row[]>(`/rest/v1/appointments?select=id&${clinicFilter}${branchFilter}&scheduled_at=gte.${encodeURIComponent(yesterdayStart.toISOString())}&scheduled_at=lt.${encodeURIComponent(start.toISOString())}&limit=1`, countAuth),
   ]);
-  const patientMap = new Map((patients.data ?? []).map((patient) => [String(patient.id), patient]));
+  // Names are only rendered for the first 6 rows of each list, so hydrate just those patients
+  // instead of pulling the whole patient table.
+  const namedPatientIds = Array.from(new Set([
+    ...(appointments.data ?? []).slice(0, 6),
+    ...(conversations.data ?? []).slice(0, 6),
+    ...(followUps.data ?? []).slice(0, 6),
+    ...(noShows.data ?? []).slice(0, 6),
+    ...(waitlist.data ?? []).slice(0, 6),
+  ].map((row) => row.patient_id).filter((id): id is string => typeof id === "string" && id.length > 0)));
+  const patientsNamed = namedPatientIds.length
+    ? await supabaseRequest<Row[]>(`/rest/v1/patients?select=id,name,first_name,last_name&${clinicFilter}&id=in.(${namedPatientIds.map((id) => encodeURIComponent(id)).join(",")})&limit=${namedPatientIds.length}`, auth)
+    : { ok: true, status: 200, data: [] as Row[] };
+  const patientMap = new Map((patientsNamed.data ?? []).map((patient) => [String(patient.id), patient]));
   const patientName = (patientId: unknown) => {
     const patient = typeof patientId === "string" ? patientMap.get(patientId) : undefined;
     return patient?.name || [patient?.first_name, patient?.last_name].filter((value) => typeof value === "string" && value.length > 0).join(" ") || "مريض بدون اسم";
@@ -129,8 +142,8 @@ router.get("/operations/summary", async (req, res) => {
     generatedAt: now.toISOString(),
     stats: {
       appointmentsToday: appointments.ok ? appointments.data?.length ?? 0 : null,
-      appointmentsYesterday: appointmentsYesterday.ok ? appointmentsYesterday.data?.length ?? 0 : null,
-      activePatients: patients.ok ? patients.data?.length ?? 0 : null,
+      appointmentsYesterday: appointmentsYesterday.ok ? appointmentsYesterday.count ?? null : null,
+      activePatients: patients.ok ? patients.count ?? null : null,
       conversationsNeedingStaff: conversations.ok ? attention : null,
       openFollowUps: followUps.ok ? followUps.data?.length ?? 0 : null,
       openNoShows: noShows.ok ? noShows.data?.length ?? 0 : null,

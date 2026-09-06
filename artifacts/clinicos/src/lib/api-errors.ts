@@ -1,6 +1,9 @@
 // Shared helpers for turning failed API calls into localizable auth-page
-// messages. The server answers in English; matching happens on stable message
-// fragments so the UI never shows raw English (or "HTTP 400 …") prefixes.
+// messages. The server now answers in Arabic (see api-server routes/auth.ts and
+// routes/organization.ts); matching happens on short stable fragments of those
+// sentences — plus the legacy English fragments still sent by the recovery and
+// session endpoints — so the UI never shows the raw server sentence (or an
+// "HTTP 400 …" prefix) and stays resilient to minor rewording.
 
 export type AuthErrorKey =
   | 'invalidCredentials'
@@ -48,16 +51,41 @@ export function getApiErrorParts(error: unknown): ApiErrorParts {
 }
 
 const MESSAGE_MATCHERS: Array<[RegExp, AuthErrorKey]> = [
+  // Arabic-first: stable fragments of the exact sentences the server sends
+  // today (auth.ts login/register paths). Keep fragments short so small
+  // wording changes on the server still map to the right key.
+  // e.g. "البريد الإلكتروني أو كلمة المرور غير صحيحة."
+  [/كلمة المرور غير صحيحة|بريد إلكتروني وكلمة مرور صحيحة/i, 'invalidCredentials'],
+  // e.g. "هذا الحساب غير مرتبط بعيادة نشطة. تواصل مع الدعم."
+  [/غير مرتبط بعيادة نشطة/i, 'notAssigned'],
+  // e.g. "تعذر إنشاء جلسة الدخول المعتمدة." / "تعذر إنشاء جلسة الدخول."
+  [/تعذر إنشاء جلسة/i, 'sessionSetup'],
+  // e.g. "تم تجاوز عدد محاولات الدخول، يرجى الانتظار دقيقة." (sent with 503)
+  [/عدد محاولات الدخول/i, 'tooManyAttempts'],
+  // e.g. "هذا البريد الإلكتروني مسجل مسبقاً في النظام. ..."
+  [/مسجل مسبقاً/i, 'emailExists'],
+  // e.g. "يرجى إدخال اسم كامل، واسم للعيادة، وبريد إلكتروني صحيح، وكلمة مرور 8 أحرف على الأقل."
+  [/اسم كامل|وكلمة مرور 8 أحرف/i, 'invalidRegisterDetails'],
+  // e.g. login: "البريد الإلكتروني غير مؤكد بعد في سوبابيز. ..." and register:
+  // "تم إنشاء الحساب، ولكن يلزم تأكيد البريد الإلكتروني أو تسجيل الدخول يدوياً."
+  // Also "تم إنشاء الحساب وإعداد العيادة، يرجى التوجه لصفحة تسجيل الدخول." —
+  // that path is an account-created outcome (go sign in), not a failure.
+  [/غير مؤكد|تأكيد البريد الإلكتروني|التوجه لصفحة تسجيل الدخول/i, 'confirmEmail'],
+  // e.g. "تم إنشاء الحساب، ولكن تعذر إعداد منشأة العيادة تلقائياً. ..."
+  [/تعذر إعداد منشأة العيادة/i, 'onboardingFailed'],
+  // Legacy English fragments: the recovery, session, and realtime endpoints
+  // still answer in English; keep matching them so they never fall through to
+  // the generic "تعذر إتمام الطلب مؤقتاً" text.
   [/email or password is incorrect|valid email and password|invalid email or password/i, 'invalidCredentials'],
   [/not assigned to an active clinic/i, 'notAssigned'],
   [/session could not be created/i, 'sessionSetup'],
-  [/configuration is unavailable/i, 'authUnavailable'],
+  [/configuration is unavailable|غير متاحة مؤقت/i, 'authUnavailable'],
   [/rate-?limited/i, 'rateLimited'],
   [/too many attempts/i, 'tooManyAttempts'],
   [/too many recovery requests/i, 'tooManyRecovery'],
-  [/recovery email delivery/i, 'recoveryUnavailable'],
-  [/recovery link is invalid or expired|valid recovery link and a password/i, 'invalidRecoveryLink'],
-  [/session has expired|not authenticated/i, 'sessionExpired'],
+  [/recovery email delivery|بريد الاستعادة/i, 'recoveryUnavailable'],
+  [/recovery link is invalid or expired|valid recovery link and a password|رابط الاستعادة/i, 'invalidRecoveryLink'],
+  [/session has expired|not authenticated|انتهت صلاحية جلستك/i, 'sessionExpired'],
   [/already registered|already exists|user already/i, 'emailExists'],
   [/full name, clinic name, valid email/i, 'invalidRegisterDetails'],
   [/check your email to confirm/i, 'confirmEmail'],

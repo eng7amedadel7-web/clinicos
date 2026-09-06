@@ -239,7 +239,7 @@ export default function TasksPage() {
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Filter size={15} className="shrink-0 text-[#8496a0] dark:text-[#7e939e]" />
+        <Filter size={15} className="shrink-0 text-[#526b78] dark:text-[#7e939e]" />
         {typeOptions.map(opt => (
           <button
             key={opt.value}
@@ -319,11 +319,11 @@ export default function TasksPage() {
                     {typeLabel(task.type, en)}
                   </span>
                 </div>
-                <p className="mt-0.5 text-[11px] text-[#8496a0] dark:text-[#7e939e]">{task.description}</p>
+                <p className="mt-0.5 text-[11px] text-[#526b78] dark:text-[#7e939e]">{task.description}</p>
               </div>
 
               {/* Due date */}
-              <div className="flex items-center gap-1 text-[11px] text-[#8496a0] dark:text-[#7e939e]">
+              <div className="flex items-center gap-1 text-[11px] text-[#526b78] dark:text-[#7e939e]">
                 <Clock3 size={12} />
                 <span>{dateLabel(task.dueAt, en)}</span>
               </div>

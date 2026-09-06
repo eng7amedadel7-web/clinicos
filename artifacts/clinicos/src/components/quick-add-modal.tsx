@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, X, CalendarDays, UserRound, MessageSquare, CheckSquare, Sparkles, Send } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
@@ -29,6 +29,16 @@ export function QuickAddModal() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<QuickAddTab>('appointment');
+
+  // إغلاق النافذة بمفتاح Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen]);
 
   // حقول تبويب الموعد
   const [apptPatientId, setApptPatientId] = useState('');
@@ -204,7 +214,7 @@ export function QuickAddModal() {
       {/* Modal Dialog */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-fade-in" dir="rtl">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-scale-up">
+          <div role="dialog" aria-modal="true" aria-labelledby="quick-add-title" className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-scale-up">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border p-5">
               <div className="flex items-center gap-2.5">
@@ -212,7 +222,7 @@ export function QuickAddModal() {
                   <Sparkles className="size-4.5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">
+                  <h3 id="quick-add-title" className="text-base font-bold text-foreground">
                     {isArabic ? 'إجراء سريع جديد' : 'Quick Clinic Action'}
                   </h3>
                   <p className="text-xs text-muted-foreground">
@@ -223,6 +233,7 @@ export function QuickAddModal() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
+                aria-label={isArabic ? 'إغلاق' : 'Close'}
                 className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" />

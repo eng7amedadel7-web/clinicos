@@ -76,6 +76,12 @@ export default function AdminPanelPage() {
     const keyParam = params.get('key');
     if (keyParam) {
       window.localStorage.setItem('meruna_admin_key', keyParam);
+      // بعد قراءة المفتاح مرة واحدة نمسحه من شريط العنوان فوراً،
+      // حتى لا يبقى محفوظاً في سجل المتصفح، مع الإبقاء على تدفق localStorage
+      params.delete('key');
+      const query = params.toString();
+      const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+      window.history.replaceState(window.history.state, '', cleanUrl);
       return keyParam;
     }
     return window.localStorage.getItem('meruna_admin_key') || '';

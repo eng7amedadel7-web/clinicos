@@ -4,6 +4,8 @@ export type SupabaseResponse<T> = {
   ok: boolean;
   status: number;
   data: T;
+  /** Exact total from the postgREST Content-Range header when the request sends `Prefer: count=exact`. */
+  count?: number | null;
 };
 
 type RequestInitLike = {
@@ -22,6 +24,14 @@ function directSupabaseConfig() {
   return getSupabasePublicConfig();
 }
 
+function parseContentRange(header: string | null | undefined): number | null {
+  if (!header) return null;
+  const total = header.split("/")[1]?.trim();
+  if (!total || total === "*") return null;
+  const parsed = Number.parseInt(total, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 async function parseResponse<T>(response: Response): Promise<SupabaseResponse<T>> {
   const text = await response.text();
   let data: T;
@@ -30,7 +40,8 @@ async function parseResponse<T>(response: Response): Promise<SupabaseResponse<T>
   } catch {
     data = text as T;
   }
-  return { ok: response.ok, status: response.status, data };
+  const rangeHeader = response.headers?.get?.("content-range") ?? null;
+  return { ok: response.ok, status: response.status, data, count: parseContentRange(rangeHeader) };
 }
 
 async function directRequest<T>(

@@ -183,7 +183,7 @@ function SectionCard({ title, subtitle, action, children, delay = "" }: {
 }) {
   return <section className={`surface animate-rise ${delay} p-0`}>
     <div className="flex items-center justify-between border-b border-[#edf1f3] px-5 py-4 dark:border-[#1e3a4d]">
-      <div><h2 className="font-bold text-[#18374d] dark:text-[#e2ecf1]">{title}</h2><p className="mt-1 text-xs text-[#8496a0] dark:text-[#7e939e]">{subtitle}</p></div>
+      <div><h2 className="font-bold text-[#18374d] dark:text-[#e2ecf1]">{title}</h2><p className="mt-1 text-xs text-[#526b78] dark:text-[#7e939e]">{subtitle}</p></div>
       {action}
     </div>
     {children}
@@ -370,7 +370,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#e6f0f3] text-[11px] font-bold text-[#22617d] dark:bg-[#143242] dark:text-[#8cc3dd]">{String(appointment.patientName ?? "؟").slice(0, 2)}</span>
                 <span className="min-w-0 flex-1">
                   <strong className="block truncate text-xs text-[#28495b] dark:text-[#dbe7ee]">{String(appointment.patientName ?? (en ? "Unnamed patient" : "مريض بدون اسم"))}</strong>
-                  <span className="block truncate text-[10px] text-[#8496a0] dark:text-[#7e939e]">{typeof appointment.booking_number === "string" && appointment.booking_number ? `#${appointment.booking_number}` : en ? "Clinic booking" : "حجز عيادة"}</span>
+                  <span className="block truncate text-[10px] text-[#526b78] dark:text-[#7e939e]">{typeof appointment.booking_number === "string" && appointment.booking_number ? `#${appointment.booking_number}` : en ? "Clinic booking" : "حجز عيادة"}</span>
                 </span>
                 <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${appointmentStatusTone(typeof appointment.appointment_status === "string" ? appointment.appointment_status : undefined)}`}>{statusLabels(en)[String(appointment.appointment_status ?? "")] ?? String(appointment.appointment_status ?? "")}</span>
               </div>)}
@@ -439,7 +439,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
                     <strong className="min-w-0 truncate text-xs text-[#28495b] dark:text-[#dbe7ee]">{String(conversation.patientName ?? (en ? "Unnamed patient" : "مريض بدون اسم"))}</strong>
                     {conversation.is_handoff ? <span className="shrink-0 rounded-md bg-[#f8dfdc] px-1.5 py-0.5 text-[9px] font-bold text-[#a64036] dark:bg-[#3d1f1b] dark:text-[#eb9a90]">{en ? "Handoff" : "تسليم"}</span> : null}
                   </span>
-                  <span className="block truncate text-[10px] text-[#8496a0] dark:text-[#7e939e]">{typeof conversation.last_patient_message === "string" && conversation.last_patient_message ? conversation.last_patient_message : en ? "No messages yet" : "لا توجد رسائل بعد"}</span>
+                  <span className="block truncate text-[10px] text-[#526b78] dark:text-[#7e939e]">{typeof conversation.last_patient_message === "string" && conversation.last_patient_message ? conversation.last_patient_message : en ? "No messages yet" : "لا توجد رسائل بعد"}</span>
                 </span>
                 <span className="shrink-0 text-[9px] text-[#a0adb3] dark:text-[#7e939e]">{formatRelativeDay(typeof conversation.last_activity_at === "string" ? conversation.last_activity_at : null, en)}</span>
               </Link>)}
