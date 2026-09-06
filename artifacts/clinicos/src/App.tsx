@@ -554,7 +554,8 @@ function ProtectedShell() {
           {/* Welcome tour doubles as the mandatory trial-code flow: an
               unactivated clinic gets a fifth card with no way to close the
               tour until the platform-issued code is redeemed. */}
-          <OnboardingTour clinicId={session.clinic.id} />
+          {/* الجولة الترحيبية تخص الداشبورد فقط — ظهورها على كل صفحة كان يخفي محتوى الصفحات الأخرى */}
+          {location === '/dashboard' ? <OnboardingTour clinicId={session.clinic.id} /> : null}
           <QuickAddModal />
           <div className="workspace-route flex min-h-0 flex-1 flex-col">
             <Suspense fallback={<RouteLoadingFallback />}>
