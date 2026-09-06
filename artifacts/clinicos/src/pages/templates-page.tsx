@@ -18,27 +18,13 @@ type Template = {
   usageCount?: number;
 };
 
-// Fetch from API; fallback to built-in starters if endpoint not available
+// Fetch from the real API; the server persists templates for real.
+// No fabricated fallback: if the request fails we show an honest empty state.
 async function getTemplates(signal?: AbortSignal): Promise<Template[]> {
-  try {
-    const res = await fetch("/api/templates", { credentials: "include", signal });
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      if (Array.isArray(data)) return data as Template[];
-    }
-  } catch { /* ignore */ }
-
-  // Built-in starter templates
-  return [
-    { id: "t1", title: "تأكيد الحجز", content: "السلام عليكم {{patient_name}}، تم تأكيد موعدك في {{clinic_name}} بتاريخ {{appointment_time}}. نتطلع لخدمتك.", category: "appointments", shortcut: "/confirm", usageCount: 47 },
-    { id: "t2", title: "تذكير الموعد", content: "تذكير: لديك موعد غداً في {{clinic_name}}. يرجى الحضور قبل 10 دقائق.", category: "appointments", shortcut: "/remind", usageCount: 31 },
-    { id: "t3", title: "إلغاء الموعد", content: "نعتذر {{patient_name}}، اضطررنا لإلغاء موعدك. سنتواصل معك لتحديد وقت بديل في أقرب وقت.", category: "appointments", shortcut: "/cancel", usageCount: 12 },
-    { id: "t4", title: "ردّ متابعة", content: "نتمنى لك الصحة والعافية {{patient_name}}. هل لديك أي تساؤلات حول حالتك؟ نحن هنا لمساعدتك.", category: "follow_up", shortcut: "/followup", usageCount: 28 },
-    { id: "t5", title: "ترحيب عام", content: "أهلاً وسهلاً! كيف يمكننا مساعدتك اليوم؟ 😊", category: "general", shortcut: "/hello", usageCount: 85 },
-    { id: "t6", title: "أوقات الدوام", content: "نعمل من الأحد إلى الخميس من 8 صباحاً حتى 8 مساءً، وأيام الجمعة والسبت من 10 صباحاً حتى 4 مساءً.", category: "general", shortcut: "/hours", usageCount: 63 },
-    { id: "t7", title: "عدم حضور", content: "لاحظنا غياب {{patient_name}} عن موعده اليوم. هل أنت بخير؟ يمكننا إعادة الحجز في أي وقت يناسبك.", category: "no_show", shortcut: "/noshow", usageCount: 9 },
-    { id: "t8", title: "استفسار الفاتورة", content: "شكراً لتواصلك بشأن الفاتورة. سيتواصل معك فريقنا المالي خلال 24 ساعة لتوضيح التفاصيل.", category: "billing", shortcut: "/billing", usageCount: 5 },
-  ];
+  const res = await fetch("/api/templates", { credentials: "include", signal });
+  if (!res.ok) throw new Error("تعذر جلب القوالب");
+  const data = await res.json().catch(() => null);
+  return Array.isArray(data) ? (data as Template[]) : [];
 }
 
 async function saveTemplate(template: Partial<Template> & { id?: string }): Promise<Template> {
@@ -260,11 +246,25 @@ export default function TemplatesPage() {
           ))}
 
           {/* Empty state */}
-          {filtered.length === 0 && (
+          {filtered.length === 0 && !query.isError && (
             <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
               <Tag size={28} className="mb-3 text-[#a8bfc9] dark:text-[#4a6475]" />
-              <p className="text-sm font-bold text-[#527080] dark:text-[#a8bfc9]">{en ? "No templates found" : "لا توجد قوالب مطابقة"}</p>
-              <button className="primary-button mt-4" onClick={openNew}><Plus size={15} /> {en ? "Create template" : "إنشاء قالب"}</button>
+              {templates.length === 0 ? (
+                <>
+                  <p className="text-sm font-bold text-[#527080] dark:text-[#a8bfc9]">{en ? "No templates yet — create your first one" : "لا قوالب بعد — أنشئ قالبك الأول"}</p>
+                  <button className="primary-button mt-4" onClick={openNew}><Plus size={15} /> {en ? "Create your first template" : "أنشئ قالبك الأول"}</button>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-[#527080] dark:text-[#a8bfc9]">{en ? "No templates found" : "لا توجد قوالب مطابقة"}</p>
+              )}
+            </div>
+          )}
+
+          {/* Error state: the request itself failed — do not pretend the list is empty */}
+          {query.isError && (
+            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <p className="text-sm font-bold text-[#527080] dark:text-[#a8bfc9]">{en ? "Could not load templates" : "تعذر تحميل القوالب"}</p>
+              <button className="primary-button mt-4" onClick={() => query.refetch()}><RefreshCw size={15} /> {en ? "Retry" : "إعادة المحاولة"}</button>
             </div>
           )}
         </div>

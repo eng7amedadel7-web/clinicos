@@ -155,7 +155,11 @@ router.get("/inbox", async (req, res) => {
   const conversationId = requestedConversationId && conversations.some((item) => item.id === requestedConversationId) ? requestedConversationId : conversations[0]?.id;
   let messages: Message[] = [];
   if (conversationId) {
-    const messageResult = await supabaseRequest<Message[]>(`/rest/v1/messages?select=id,conversation_id,content,direction,sender_type,created_at,message_status&conversation_id=eq.${encodeURIComponent(conversationId)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=created_at.asc&limit=200`, { headers: headers(session.accessToken) });
+    // PostgREST applies limit to the ordered window, so asc + limit=200 returned the OLDEST
+    // 200 messages and long conversations (>200) showed stale history with recent messages
+    // missing. We fetch the LATEST 200 (desc) and the client reverses them chronologically
+    // for display. No UI pagination yet — this keeps the newest messages always visible.
+    const messageResult = await supabaseRequest<Message[]>(`/rest/v1/messages?select=id,conversation_id,content,direction,sender_type,created_at,message_status&conversation_id=eq.${encodeURIComponent(conversationId)}&clinic_id=eq.${encodeURIComponent(session.clinicId)}&deleted_at=is.null&order=created_at.desc&limit=200`, { headers: headers(session.accessToken) });
     if (!messageResult.ok) { res.status(messageResult.status || 502).json({ error: "تعذر تحميل رسائل المحادثة." }); return; }
     messages = messageResult.data ?? [];
   }

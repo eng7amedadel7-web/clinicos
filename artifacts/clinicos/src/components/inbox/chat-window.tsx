@@ -34,6 +34,8 @@ export function ChatWindow({
   conversation,
   messages,
   optimisticMessages = [],
+  isPlaceholderData = false,
+  onRetryMessage,
   onBackMobile,
   onSendMessage,
   isSending,
@@ -48,6 +50,8 @@ export function ChatWindow({
   conversation: InboxConversation | null;
   messages: InboxMessage[];
   optimisticMessages?: InboxMessage[];
+  isPlaceholderData?: boolean;
+  onRetryMessage?: (message: InboxMessage) => void;
   onBackMobile?: () => void;
   onSendMessage: (text: string) => boolean | void | Promise<boolean | void>;
   isSending: boolean;
@@ -188,7 +192,16 @@ export function ChatWindow({
 
       {/* Messages Timeline */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/15">
-        {allMessages.length === 0 ? (
+        {isPlaceholderData ? (
+          /* Skeleton while switching conversations — never show the previous patient's messages under the new header */
+          <div className="space-y-3" aria-busy="true" aria-label={en ? "Loading messages" : "جاري تحميل الرسائل"}>
+            {[0, 1, 2, 3, 4].map((row) => (
+              <div key={row} className={`flex ${row % 2 === 0 ? "justify-start" : "justify-end"}`}>
+                <div className={`h-8 animate-pulse rounded-2xl bg-muted/90 ${row % 3 === 0 ? "w-48" : "w-32"}`} />
+              </div>
+            ))}
+          </div>
+        ) : allMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-12">
             <Sparkles className="size-8 stroke-1 text-muted-foreground/30 mb-2" />
             <p className="text-xs font-semibold text-foreground">
@@ -199,14 +212,18 @@ export function ChatWindow({
             </p>
           </div>
         ) : (
-          allMessages.map((msg, index) => (
-            <MessageBubble
-              key={msg.id || index}
-              message={msg}
-              en={en}
-              isOptimistic={msg.id.startsWith("optimistic-")}
-            />
-          ))
+          allMessages.map((msg, index) => {
+            const canRetry = msg.id.startsWith("optimistic-") && msg.message_status === "failed" && Boolean(onRetryMessage);
+            return (
+              <MessageBubble
+                key={msg.id || index}
+                message={msg}
+                en={en}
+                isOptimistic={msg.id.startsWith("optimistic-")}
+                onRetry={canRetry ? () => onRetryMessage?.(msg) : undefined}
+              />
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Workflow, Sparkles, Clock, Check, X, Send, Bell, Star, AlertCircle, ArrowRight, MessageSquare, ToggleLeft, ToggleRight } from 'lucide-react';
-import { toast } from 'sonner';
 import { usePreferences } from '@/lib/preferences';
 
 interface WorkflowRule {
@@ -91,28 +90,14 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
 
   const selectedRule = workflows.find(w => w.id === selectedId) || workflows[0];
 
-  const handleToggle = (id: string) => {
-    setWorkflows(prev =>
-      prev.map(w => {
-        if (w.id === id) {
-          const next = !w.enabled;
-          toast.success(next ? (isArabic ? 'تم تفعيل مسار الأتمتة' : 'Workflow activated') : (isArabic ? 'تم إيقاف مسار الأتمتة' : 'Workflow paused'));
-          return { ...w, enabled: next };
-        }
-        return w;
-      })
-    );
-  };
+  // Honest state: no backend exists for workflow persistence/activation yet,
+  // so toggle/save/test-send stay disabled instead of faking success.
+  const soonTitle = isArabic ? 'قريباً' : 'Coming soon';
 
   const handleUpdateTemplate = (text: string) => {
     setWorkflows(prev =>
       prev.map(w => (w.id === selectedId ? { ...w, [isArabic ? 'templateAr' : 'templateEn']: text } : w))
     );
-  };
-
-  const handleSave = () => {
-    toast.success(isArabic ? 'تم حفظ كافة تدفقات الأتمتة وتحديث جداول الرسائل' : 'Automated workflow triggers saved');
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -170,18 +155,16 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
                         {isArabic ? rule.titleAr : rule.titleEn}
                       </strong>
                     </div>
-                    {/* Toggle Switch */}
+                    {/* Toggle Switch — disabled until the automation engine is wired */}
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggle(rule.id);
-                      }}
-                      className="text-primary hover:opacity-80"
-                      title={rule.enabled ? (isArabic ? 'إيقاف' : 'Disable') : (isArabic ? 'تفعيل' : 'Enable')}
+                      disabled
+                      onClick={(e) => e.stopPropagation()}
+                      className="cursor-not-allowed text-muted-foreground opacity-70"
+                      title={soonTitle}
                     >
                       {rule.enabled ? (
-                        <ToggleRight className="size-6 text-primary" />
+                        <ToggleRight className="size-6 text-muted-foreground" />
                       ) : (
                         <ToggleLeft className="size-6 text-muted-foreground" />
                       )}
@@ -190,8 +173,8 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
 
                   <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted-foreground">
                     <span>⏱️ {isArabic ? rule.timingAr : rule.timingEn}</span>
-                    <span className={`font-bold ${rule.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-                      {rule.enabled ? (isArabic ? '● نشط تلقائياً' : '● Active') : (isArabic ? '○ متوقف' : '○ Paused')}
+                    <span className="font-bold text-muted-foreground">
+                      {isArabic ? '○ قريباً — الربط مع محرك الأتمتة' : '○ Coming soon'}
                     </span>
                   </div>
                 </div>
@@ -251,11 +234,12 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
               </div>
             </div>
 
-            {/* Test Send Trigger */}
+            {/* Test Send Trigger — disabled until real sending exists */}
             <button
               type="button"
-              onClick={() => toast.success(isArabic ? 'تم إرسال رسالة تجريبية إلى رقمك للمعاينة' : 'Test message sent to your test phone')}
-              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 py-2.5 text-xs font-bold text-foreground transition hover:bg-muted"
+              disabled
+              title={soonTitle}
+              className="flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 py-2.5 text-xs font-bold text-muted-foreground opacity-70"
             >
               <Send className="size-3.5" />
               <span>{isArabic ? 'إرسال رسالة تجريبية لرقمي 📲' : 'Send Test WhatsApp Message'}</span>
@@ -272,10 +256,12 @@ export function WorkflowBuilderModal({ isOpen, onClose }: { isOpen: boolean; onC
           >
             {isArabic ? 'إغلاق' : 'Close'}
           </button>
+          {/* Honest state: no persistence/activation backend yet — disabled instead of faking success */}
           <button
             type="button"
-            onClick={handleSave}
-            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-90"
+            disabled
+            title={soonTitle}
+            className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-muted/40 px-5 py-2.5 text-xs font-bold text-muted-foreground opacity-70"
           >
             <Check className="size-4" />
             <span>{isArabic ? 'حفظ وتفعيل المسارات' : 'Save & Activate Workflows'}</span>

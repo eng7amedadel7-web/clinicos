@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   Layers,
   MessagesSquare,
   RefreshCw,
@@ -29,6 +30,8 @@ export function InboxSidebar({
   realtimeStatus,
   onRefresh,
   isRefreshing,
+  isError = false,
+  errorMessage = null,
   en,
 }: {
   conversations: InboxConversation[];
@@ -48,6 +51,8 @@ export function InboxSidebar({
   realtimeStatus: RealtimeStatus;
   onRefresh: () => void;
   isRefreshing: boolean;
+  isError: boolean;
+  errorMessage: string | null;
   en: boolean;
 }) {
   const channelPills = [
@@ -175,6 +180,28 @@ export function InboxSidebar({
           {en ? "Snoozed" : "مؤجل"}
         </button>
       </div>
+
+      {/* Error Banner: a failed API load must never masquerade as "no conversations" */}
+      {isError && (
+        <div className="flex flex-col gap-1.5 border-b border-red-200 bg-red-50 p-3 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+          <div className="flex items-start gap-1.5">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold">{en ? "Couldn't load conversations" : "تعذر تحميل المحادثات"}</p>
+              {errorMessage && <p className="mt-0.5 break-words text-[10px] opacity-90">{errorMessage}</p>}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="flex items-center justify-center gap-1 rounded-md border border-red-300 bg-background/60 py-1 text-[10px] font-bold transition hover:bg-background disabled:opacity-50 dark:border-red-800"
+          >
+            <RefreshCw className={`size-3 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>{en ? "Retry" : "إعادة المحاولة"}</span>
+          </button>
+        </div>
+      )}
 
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto divide-y divide-border/30">

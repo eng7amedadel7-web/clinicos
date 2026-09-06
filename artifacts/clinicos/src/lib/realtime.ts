@@ -158,6 +158,30 @@ function createBatchInvalidator(queryClient: QueryClient) {
   };
 }
 
+// A single new message reaches the browser through two paths (SSE domain event +
+// Supabase realtime INSERT), so cache writes and notifications must be deduped by
+// message id or every message fires twice.
+const MESSAGE_DEDUPE_TTL_MS = 10_000;
+const MESSAGE_DEDUPE_MAX_IDS = 500;
+
+function createMessageIdDeduper() {
+  const seen = new Map<string, number>();
+  return (messageId: string | undefined): boolean => {
+    if (!messageId) return false;
+    const now = Date.now();
+    for (const [seenId, seenAt] of seen) {
+      if (now - seenAt > MESSAGE_DEDUPE_TTL_MS) seen.delete(seenId);
+    }
+    if (seen.has(messageId)) return true;
+    seen.set(messageId, now);
+    if (seen.size > MESSAGE_DEDUPE_MAX_IDS) {
+      const oldest = seen.keys().next();
+      if (!oldest.done) seen.delete(oldest.value);
+    }
+    return false;
+  };
+}
+
 function eventForDatabaseChange(table: string, payload: DatabaseChange): ClinicRealtimeEvent {
   const row = payload.new ?? {};
   const eventType = payload.eventType ?? "UPDATE";
@@ -209,6 +233,7 @@ export function useRealtimeSync(clinicId?: string): RealtimeStatus {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<RealtimeStatus>("connecting");
   const batchInvalidateRef = useRef(createBatchInvalidator(queryClient));
+  const messageIdDedupeRef = useRef(createMessageIdDeduper());
 
   useEffect(() => {
     batchInvalidateRef.current = createBatchInvalidator(queryClient);
@@ -221,6 +246,7 @@ export function useRealtimeSync(clinicId?: string): RealtimeStatus {
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let retryDelay = 1000;
     let isCleanedUp = false;
+    let hasConnectedOnce = false;
 
     const connectSSE = () => {
       if (isCleanedUp) return;
@@ -229,13 +255,29 @@ export function useRealtimeSync(clinicId?: string): RealtimeStatus {
         source = new EventSource("/api/inbox/stream", { withCredentials: true });
 
         source.onopen = () => {
+          const isReconnect = hasConnectedOnce;
+          hasConnectedOnce = true;
           retryDelay = 1000;
           setStatus("live");
+          if (isReconnect) {
+            // Events may have been missed while the stream was down — refetch the inbox
+            // queries on reconnect so the UI catches up instead of showing stale data.
+            batchInvalidateRef.current("inbox.invalidate");
+          }
         };
 
         const handleIncomingEvent = (type: string, e: MessageEvent) => {
           try {
             const data = e.data ? (JSON.parse(e.data) as Record<string, unknown>) : {};
+            const messageId = typeof data.messageId === "string" ? data.messageId : undefined;
+            // The same insert also arrives via Supabase realtime — apply each message only once.
+            if (
+              messageId &&
+              (type === "inbox.message_received" || type === "inbox.message_sent") &&
+              messageIdDedupeRef.current(messageId)
+            ) {
+              return;
+            }
             const eventPayload: ClinicRealtimeEvent = {
               type,
               data,
@@ -342,6 +384,12 @@ export function useRealtimeSync(clinicId?: string): RealtimeStatus {
 
         const handleChange = (table: string, payload: DatabaseChange) => {
           if (disposed) return;
+          // Dedupe new-message inserts against the SSE stream so one message never
+          // triggers two cache writes / two notifications.
+          if (table === "messages" && (payload.eventType ?? "UPDATE") === "INSERT") {
+            const rowId = typeof payload.new?.id === "string" ? payload.new.id : undefined;
+            if (rowId && messageIdDedupeRef.current(rowId)) return;
+          }
           const event = eventForDatabaseChange(table, payload);
           realtimeHub.emit(event);
           batchInvalidateRef.current(event.type);

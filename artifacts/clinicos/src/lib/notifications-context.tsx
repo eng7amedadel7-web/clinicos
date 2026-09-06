@@ -60,7 +60,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         type: "handoff",
         title: en ? `AI Handoff: ${patientName}` : `طلب تدخل بشري: ${patientName}`,
         description: content.slice(0, 100) || (en ? "Patient requested human assistance." : "المريض طلب التحدث مع موظف بشري."),
-        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-SA", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-EG", { hour: "2-digit", minute: "2-digit" }),
         link: payload.conversationId ? `/inbox?conversationId=${payload.conversationId}` : "/inbox",
         read: false,
       };
@@ -88,7 +88,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         type: "message",
         title: en ? `New Message: ${patientName}` : `رسالة جديدة: ${patientName}`,
         description: content.slice(0, 100),
-        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-SA", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-EG", { hour: "2-digit", minute: "2-digit" }),
         link: payload.conversationId ? `/inbox?conversationId=${payload.conversationId}` : "/inbox",
         read: false,
       };
@@ -112,7 +112,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         type: "appointment",
         title: en ? "New Appointment Booked" : "تم حجز موعد جديد",
         description: en ? "A new appointment was registered in the clinic schedule." : "تم تسجيل موعد جديد بنجاح في جدول العيادة.",
-        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-SA", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-EG", { hour: "2-digit", minute: "2-digit" }),
         link: payload.appointmentId ? `/appointments/${payload.appointmentId}` : "/appointments",
         read: false,
       };
@@ -133,7 +133,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         type: "appointment",
         title: en ? "Appointment Cancelled" : "تم إلغاء موعد",
         description: payload.reason ? (en ? `Reason: ${payload.reason}` : `السبب: ${payload.reason}`) : (en ? "An appointment was cancelled." : "تم إلغاء موعد في جدول العيادة."),
-        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-SA", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString(en ? "en-US" : "ar-EG", { hour: "2-digit", minute: "2-digit" }),
         read: false,
       };
 

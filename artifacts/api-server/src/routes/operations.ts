@@ -277,7 +277,9 @@ async function callOperation(req: Request, res: Response, rpc: string, table: st
   if (!session) return;
   try {
     await assertOwned(session, table, id);
-    const operationBody = { ...body, p_clinic_id: session.clinicId, p_worker: `clinicos:${session.userId}` };
+    // The live RPCs accept exactly their declared named args — an extra key
+    // (like the old p_worker) makes PostgREST fail to resolve the function.
+    const operationBody = { ...body, p_clinic_id: session.clinicId };
     const result = await supabaseRequest<unknown>(`/rest/v1/rpc/${rpc}`, { method: "POST", headers: headers(session), body: JSON.stringify(operationBody) });
     if (!result.ok) { jsonError(res, result, "تعذر حفظ العملية التشغيلية."); return; }
     

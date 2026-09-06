@@ -132,7 +132,7 @@ function SectionTitle({ children, icon: Icon }: { children: React.ReactNode; ico
 function formatDayLabel(dateStr: string, lang: "ar" | "en") {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
-  return date.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "numeric", day: "numeric" });
+  return date.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "numeric", day: "numeric" });
 }
 
 function statusLabel(status: string, lang: "ar" | "en") {

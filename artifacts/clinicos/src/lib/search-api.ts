@@ -52,6 +52,6 @@ export function appointmentDateLabel(value: string | null, language: "ar" | "en"
   if (!value) return language === "ar" ? "بدون موعد" : "No date";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return language === "ar" ? "بدون موعد" : "No date";
-  return new Intl.DateTimeFormat(language === "ar" ? "ar-SA" : "en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 

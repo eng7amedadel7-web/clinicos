@@ -32,7 +32,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function formatDate(value?: string) {
-  return value ? new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value)) : "—";
+  return value ? new Intl.DateTimeFormat("ar-EG", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value)) : "—";
 }
 
 export default function BillingPage() {

@@ -1,4 +1,4 @@
-import { Bot, Check, CheckCheck, Clock, UserCheck, UserRound } from "lucide-react";
+import { AlertCircle, Bot, Check, CheckCheck, Clock, UserCheck, UserRound } from "lucide-react";
 import type { InboxMessage } from "@/lib/inbox-api";
 import { formatMessageTime } from "./inbox-icons";
 
@@ -6,15 +6,18 @@ export function MessageBubble({
   message,
   en,
   isOptimistic = false,
+  onRetry,
 }: {
   message: InboxMessage;
   en: boolean;
   isOptimistic?: boolean;
+  onRetry?: () => void;
 }) {
   const isOutgoing = message.direction === "outgoing" || message.sender_type === "staff" || message.sender_type === "ai";
   const isAi = message.sender_type === "ai";
   const isStaff = message.sender_type === "staff";
   const isPatient = !isOutgoing;
+  const isFailed = message.message_status === "failed";
 
   return (
     <div
@@ -64,17 +67,36 @@ export function MessageBubble({
         >
           <span>{formatMessageTime(message.created_at, en)}</span>
           {isOutgoing && (
-            <span>
-              {isOptimistic ? (
-                <Clock className="size-2.5 animate-spin" />
-              ) : message.message_status === "read" ? (
-                <CheckCheck className="size-3 text-sky-300" />
-              ) : message.message_status === "delivered" ? (
-                <CheckCheck className="size-3 text-white/90" />
+            isFailed ? (
+              onRetry ? (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  title={en ? "Failed to send — tap to retry" : "فشل الإرسال — اضغط لإعادة المحاولة"}
+                  className="flex items-center gap-1 text-red-300 transition hover:text-red-200"
+                >
+                  <AlertCircle className="size-3" />
+                  <span className="font-sans text-[9px] font-bold">
+                    {en ? "Failed to send — retry" : "فشل الإرسال — أعد المحاولة"}
+                  </span>
+                </button>
               ) : (
-                <Check className="size-3 text-white/70" />
-              )}
-            </span>
+                <span className="flex items-center gap-1 text-red-300">
+                  <AlertCircle className="size-3" />
+                  <span className="font-sans text-[9px] font-bold">
+                    {en ? "Failed to send — retry" : "فشل الإرسال — أعد المحاولة"}
+                  </span>
+                </span>
+              )
+            ) : isOptimistic ? (
+              <Clock className="size-2.5 animate-spin" />
+            ) : message.message_status === "read" ? (
+              <CheckCheck className="size-3 text-sky-300" />
+            ) : message.message_status === "delivered" ? (
+              <CheckCheck className="size-3 text-white/90" />
+            ) : (
+              <Check className="size-3 text-white/70" />
+            )
           )}
         </div>
       </div>

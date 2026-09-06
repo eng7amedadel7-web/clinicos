@@ -211,9 +211,11 @@
     position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 40;
     width: min(19rem, 86vw) !important; height: 100dvh; overflow-y: auto;
     border-inline-start: 1px solid rgba(145,183,199,.13);
-    transform: translateX(100%);
+    /* Workspace documentElement is permanently RTL, so inset-inline-end
+       resolves to the left edge: hiding means sliding further LEFT. */
+    transform: translateX(-100%);
     transition: transform .28s cubic-bezier(.23,1,.32,1);
-    box-shadow: -18px 0 44px rgba(6,24,38,.28);
+    box-shadow: 18px 0 44px rgba(6,24,38,.28);
   }
   .sidebar.sidebar-open { transform: translateX(0); }
   .sidebar-close { position: absolute; inset-block-start: 1rem; inset-inline-start: 1rem; display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: rgba(255,255,255,.08); color: #d8e8ee; }

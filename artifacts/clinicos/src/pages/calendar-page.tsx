@@ -99,13 +99,7 @@ function statusLabel(status: string, en: boolean) {
   return pair ? (en ? pair[1] : pair[0]) : status;
 }
 
-const CLINIC_TZ = "Asia/Riyadh";
-function formatTime(value: string | null | undefined) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: CLINIC_TZ }).format(d);
-}
+import { formatClinicTime as formatTime } from "@/lib/datetime";
 
 function formatDateShort(d: Date, en: boolean) {
   return new Intl.DateTimeFormat(en ? "en-US" : "ar-EG", { weekday: "short", day: "numeric" }).format(d);

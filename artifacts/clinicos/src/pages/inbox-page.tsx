@@ -90,10 +90,11 @@ export default function InboxPage() {
   const sendMutation = useMutation({
     mutationFn: ({ id, content }: { id: string; content: string }) =>
       inboxAction(`/api/inbox/${encodeURIComponent(id)}/messages`, { method: "POST", body: JSON.stringify({ content }) }),
-    onMutate: async ({ content }) => {
-      // Optimistic append
+    onMutate: async ({ id, content }) => {
+      // Optimistic append — scoped to the conversation it was sent from so it never leaks into another chat
       const optMsg: InboxMessage = {
         id: `optimistic-${Date.now()}`,
+        conversation_id: id,
         content,
         direction: "outgoing",
         sender_type: "staff",
@@ -186,6 +187,8 @@ export default function InboxPage() {
 
   function handleSelectConversation(id: string) {
     setSelectedId(id);
+    // Clear optimistic messages from other conversations so they never leak into the newly opened chat
+    setOptimisticMessages((prev) => prev.filter((message) => message.conversation_id === id));
     window.history.replaceState({}, "", `/inbox?conversationId=${encodeURIComponent(id)}`);
   }
 
@@ -197,6 +200,13 @@ export default function InboxPage() {
     } catch {
       return false;
     }
+  }
+
+  function handleRetryMessage(message: InboxMessage) {
+    if (!selected || sendMutation.isPending) return;
+    // Drop the failed optimistic bubble, then resend its content as a fresh attempt
+    setOptimisticMessages((prev) => prev.filter((item) => item.id !== message.id));
+    void handleSendMessage(message.content);
   }
 
   function handleSaveNote() {
@@ -251,6 +261,12 @@ export default function InboxPage() {
 
   const savedReplies = savedRepliesQuery.data ?? [];
 
+  // Only show optimistic messages that belong to the currently selected conversation
+  const visibleOptimisticMessages = useMemo(
+    () => optimisticMessages.filter((message) => message.conversation_id === selectedId),
+    [optimisticMessages, selectedId]
+  );
+
   return (
     <div className="flex h-full w-full flex-1 overflow-hidden" dir="rtl">
       <div className="flex flex-1 min-h-0 overflow-hidden border border-border/80 bg-card rounded-xl shadow-xs">
@@ -278,6 +294,8 @@ export default function InboxPage() {
             realtimeStatus={realtimeStatus}
             onRefresh={() => inboxQuery.refetch()}
             isRefreshing={inboxQuery.isFetching}
+            isError={inboxQuery.isError}
+            errorMessage={inboxQuery.error instanceof Error ? inboxQuery.error.message : null}
             en={en}
           />
         </div>
@@ -291,7 +309,9 @@ export default function InboxPage() {
           <ChatWindow
             conversation={selected}
             messages={data?.messages ?? []}
-            optimisticMessages={optimisticMessages}
+            optimisticMessages={visibleOptimisticMessages}
+            isPlaceholderData={inboxQuery.isPlaceholderData}
+            onRetryMessage={handleRetryMessage}
             onBackMobile={() => setSelectedId(null)}
             onSendMessage={handleSendMessage}
             isSending={sendMutation.isPending}

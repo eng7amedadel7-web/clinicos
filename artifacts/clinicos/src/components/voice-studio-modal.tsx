@@ -35,7 +35,6 @@ export function VoiceStudioModal({ isOpen, onClose }: { isOpen: boolean; onClose
     setFaqs(prev => [...prev, { qAr: newQ.trim(), qEn: newQ.trim(), aAr: newA.trim(), aEn: newA.trim() }]);
     setNewQ('');
     setNewA('');
-    toast.success(isArabic ? 'تمت إضافة المعلومة إلى ذاكرة الوكيل الصوتي' : 'Knowledge item added to voice agent memory');
   };
 
   const handleTestVoice = () => {
@@ -51,7 +50,7 @@ export function VoiceStudioModal({ isOpen, onClose }: { isOpen: boolean; onClose
     }
 
     const utterance = new SpeechSynthesisUtterance(greeting);
-    utterance.lang = dialect === 'eg' ? 'ar-EG' : 'ar-SA';
+    utterance.lang = dialect === 'eg' ? 'ar-EG' : 'ar-EG';
     utterance.rate = speed;
     utterance.pitch = voiceGender === 'female' ? 1.1 : 0.9;
 
@@ -62,10 +61,9 @@ export function VoiceStudioModal({ isOpen, onClose }: { isOpen: boolean; onClose
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleSave = () => {
-    toast.success(isArabic ? 'تم تحديث إعدادات ونبرة الوكيل الصوتي بنجاح' : 'Voice Agent persona and settings saved');
-    onClose();
-  };
+  // Honest state: no backend exists to persist the voice persona yet,
+  // so save stays disabled instead of faking success.
+  const soonTitle = isArabic ? 'قريباً' : 'Coming soon';
 
   if (!isOpen) return null;
 
@@ -281,8 +279,9 @@ export function VoiceStudioModal({ isOpen, onClose }: { isOpen: boolean; onClose
           </button>
           <button
             type="button"
-            onClick={handleSave}
-            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-90"
+            disabled
+            title={soonTitle}
+            className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-muted/40 px-5 py-2.5 text-xs font-bold text-muted-foreground opacity-70"
           >
             <Check className="size-4" />
             <span>{isArabic ? 'حفظ وتطبيق على الوكيل الصوتي' : 'Save Voice Persona'}</span>

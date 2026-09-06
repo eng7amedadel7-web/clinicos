@@ -124,9 +124,17 @@ router.get("/appointments", async (req, res) => {
     const dateParam = typeof req.query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : "";
     let slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date().toISOString())}`;
     if (dateParam) {
-      const dayStart = new Date(`${dateParam}T00:00:00`);
+      // Vercel functions run in UTC: `${date}T00:00:00` would parse as UTC and
+      // drop the clinic's 00:00-03:00 local slots. Build the window for the
+      // clinic's Cairo day (UTC+2 winter / UTC+3 DST) instead.
+      const probe = new Date(`${dateParam}T12:00:00Z`);
+      const tzParts = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Cairo", timeZoneName: "shortOffset" }).formatToParts(probe);
+      const tzName = tzParts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+3";
+      const tzMatch = /GMT([+-])(\d{1,2})/.exec(tzName);
+      const offsetMs = (tzMatch?.[1] === "-" ? -1 : 1) * Number(tzMatch?.[2] ?? 3) * 60 * 60_000;
+      const dayStart = new Date(`${dateParam}T00:00:00Z`);
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-      slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(dayStart.toISOString())}&start_time=lt.${encodeURIComponent(dayEnd.toISOString())}`;
+      slotWindow = `&slot_status=eq.available&start_time=gte.${encodeURIComponent(new Date(dayStart.getTime() - offsetMs).toISOString())}&start_time=lt.${encodeURIComponent(new Date(dayEnd.getTime() - offsetMs).toISOString())}`;
     }
     const doctorWindow = doctorIdParam ? `&doctor_id=eq.${encodeURIComponent(doctorIdParam)}` : "";
     const [doctorsResult, servicesResult, slotsResult] = await Promise.all([

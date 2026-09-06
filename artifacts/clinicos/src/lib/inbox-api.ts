@@ -73,7 +73,11 @@ export async function getInboxPayload(conversationId: string | null, signal?: Ab
   const response = await fetch(`/api/inbox${query}`, { credentials: "include", signal });
   const payload = (await response.json().catch(() => null)) as InboxPayload | { error?: string } | null;
   if (!response.ok) throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل صندوق الوارد.");
-  return payload as InboxPayload;
+  const inbox = payload as InboxPayload;
+  // The API returns the LATEST 200 messages newest-first (order=created_at.desc, see
+  // routes/inbox.ts) — reverse to chronological order so the timeline renders
+  // oldest → newest and optimistic appends land at the end.
+  return { ...inbox, messages: Array.isArray(inbox.messages) ? [...inbox.messages].reverse() : [] };
 }
 
 export async function getSavedReplies(language: "ar" | "en" = "ar", signal?: AbortSignal): Promise<SavedReply[]> {

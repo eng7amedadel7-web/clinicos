@@ -24,7 +24,7 @@ import {
 } from "@/lib/operations-api";
 import { usePreferences } from "@/lib/preferences";
 
-const clinicTimeZone = "Asia/Riyadh";
+const clinicTimeZone = "Africa/Cairo";
 type VoiceView = "overview" | "calls" | "bookings" | "clinic" | "agent" | "knowledge" | "phone" | "performance" | "usage" | "billing" | "settings";
 type Json = Record<string, unknown>;
 
