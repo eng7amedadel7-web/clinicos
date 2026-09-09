@@ -23,10 +23,9 @@ import { Link } from "wouter";
 import { usePreferences } from "@/lib/preferences";
 import { getOperationsSummary } from "@/lib/operations-api";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { getClinicTimezone } from "@/lib/datetime";
 
 type Session = { user: { fullName: string }; clinic: { id: string; name: string; city: string } };
-
-const clinicTimeZone = "Africa/Cairo";
 
 function statusLabels(en: boolean): Record<string, string> {
   return en
@@ -46,7 +45,7 @@ function formatTime(value: string | null | undefined) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? "—"
-    : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: clinicTimeZone }).format(date);
+    : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: getClinicTimezone() }).format(date);
 }
 
 function formatRelativeDay(value: string | null | undefined, en: boolean) {
@@ -56,7 +55,7 @@ function formatRelativeDay(value: string | null | undefined, en: boolean) {
   const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000);
   if (diffDays <= 0) return en ? "Today" : "اليوم";
   if (diffDays === 1) return en ? "Yesterday" : "أمس";
-  return new Intl.DateTimeFormat(en ? "en-EG" : "ar-EG", { day: "numeric", month: "short", timeZone: clinicTimeZone }).format(date);
+  return new Intl.DateTimeFormat(en ? "en-EG" : "ar-EG", { day: "numeric", month: "short", timeZone: getClinicTimezone() }).format(date);
 }
 
 function riskLabels(en: boolean): Record<string, { label: string; tone: string }> {
@@ -243,7 +242,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
   const summary = summaryQuery.data;
   const stats = summary?.stats;
   const firstName = session.user.fullName.split(" ")[0] || session.user.fullName;
-  const todayLabel = new Intl.DateTimeFormat(en ? "en-EG" : "ar-EG", { weekday: "long", day: "numeric", month: "long", timeZone: clinicTimeZone }).format(new Date());
+  const todayLabel = new Intl.DateTimeFormat(en ? "en-EG" : "ar-EG", { weekday: "long", day: "numeric", month: "long", timeZone: getClinicTimezone() }).format(new Date());
 
   const attentionConversations = useMemo(
     () => (summary?.recentConversations ?? []).filter((item) => item.is_handoff === true || !item.assigned_staff_id).slice(0, 4),
