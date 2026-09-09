@@ -23,8 +23,8 @@ import {
   type VoiceApiRecord,
 } from "@/lib/operations-api";
 import { usePreferences } from "@/lib/preferences";
+import { getClinicTimezone } from "@/lib/datetime";
 
-const clinicTimeZone = "Africa/Cairo";
 type VoiceView = "overview" | "calls" | "bookings" | "clinic" | "agent" | "knowledge" | "phone" | "performance" | "usage" | "billing" | "settings";
 type Json = Record<string, unknown>;
 
@@ -89,7 +89,7 @@ function array(value: unknown): Json[] { return Array.isArray(value) ? value.fil
 function text(value: unknown, fallback = "—") { return typeof value === "string" && value.trim() ? value : fallback; }
 function number(value: unknown, fallback = 0) { return typeof value === "number" && Number.isFinite(value) ? value : fallback; }
 function bool(value: unknown) { return value === true; }
-function dateTime(value: unknown) { if (typeof value !== "string" || !value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short", timeZone: clinicTimeZone }).format(date); }
+function dateTime(value: unknown) { if (typeof value !== "string" || !value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short", timeZone: getClinicTimezone() }).format(date); }
 function duration(seconds: unknown) { const value = number(seconds, -1); if (value < 0) return "—"; return `${Math.floor(value / 60)}:${String(Math.round(value % 60)).padStart(2, "0")}`; }
 function statusLabel(value: unknown, en: boolean) {
   const key = text(value, "unknown");

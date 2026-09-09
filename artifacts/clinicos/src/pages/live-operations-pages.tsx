@@ -6,7 +6,7 @@ import { getOperationsList, runOperationsAction, type OperationsItem } from "@/l
 import { Link } from "wouter";
 import { usePreferences } from "@/lib/preferences";
 import { WorkspaceDataState, WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState, WorkspacePage, WorkspacePageHeader } from "@/components/workspace-page";
-import { clinicToday, formatClinicDate, formatClinicTime, formatWallDate, formatWallTime } from "@/lib/datetime";
+import { clinicToday, formatClinicDate, formatClinicTime, formatWallDate, formatWallTime, getClinicTimezone } from "@/lib/datetime";
 import { SmartDataImportModal } from "@/components/smart-data-import-modal";
 
 type Patient = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; age?: number | null; address?: string | null; createdAt: string | null };
@@ -18,10 +18,9 @@ function getStatusLabels(en: boolean): Record<string, string> {
     ? { scheduled: "Scheduled", confirmed: "Confirmed", checked_in: "Checked in", completed: "Completed", cancelled: "Cancelled", no_show: "No show", pending: "Pending confirmation" }
     : { scheduled: "مجدول", confirmed: "مؤكد", checked_in: "وصل", completed: "مكتمل", cancelled: "ملغي", no_show: "لم يحضر", pending: "بانتظار التأكيد" };
 }
-const clinicTimeZone = "Africa/Cairo";
 function statusTone(status: string) { if (["checked_in", "completed"].includes(status)) return "bg-[#d9f0e8] text-[#176b58] dark:bg-[#123528] dark:text-[#7fd0b4]"; if (["scheduled", "confirmed", "pending"].includes(status)) return "bg-[#fff0d8] text-[#9a6513] dark:bg-[#3a2c14] dark:text-[#e0b46a]"; if (["cancelled", "no_show"].includes(status)) return "bg-[#f8dfdc] text-[#a64036] dark:bg-[#3d1f1b] dark:text-[#eb9a90]"; return "bg-[#dcecf5] text-[#22617d] dark:bg-[#143242] dark:text-[#8cc3dd]"; }
-function dateTime(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short", timeZone: clinicTimeZone }).format(date); }
-function timeOnly(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: clinicTimeZone }).format(date); }
+function dateTime(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short", timeZone: getClinicTimezone() }).format(date); }
+function timeOnly(value: string | null) { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: getClinicTimezone() }).format(date); }
 
 function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
   return <WorkspacePageHeader eyebrow={eyebrow} title={title} description={description} action={action} />;
