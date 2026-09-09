@@ -110,6 +110,17 @@
 .animate-sweep { animation: sweep-in .45s cubic-bezier(.2,.8,.2,1) both; }
 .delay-1 { animation-delay: .06s; } .delay-2 { animation-delay: .12s; } .delay-3 { animation-delay: .18s; } .delay-4 { animation-delay: .24s; }
 
+/* Motion polish: page transitions and press feedback. Subtle by design and
+   transform/opacity-only so everything stays on the compositor thread. */
+@keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.page-enter { animation: page-in .3s cubic-bezier(.2,.8,.2,1) both; }
+.primary-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(10,39,59,.16); }
+.primary-button:active:not(:disabled) { transform: translateY(0) scale(.98); box-shadow: 0 4px 10px rgba(10,39,59,.12); }
+.quiet-button { transition: background-color .2s, color .2s, transform .15s ease; }
+.quiet-button:active:not(:disabled) { transform: scale(.97); }
+.toolbar-button:active, .toolbar-language:active { transform: scale(.94); }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(17,55,74,.10); }
+
 .brand-mark { position: relative; width: 42px; height: 36px; flex: 0 0 auto; }
 .brand-mark::before, .brand-mark::after { content: ""; position: absolute; width: 12px; height: 30px; top: 3px; border: 2px solid #91b5ca; transform: skewY(29deg) rotate(20deg); border-radius: 3px 9px 4px 7px; }
 .brand-mark::before { left: 6px; border-right-color: #436b83; }
@@ -225,9 +236,15 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .sidebar { transition: none; }
-  /* إيقاف نبضات الوجهة الكاملة (animate-pulse) وظهور البطاقات (animate-rise) لمن يفضل تقليل الحركة */
+  /* إيقاف الحركات كلها لمن يفضل تقليل الحركة: ظهور الصفحات والبطاقات والنبض */
   .animate-rise,
-  .animate-pulse { animation: none; }
+  .animate-sweep,
+  .animate-pulse,
+  .page-enter { animation: none; }
+  .primary-button:hover:not(:disabled),
+  .primary-button:active:not(:disabled),
+  .quiet-button:active:not(:disabled),
+  .stat-card:hover { transform: none; }
 }
 
 .brand-system { font-size: .42em; letter-spacing: .18em; font-weight: 800; opacity: .8; vertical-align: middle; }

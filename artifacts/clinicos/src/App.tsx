@@ -106,6 +106,27 @@ const RegisterPage = lazy(() => import('@/pages/register-page'));
 const AdminPanelPage = lazy(() => import('@/pages/admin-panel'));
 const AcceptInvitePage = lazy(() => import('@/pages/accept-invite-page'));
 
+// Hover-preload route chunks: by the time the user clicks a sidebar link, the
+// page's code is already in flight. import() is memoized, so repeat hovers
+// and repeated navigations cost nothing.
+const routePreloaders: Record<string, () => Promise<unknown>> = {
+  '/dashboard': () => import('@/pages/live-dashboard'),
+  '/calendar': () => import('@/pages/calendar-page'),
+  '/waitlist': () => import('@/pages/live-operations-pages'),
+  '/follow-ups': () => import('@/pages/live-operations-pages'),
+  '/no-shows': () => import('@/pages/live-operations-pages'),
+  '/reception': () => import('@/pages/reception-page'),
+  '/patients': () => import('@/pages/live-operations-pages'),
+  '/appointments': () => import('@/pages/live-operations-pages'),
+  '/inbox': () => import('@/pages/inbox-page'),
+  '/ai-reception': () => import('@/pages/ai-reception-page'),
+  '/templates': () => import('@/pages/templates-page'),
+  '/voice-agent': () => import('@/pages/live-voice-agent'),
+  '/analytics': () => import('@/pages/analytics-page'),
+  '/organization': () => import('@/pages/organization-settings'),
+  '/billing': () => import('@/pages/billing'),
+};
+
 function Logo({ dark = false }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-2.5" data-testid="brand-logo">
@@ -255,7 +276,7 @@ function Sidebar({ clinicName, userName, mobileOpen = false, onNavigate }: { cli
           {group.links.map(({ href, label, icon: Icon }) => {
             const hasInboxBadge = href === '/inbox' && (unreadHandoffs > 0 || unreadMessages > 0);
             return (
-              <Link key={href} href={href} onClick={() => { onNavigate?.(); hideTip(); }} onMouseEnter={showTip(label)} onMouseLeave={hideTip} onFocus={showTip(label)} onBlur={hideTip} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}>
+              <Link key={href} href={href} onClick={() => { onNavigate?.(); hideTip(); }} onMouseEnter={(event) => { showTip(label)(event); void routePreloaders[href]?.(); }} onMouseLeave={hideTip} onFocus={showTip(label)} onBlur={hideTip} aria-label={label} className={`sidebar-link px-3 py-3 text-sm font-semibold ${collapsed ? 'md:justify-center md:gap-0' : ''} ${location === href || location.startsWith(`${href}/`) ? 'active' : ''}`} data-testid={`link-nav-${href.slice(1)}`}>
                 <Icon size={18} strokeWidth={1.8} />
                 <span className={collapsed ? 'md:sr-only' : ''}>{label}</span>
                 {hasInboxBadge && (
@@ -535,7 +556,7 @@ function ProtectedShell() {
           {/* الجولة الترحيبية تخص الداشبورد فقط — ظهورها على كل صفحة كان يخفي محتوى الصفحات الأخرى */}
           {location === '/dashboard' ? <OnboardingTour clinicId={session.clinic.id} /> : null}
           <QuickAddModal />
-          <div className="workspace-route flex min-h-0 flex-1 flex-col">
+          <div key={location} className="workspace-route page-enter flex min-h-0 flex-1 flex-col">
             <Suspense fallback={<RouteLoadingFallback />}>
               <Switch>
                 <Route path="/settings">{() => <SettingsPage session={session} />}</Route>
