@@ -434,6 +434,59 @@ router.get("/appointments/:id/journey", async (req, res) => {
   });
 });
 
+// Booking: POST /api/appointments was accidentally dropped during the
+// wall-clock-as-UTC refactor (b59602fd), which made every booking from the
+// appointments page 404. Restored verbatim; the route tests now pin it.
+router.post("/appointments", async (req, res) => {
+  const session = await protect(req, res, "create");
+  if (!session) return;
+  const data = appointmentInput(req.body ?? {});
+  if (!data.patientId || !data.slotId) { res.status(400).json({ error: "المريض والموعد المتاح مطلوبان." }); return; }
+
+  const idempotencyKey = (req.get("Idempotency-Key") || randomBytes(32).toString("hex")).trim();
+  const queueToken = createHash("sha256")
+    .update(`meruna-queue:${session.clinicId}:${idempotencyKey}`, "utf8")
+    .digest("base64url");
+  const result = await supabaseRequest<CreatedAppointmentRow[]>("/rest/v1/rpc/create_appointment_with_queue_link", {
+    method: "POST",
+    headers: appointmentHeaders(session.accessToken),
+    body: JSON.stringify({
+      p_clinic_id: session.clinicId,
+      p_patient_id: data.patientId,
+      p_slot_id: data.slotId,
+      p_appointment_status: data.status,
+      p_notes: data.notes || null,
+      p_appointment_type: data.appointmentType,
+      p_create_idempotency_key: idempotencyKey,
+      p_queue_token: queueToken,
+    }),
+  });
+  if (!result.ok) {
+    const status = result.status === 409 || result.status === 400 ? 409 : (result.status || 502);
+    res.status(status).json({ error: status === 409 ? "هذا الـslot لم يعد متاحًا أو تم تنفيذ الطلب مسبقًا." : "تعذر حجز الموعد." });
+    return;
+  }
+
+  const created = result.data?.[0];
+  if (!created?.appointment_id || !created.booking_id || !created.queue_path) {
+    res.status(502).json({ error: "تعذر إكمال رابط الكيو للحجز." });
+    return;
+  }
+  clinicEvents.emitClinicEvent(session.clinicId, "appointment.booked", {
+    appointmentId: created.appointment_id,
+    queueNumber: created.queue_number ?? null,
+    scheduledAt: data.scheduledAt || null,
+  });
+  res.status(201).json({
+    id: created.appointment_id,
+    bookingId: created.booking_id,
+    bookingNumber: created.booking_number ?? null,
+    queueNumber: created.queue_number ?? null,
+    queuePath: created.queue_path,
+    queueExpiresAt: created.queue_expires_at ?? null,
+  });
+});
+
 router.patch("/appointments/:id", async (req, res) => {
   const session = await protect(req, res, "update");
   if (!session) return;
