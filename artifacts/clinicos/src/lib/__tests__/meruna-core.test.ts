@@ -1,3 +1,4 @@
+import { expect, it } from "vitest";
 import { formatMessageTime, formatRelativeTime } from "@/components/inbox/inbox-icons";
 import { appointmentDateLabel } from "@/lib/search-api";
 
@@ -54,3 +55,11 @@ export function runMerunaLogicTests() {
 
   return results;
 }
+
+// Bridge the self-contained assertion harness into vitest so each check
+// reports (and fails) individually in CI instead of the file being ignored.
+runMerunaLogicTests().forEach((result) => {
+  it(result.test, () => {
+    expect(result.passed, result.error).toBe(true);
+  });
+});
