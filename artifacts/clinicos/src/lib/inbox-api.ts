@@ -1,104 +1,22 @@
-export type InboxConversation = {
-  id: string;
-  patient_id?: string;
-  name: string;
-  phone?: string;
-  channel: string;
-  channelId?: string | null;
-  channelType: string;
-  channelProvider?: string | null;
-  channelStatus?: string;
-  mode: "AI" | "Human";
-  lastActivityAt: string | null;
-  lastMessage?: string | null;
-  assignedStaffId?: string | null;
-  needsStaff?: boolean;
-  status?: string;
-  priority?: string;
-};
+import type { InboxMessageState as InboxMessage } from "@workspace/api-client-react";
 
-export type InboxChannel = {
-  id: string;
-  type: string;
-  provider?: string | null;
-  status?: string;
-  isEnabled?: boolean;
-  displayName?: string;
-};
-
-export type InboxMessage = {
-  id: string;
-  conversation_id?: string;
-  content: string;
-  direction: "incoming" | "outgoing" | string;
-  sender_type?: "patient" | "staff" | "ai" | "system" | string;
-  created_at: string;
-  message_status?: string | null;
-};
-
-export type InboxPayload = {
-  channels: InboxChannel[];
-  channelCounts?: Record<string, number>;
-  conversations: InboxConversation[];
-  selectedConversationId: string | null;
-  messages: InboxMessage[];
-};
-
-export type SavedReply = {
-  id: string;
-  template_key: string;
-  language: string;
-  body_template: string;
-  enabled?: boolean;
-};
-
-export type ConversationOperation = {
-  id: string;
-  event_type: string;
-  actor_type?: string;
-  metadata?: {
-    content?: string;
-    outcome?: string;
-    note?: string;
-    snoozed_until?: string;
-    reason?: string;
-    [key: string]: unknown;
-  };
-  occurred_at?: string;
-  created_at?: string;
-};
-
-export async function getInboxPayload(conversationId: string | null, signal?: AbortSignal): Promise<InboxPayload> {
-  const query = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : "";
-  const response = await fetch(`/api/inbox${query}`, { credentials: "include", signal });
-  const payload = (await response.json().catch(() => null)) as InboxPayload | { error?: string } | null;
-  if (!response.ok) throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل صندوق الوارد.");
-  const inbox = payload as InboxPayload;
-  // The API returns the LATEST 200 messages newest-first (order=created_at.desc, see
-  // routes/inbox.ts) — reverse to chronological order so the timeline renders
-  // oldest → newest and optimistic appends land at the end.
-  return { ...inbox, messages: Array.isArray(inbox.messages) ? [...inbox.messages].reverse() : [] };
-}
-
-export async function getSavedReplies(language: "ar" | "en" = "ar", signal?: AbortSignal): Promise<SavedReply[]> {
-  const response = await fetch(`/api/inbox/saved-replies?language=${language}`, { credentials: "include", signal });
-  const payload = (await response.json().catch(() => null)) as SavedReply[] | { error?: string } | null;
-  if (!response.ok) {
-    throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل الردود المحفوظة.");
-  }
-  if (!Array.isArray(payload)) throw new Error("تعذر تحميل الردود المحفوظة.");
-  return payload;
-}
-
-export async function getConversationOperations(conversationId: string, signal?: AbortSignal): Promise<ConversationOperation[]> {
-  const response = await fetch(`/api/inbox/${encodeURIComponent(conversationId)}/operations`, { credentials: "include", signal });
-  const payload = (await response.json().catch(() => null)) as ConversationOperation[] | { error?: string } | null;
-  if (!response.ok) {
-    throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل سجل المحادثة.");
-  }
-  if (!Array.isArray(payload)) throw new Error("تعذر تحميل سجل المحادثة.");
-  return payload;
-}
+// Inbox reads are contract-driven: fetchers and types come from the OpenAPI
+// codegen. The aliases keep the names the inbox components already import.
+// inboxAction (note/snooze/unsnooze/outcome/mode/messages POSTs) is not in
+// the spec yet and stays hand-written until it is.
+export {
+  getConversationOperations,
+  getInboxPayload,
+  listSavedReplies as getSavedReplies,
+} from "@workspace/api-client-react";
+export type {
+  ConversationOperation,
+  InboxChannelState as InboxChannel,
+  InboxConversationState as InboxConversation,
+  InboxMessageState as InboxMessage,
+  InboxPayload,
+  SavedReply,
+} from "@workspace/api-client-react";
 
 export async function inboxAction(path: string, init: RequestInit = {}) {
   const response = await fetch(path, {

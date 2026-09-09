@@ -7,6 +7,7 @@ import {
   getSavedReplies,
   inboxAction,
   type InboxMessage,
+  type InboxPayload,
 } from "@/lib/inbox-api";
 import { usePreferences } from "@/lib/preferences";
 import { useRealtimeStatus } from "@/lib/realtime";
@@ -50,7 +51,13 @@ export default function InboxPage() {
   // Queries
   const inboxQuery = useQuery({
     queryKey: ["inbox", selectedId],
-    queryFn: ({ signal }) => getInboxPayload(selectedId, signal),
+    queryFn: async ({ signal }) => {
+      const payload = await getInboxPayload(selectedId ? { conversationId: selectedId } : undefined, { signal });
+      // The API returns the LATEST 200 messages newest-first (order=created_at.desc, see
+      // routes/inbox.ts) — reverse to chronological order so the timeline renders
+      // oldest → newest and optimistic appends land at the end.
+      return { ...payload, messages: [...payload.messages].reverse() };
+    },
     staleTime: Infinity,
     refetchInterval: false,
     refetchOnWindowFocus: false,
@@ -59,13 +66,13 @@ export default function InboxPage() {
 
   const savedRepliesQuery = useQuery({
     queryKey: ["inbox-saved-replies", en ? "en" : "ar"],
-    queryFn: ({ signal }) => getSavedReplies(en ? "en" : "ar", signal),
+    queryFn: ({ signal }) => getSavedReplies({ language: en ? "en" : "ar" }, { signal }),
     staleTime: 10 * 60_000,
   });
 
   const operationsQuery = useQuery({
     queryKey: ["inbox-operations", selectedId],
-    queryFn: ({ signal }) => (selectedId ? getConversationOperations(selectedId, signal) : Promise.resolve([])),
+    queryFn: ({ signal }) => (selectedId ? getConversationOperations(selectedId, { signal }) : Promise.resolve([])),
     enabled: Boolean(selectedId),
     staleTime: 30_000,
   });
@@ -109,7 +116,7 @@ export default function InboxPage() {
       const deliveryError = data && typeof data === "object" && "deliveryError" in data ? String((data as { deliveryError?: string }).deliveryError ?? "") : "";
       if (deliveryError) toast.error(deliveryError);
       if (persisted?.id) {
-        queryClient.setQueryData<{ messages: InboxMessage[] }>(["inbox", variables.id], (current) => {
+        queryClient.setQueryData<InboxPayload>(["inbox", variables.id], (current) => {
           if (!current || current.messages.some((message) => message.id === persisted.id)) return current;
           return {
             ...current,
@@ -206,7 +213,7 @@ export default function InboxPage() {
     if (!selected || sendMutation.isPending) return;
     // Drop the failed optimistic bubble, then resend its content as a fresh attempt
     setOptimisticMessages((prev) => prev.filter((item) => item.id !== message.id));
-    void handleSendMessage(message.content);
+    void handleSendMessage(message.content ?? "");
   }
 
   function handleSaveNote() {

@@ -70,6 +70,8 @@ export interface Clinic {
   name: string;
   status: string;
   city: string;
+  /** IANA timezone of the clinic (multi-tenant Gulf markets) */
+  timezone?: string;
 }
 
 export interface AuthSession {
@@ -162,4 +164,444 @@ export interface InboundMessageResponse {
   patientId?: string;
   isHandoff?: boolean;
 }
+
+/**
+ * All counters are present in the payload; null means the source table failed
+ */
+export interface OperationsStats {
+  /** @nullable */
+  appointmentsToday: number | null;
+  /** @nullable */
+  appointmentsYesterday: number | null;
+  /** @nullable */
+  activePatients: number | null;
+  /** @nullable */
+  conversationsNeedingStaff: number | null;
+  /** @nullable */
+  openFollowUps: number | null;
+  /** @nullable */
+  openNoShows: number | null;
+  /** @nullable */
+  activeWaitlist: number | null;
+  /** @nullable */
+  connectedChannels: number | null;
+}
+
+export interface OperationsQueue {
+  /** @nullable */
+  nowServing: number | null;
+  /** @nullable */
+  waiting: number | null;
+}
+
+export interface OperationsTodayAppointment {
+  id: string;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  scheduled_at?: string | null;
+  /** @nullable */
+  appointment_status?: string | null;
+  /** @nullable */
+  booking_number?: string | null;
+  /** @nullable */
+  queue_number?: number | null;
+  patientName: string;
+}
+
+export interface OperationsConversation {
+  id: string;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  channel_id?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  last_intent?: string | null;
+  /** @nullable */
+  last_patient_message?: string | null;
+  /** @nullable */
+  last_activity_at?: string | null;
+  /** @nullable */
+  assigned_staff_id?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  is_handoff?: boolean | null;
+  /** @nullable */
+  is_archived?: boolean | null;
+  /** @nullable */
+  ai_status?: string | null;
+  patientName: string;
+}
+
+export interface OperationsFollowUp {
+  id: string;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  appointment_id?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  next_due_at?: string | null;
+  /** @nullable */
+  followup_goal?: string | null;
+  /** @nullable */
+  updated_at?: string | null;
+  patientName: string;
+}
+
+export interface OperationsNoShow {
+  id: string;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  appointment_id?: string | null;
+  /** @nullable */
+  case_status?: string | null;
+  /** @nullable */
+  risk_level?: string | null;
+  /** @nullable */
+  last_activity_at?: string | null;
+  /** @nullable */
+  recovery_eligibility?: boolean | null;
+  patientName: string;
+}
+
+export interface OperationsWaitlistEntry {
+  id: string;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  service_id?: string | null;
+  /** @nullable */
+  doctor_id?: string | null;
+  /** @nullable */
+  branch_id?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  priority?: number | null;
+  /** @nullable */
+  created_at?: string | null;
+  patientName: string;
+}
+
+export type OperationsSummaryRecovery = {
+  followUps: OperationsFollowUp[];
+  noShows: OperationsNoShow[];
+};
+
+/**
+ * Per-source Supabase availability at generation time
+ */
+export type OperationsSummarySystemStatus = {[key: string]: 'ready' | 'unavailable'};
+
+export interface OperationsSummary {
+  generatedAt: string;
+  stats: OperationsStats;
+  queue: OperationsQueue;
+  todayAppointments: OperationsTodayAppointment[];
+  recentConversations: OperationsConversation[];
+  recovery: OperationsSummaryRecovery;
+  waitlist: OperationsWaitlistEntry[];
+  /** Per-source Supabase availability at generation time */
+  systemStatus: OperationsSummarySystemStatus;
+}
+
+export interface OperationsPatientRef {
+  id: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  first_name?: string | null;
+  /** @nullable */
+  last_name?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  contact_phone?: string | null;
+}
+
+export interface OperationsAppointmentRef {
+  id: string;
+  /** @nullable */
+  clinic_id?: string | null;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  branch_id?: string | null;
+  /** @nullable */
+  conversation_id?: string | null;
+  /** @nullable */
+  scheduled_at?: string | null;
+  /** @nullable */
+  appointment_status?: string | null;
+  /** @nullable */
+  booking_source?: string | null;
+  /** @nullable */
+  booking_number?: string | null;
+}
+
+/**
+ * Superset of waitlist, follow-up and no-show rows; kind-specific columns are null elsewhere
+ */
+export interface OperationsItem {
+  id: string;
+  /** @nullable */
+  clinic_id?: string | null;
+  /** @nullable */
+  branch_id?: string | null;
+  /** @nullable */
+  patient_id?: string | null;
+  /** @nullable */
+  appointment_id?: string | null;
+  /** @nullable */
+  conversation_id?: string | null;
+  /** @nullable */
+  doctor_id?: string | null;
+  /** @nullable */
+  service_id?: string | null;
+  /** @nullable */
+  created_by_staff_id?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  case_status?: string | null;
+  /** @nullable */
+  priority?: number | null;
+  /** @nullable */
+  preferred_date_from?: string | null;
+  /** @nullable */
+  preferred_date_to?: string | null;
+  /** @nullable */
+  preferred_time_from?: string | null;
+  /** @nullable */
+  preferred_time_to?: string | null;
+  /** @nullable */
+  expires_at?: string | null;
+  /** @nullable */
+  fulfilled_at?: string | null;
+  /** @nullable */
+  current_step?: string | null;
+  /** @nullable */
+  attempt_number?: number | null;
+  /** @nullable */
+  anchor_at?: string | null;
+  /** @nullable */
+  next_due_at?: string | null;
+  /** @nullable */
+  last_sent_at?: string | null;
+  /** @nullable */
+  last_inbound_at?: string | null;
+  /** @nullable */
+  closed_at?: string | null;
+  /** @nullable */
+  close_reason?: string | null;
+  /** @nullable */
+  employee_approved?: boolean | null;
+  /** @nullable */
+  intake_source?: string | null;
+  /** @nullable */
+  case_summary?: string | null;
+  /** @nullable */
+  followup_start_at?: string | null;
+  /** @nullable */
+  followup_goal?: string | null;
+  /** @nullable */
+  classification?: string | null;
+  /** @nullable */
+  risk_level?: string | null;
+  /** @nullable */
+  detection_reason?: string | null;
+  /** @nullable */
+  recovery_eligibility?: boolean | null;
+  /** @nullable */
+  recovery_deadline?: string | null;
+  /** @nullable */
+  current_attempt_number?: number | null;
+  /** @nullable */
+  max_attempts?: number | null;
+  /** @nullable */
+  opened_at?: string | null;
+  /** @nullable */
+  confirmed_at?: string | null;
+  /** @nullable */
+  last_activity_at?: string | null;
+  /** @nullable */
+  recovered_at?: string | null;
+  /** @nullable */
+  recovery_outcome?: string | null;
+  /** @nullable */
+  closure_reason?: string | null;
+  /** @nullable */
+  created_at?: string | null;
+  /** @nullable */
+  updated_at?: string | null;
+  patient: OperationsPatientRef | null;
+  appointment: OperationsAppointmentRef | null;
+}
+
+export interface OperationsList {
+  total: number;
+  items: OperationsItem[];
+}
+
+export interface InboxChannelState {
+  id: string;
+  /** @nullable */
+  type?: string | null;
+  /** @nullable */
+  provider?: string | null;
+  /** @nullable */
+  status?: string | null;
+  isEnabled: boolean;
+  displayName: string;
+}
+
+export type InboxConversationStateMode = typeof InboxConversationStateMode[keyof typeof InboxConversationStateMode];
+
+
+export const InboxConversationStateMode = {
+  AI: 'AI',
+  Human: 'Human',
+} as const;
+
+export interface InboxConversationState {
+  id: string;
+  /**
+     * Not currently emitted by the server; kept optional for callers that read it
+     * @nullable
+     */
+  patient_id?: string | null;
+  name: string;
+  /**
+     * Not currently emitted by the server; kept optional for callers that read it
+     * @nullable
+     */
+  phone?: string | null;
+  channel: string;
+  /** @nullable */
+  channelId: string | null;
+  channelType: string;
+  /** @nullable */
+  channelProvider: string | null;
+  channelStatus: string;
+  mode: InboxConversationStateMode;
+  /** @nullable */
+  lastActivityAt: string | null;
+  /** @nullable */
+  lastMessage: string | null;
+  /** @nullable */
+  assignedStaffId: string | null;
+  needsStaff: boolean;
+  status: string;
+  priority: string;
+}
+
+export interface InboxMessageState {
+  id: string;
+  /** @nullable */
+  conversation_id: string | null;
+  /** @nullable */
+  content: string | null;
+  direction: string;
+  /** @nullable */
+  sender_type: string | null;
+  created_at: string;
+  /** @nullable */
+  message_status: string | null;
+}
+
+export type InboxPayloadChannelCounts = {[key: string]: number};
+
+export interface InboxPayload {
+  channels: InboxChannelState[];
+  channelCounts: InboxPayloadChannelCounts;
+  conversations: InboxConversationState[];
+  /** @nullable */
+  selectedConversationId: string | null;
+  messages: InboxMessageState[];
+}
+
+export interface SavedReply {
+  id: string;
+  template_key: string;
+  language: string;
+  body_template: string;
+  /** @nullable */
+  enabled: boolean | null;
+  /** @nullable */
+  updated_at: string | null;
+}
+
+export type ConversationOperationMetadata = {
+  /** @nullable */
+  content?: string | null;
+  /** @nullable */
+  outcome?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  snoozed_until?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  [key: string]: unknown;
+ } | null;
+
+export interface ConversationOperation {
+  id: string;
+  event_type: string;
+  /** @nullable */
+  actor_type: string | null;
+  metadata: ConversationOperationMetadata;
+  /** @nullable */
+  occurred_at: string | null;
+  /** @nullable */
+  created_at: string | null;
+}
+
+export type GetOperationsSummaryParams = {
+/**
+ * Optional branch scope; validated against the session clinic
+ */
+branchId?: string;
+};
+
+export type GetOperationsListParams = {
+branchId?: string;
+/**
+ * Optional status filter forwarded to the underlying table
+ */
+status?: string;
+};
+
+export type GetInboxPayloadParams = {
+conversationId?: string;
+channelType?: GetInboxPayloadChannelType;
+};
+
+export type GetInboxPayloadChannelType = typeof GetInboxPayloadChannelType[keyof typeof GetInboxPayloadChannelType];
+
+
+export const GetInboxPayloadChannelType = {
+  whatsapp: 'whatsapp',
+  instagram: 'instagram',
+  messenger: 'messenger',
+  telegram: 'telegram',
+} as const;
+
+export type ListSavedRepliesParams = {
+language?: ListSavedRepliesLanguage;
+};
+
+export type ListSavedRepliesLanguage = typeof ListSavedRepliesLanguage[keyof typeof ListSavedRepliesLanguage];
+
+
+export const ListSavedRepliesLanguage = {
+  ar: 'ar',
+  en: 'en',
+} as const;
 

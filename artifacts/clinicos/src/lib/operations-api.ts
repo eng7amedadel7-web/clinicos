@@ -1,31 +1,8 @@
-export type OperationsStatValue = number | null;
-
-export type OperationsSummary = {
-  generatedAt: string;
-  stats: {
-    appointmentsToday: OperationsStatValue;
-    appointmentsYesterday: OperationsStatValue;
-    activePatients: OperationsStatValue;
-    conversationsNeedingStaff: OperationsStatValue;
-    openFollowUps: OperationsStatValue;
-    openNoShows: OperationsStatValue;
-    activeWaitlist: OperationsStatValue;
-    connectedChannels: OperationsStatValue;
-  };
-  queue?: { nowServing: OperationsStatValue; waiting: OperationsStatValue };
-  todayAppointments: Array<Record<string, unknown> & { id?: string; patientName?: string; scheduled_at?: string; appointment_status?: string; booking_number?: string | null }>;
-  recentConversations: Array<Record<string, unknown> & { id?: string; patientName?: string; last_activity_at?: string; last_patient_message?: string | null; priority?: string | null; is_handoff?: boolean }>;
-  recovery: {
-    followUps: Array<Record<string, unknown> & { id?: string; patientName?: string; next_due_at?: string | null; status?: string | null }>;
-    noShows: Array<Record<string, unknown> & { id?: string; patientName?: string; risk_level?: string | null; last_activity_at?: string | null }>;
-  };
-  waitlist: Array<Record<string, unknown> & { id?: string; patientName?: string; priority?: number | null }>;
-  systemStatus: Record<string, "ready" | "unavailable">;
-};
-
-export type OperationsItem = Record<string, unknown> & { id?: string; patientName?: string; patient?: { name?: string; first_name?: string; last_name?: string } | null; status?: string | null; case_status?: string | null; next_due_at?: string | null; last_activity_at?: string | null; priority?: number | null };
-
-export type OperationsList = { total: number; items: OperationsItem[] };
+// Summary and case-list reads are contract-driven: the fetchers and their
+// types come from the OpenAPI codegen, keeping this module as the facade for
+// the operations endpoints that are not yet in the spec (voice + actions).
+export { getOperationsList, getOperationsSummary } from "@workspace/api-client-react";
+export type { OperationsItem, OperationsList, OperationsSummary } from "@workspace/api-client-react";
 
 export type VoiceAgentCall = {
   id: string;
@@ -54,11 +31,6 @@ async function operationsRequest<T>(path: string, init?: RequestInit): Promise<T
   const payload = await response.json().catch(() => null) as { error?: string } | T | null;
   if (!response.ok) throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تنفيذ العملية.");
   return payload as T;
-}
-
-export async function getOperationsList(kind: "waitlist" | "follow-ups" | "no-shows", signal?: AbortSignal, branchId?: string): Promise<OperationsList> {
-  const suffix = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
-  return operationsRequest<OperationsList>(`/api/operations/${kind}${suffix}`, { signal });
 }
 
 export async function runOperationsAction(path: string, body: Record<string, unknown> = {}) {
@@ -120,14 +92,4 @@ export async function getVoiceBilling(signal?: AbortSignal): Promise<VoiceApiRec
 
 export async function getVoiceSettings(signal?: AbortSignal): Promise<VoiceApiRecord> {
   return operationsRequest<VoiceApiRecord>("/api/operations/voice-agent/settings", { signal });
-}
-
-export async function getOperationsSummary(signal?: AbortSignal, branchId?: string): Promise<OperationsSummary> {
-  const suffix = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
-  const response = await fetch(`/api/operations/summary${suffix}`, { credentials: "include", signal });
-  const payload = await response.json().catch(() => null) as { error?: string } | OperationsSummary | null;
-  if (!response.ok) {
-    throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "تعذر تحميل ملخص العمليات.");
-  }
-  return payload as OperationsSummary;
 }

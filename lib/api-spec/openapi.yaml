@@ -14,6 +14,8 @@ tags:
     description: Clinic owner authentication
   - name: dashboard
     description: Clinic operations overview
+  - name: operations
+    description: Live operations workspace (summary, waitlist, follow-ups, no-shows)
   - name: inbox
     description: Omnichannel inbox and messaging
 paths:
@@ -241,6 +243,151 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /operations/summary:
+    get:
+      operationId: getOperationsSummary
+      tags: [operations]
+      summary: Aggregated live operations summary for the clinic workspace
+      parameters:
+        - name: branchId
+          in: query
+          description: Optional branch scope; validated against the session clinic
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operations summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsSummary"
+        "401":
+          description: Not authenticated or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /operations/{kind}:
+    get:
+      operationId: getOperationsList
+      tags: [operations]
+      summary: List waitlist, follow-up or no-show cases for the clinic
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [waitlist, follow-ups, no-shows]
+        - name: branchId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Optional status filter forwarded to the underlying table
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operations case list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsList"
+        "400":
+          description: Invalid branch scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox:
+    get:
+      operationId: getInboxPayload
+      tags: [inbox]
+      summary: Unified inbox payload (channels, conversations, selected thread)
+      parameters:
+        - name: conversationId
+          in: query
+          schema:
+            type: string
+        - name: channelType
+          in: query
+          schema:
+            type: string
+            enum: [whatsapp, instagram, messenger, telegram]
+      responses:
+        "200":
+          description: Inbox payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxPayload"
+        "401":
+          description: Not authenticated or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/saved-replies:
+    get:
+      operationId: listSavedReplies
+      tags: [inbox]
+      summary: Enabled inbox quick replies for one language
+      parameters:
+        - name: language
+          in: query
+          schema:
+            type: string
+            enum: [ar, en]
+            default: ar
+      responses:
+        "200":
+          description: Saved replies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedReply"
+        "401":
+          description: Not authenticated or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /inbox/{conversationId}/operations:
+    get:
+      operationId: getConversationOperations
+      tags: [inbox]
+      summary: Domain-event audit trail for one conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation operations, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConversationOperation"
+        "401":
+          description: Not authenticated or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -344,6 +491,9 @@ components:
           type: string
         city:
           type: string
+        timezone:
+          type: string
+          description: IANA timezone of the clinic (multi-tenant Gulf markets)
       required: [id, name, status, city]
     UpdateClinicSettingsInput:
       type: object
@@ -434,9 +584,479 @@ components:
         isHandoff:
           type: boolean
       required: [ok, messageId, conversationId]
-      timezone:
-        type: string
-        description: IANA timezone of the clinic (multi-tenant Gulf markets)
+    OperationsStats:
+      type: object
+      description: All counters are present in the payload; null means the source table failed
+      properties:
+        appointmentsToday:
+          type: [number, "null"]
+        appointmentsYesterday:
+          type: [number, "null"]
+        activePatients:
+          type: [number, "null"]
+        conversationsNeedingStaff:
+          type: [number, "null"]
+        openFollowUps:
+          type: [number, "null"]
+        openNoShows:
+          type: [number, "null"]
+        activeWaitlist:
+          type: [number, "null"]
+        connectedChannels:
+          type: [number, "null"]
+      required: [appointmentsToday, appointmentsYesterday, activePatients, conversationsNeedingStaff, openFollowUps, openNoShows, activeWaitlist, connectedChannels]
+    OperationsQueue:
+      type: object
+      properties:
+        nowServing:
+          type: [number, "null"]
+        waiting:
+          type: [number, "null"]
+      required: [nowServing, waiting]
+    OperationsTodayAppointment:
+      type: object
+      properties:
+        id:
+          type: string
+        patient_id:
+          type: [string, "null"]
+        scheduled_at:
+          type: [string, "null"]
+        appointment_status:
+          type: [string, "null"]
+        booking_number:
+          type: [string, "null"]
+        queue_number:
+          type: [number, "null"]
+        patientName:
+          type: string
+      required: [id, patientName]
+    OperationsConversation:
+      type: object
+      properties:
+        id:
+          type: string
+        patient_id:
+          type: [string, "null"]
+        channel_id:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        last_intent:
+          type: [string, "null"]
+        last_patient_message:
+          type: [string, "null"]
+        last_activity_at:
+          type: [string, "null"]
+        assigned_staff_id:
+          type: [string, "null"]
+        priority:
+          type: [string, "null"]
+        is_handoff:
+          type: [boolean, "null"]
+        is_archived:
+          type: [boolean, "null"]
+        ai_status:
+          type: [string, "null"]
+        patientName:
+          type: string
+      required: [id, patientName]
+    OperationsFollowUp:
+      type: object
+      properties:
+        id:
+          type: string
+        patient_id:
+          type: [string, "null"]
+        appointment_id:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        next_due_at:
+          type: [string, "null"]
+        followup_goal:
+          type: [string, "null"]
+        updated_at:
+          type: [string, "null"]
+        patientName:
+          type: string
+      required: [id, patientName]
+    OperationsNoShow:
+      type: object
+      properties:
+        id:
+          type: string
+        patient_id:
+          type: [string, "null"]
+        appointment_id:
+          type: [string, "null"]
+        case_status:
+          type: [string, "null"]
+        risk_level:
+          type: [string, "null"]
+        last_activity_at:
+          type: [string, "null"]
+        recovery_eligibility:
+          type: [boolean, "null"]
+        patientName:
+          type: string
+      required: [id, patientName]
+    OperationsWaitlistEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        patient_id:
+          type: [string, "null"]
+        service_id:
+          type: [string, "null"]
+        doctor_id:
+          type: [string, "null"]
+        branch_id:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        priority:
+          type: [number, "null"]
+        created_at:
+          type: [string, "null"]
+        patientName:
+          type: string
+      required: [id, patientName]
+    OperationsSummary:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+        stats:
+          $ref: "#/components/schemas/OperationsStats"
+        queue:
+          $ref: "#/components/schemas/OperationsQueue"
+        todayAppointments:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsTodayAppointment"
+        recentConversations:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsConversation"
+        recovery:
+          type: object
+          properties:
+            followUps:
+              type: array
+              items:
+                $ref: "#/components/schemas/OperationsFollowUp"
+            noShows:
+              type: array
+              items:
+                $ref: "#/components/schemas/OperationsNoShow"
+          required: [followUps, noShows]
+        waitlist:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsWaitlistEntry"
+        systemStatus:
+          type: object
+          description: Per-source Supabase availability at generation time
+          additionalProperties:
+            type: string
+            enum: [ready, unavailable]
+      required: [generatedAt, stats, queue, todayAppointments, recentConversations, recovery, waitlist, systemStatus]
+    OperationsPatientRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: [string, "null"]
+        first_name:
+          type: [string, "null"]
+        last_name:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+        contact_phone:
+          type: [string, "null"]
+      required: [id]
+    OperationsAppointmentRef:
+      type: object
+      properties:
+        id:
+          type: string
+        clinic_id:
+          type: [string, "null"]
+        patient_id:
+          type: [string, "null"]
+        branch_id:
+          type: [string, "null"]
+        conversation_id:
+          type: [string, "null"]
+        scheduled_at:
+          type: [string, "null"]
+        appointment_status:
+          type: [string, "null"]
+        booking_source:
+          type: [string, "null"]
+        booking_number:
+          type: [string, "null"]
+      required: [id]
+    OperationsItem:
+      type: object
+      description: Superset of waitlist, follow-up and no-show rows; kind-specific columns are null elsewhere
+      properties:
+        id:
+          type: string
+        clinic_id:
+          type: [string, "null"]
+        branch_id:
+          type: [string, "null"]
+        patient_id:
+          type: [string, "null"]
+        appointment_id:
+          type: [string, "null"]
+        conversation_id:
+          type: [string, "null"]
+        doctor_id:
+          type: [string, "null"]
+        service_id:
+          type: [string, "null"]
+        created_by_staff_id:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        case_status:
+          type: [string, "null"]
+        priority:
+          type: [number, "null"]
+        preferred_date_from:
+          type: [string, "null"]
+        preferred_date_to:
+          type: [string, "null"]
+        preferred_time_from:
+          type: [string, "null"]
+        preferred_time_to:
+          type: [string, "null"]
+        expires_at:
+          type: [string, "null"]
+        fulfilled_at:
+          type: [string, "null"]
+        current_step:
+          type: [string, "null"]
+        attempt_number:
+          type: [number, "null"]
+        anchor_at:
+          type: [string, "null"]
+        next_due_at:
+          type: [string, "null"]
+        last_sent_at:
+          type: [string, "null"]
+        last_inbound_at:
+          type: [string, "null"]
+        closed_at:
+          type: [string, "null"]
+        close_reason:
+          type: [string, "null"]
+        employee_approved:
+          type: [boolean, "null"]
+        intake_source:
+          type: [string, "null"]
+        case_summary:
+          type: [string, "null"]
+        followup_start_at:
+          type: [string, "null"]
+        followup_goal:
+          type: [string, "null"]
+        classification:
+          type: [string, "null"]
+        risk_level:
+          type: [string, "null"]
+        detection_reason:
+          type: [string, "null"]
+        recovery_eligibility:
+          type: [boolean, "null"]
+        recovery_deadline:
+          type: [string, "null"]
+        current_attempt_number:
+          type: [number, "null"]
+        max_attempts:
+          type: [number, "null"]
+        opened_at:
+          type: [string, "null"]
+        confirmed_at:
+          type: [string, "null"]
+        last_activity_at:
+          type: [string, "null"]
+        recovered_at:
+          type: [string, "null"]
+        recovery_outcome:
+          type: [string, "null"]
+        closure_reason:
+          type: [string, "null"]
+        created_at:
+          type: [string, "null"]
+        updated_at:
+          type: [string, "null"]
+        patient:
+          oneOf:
+            - $ref: "#/components/schemas/OperationsPatientRef"
+            - type: "null"
+        appointment:
+          oneOf:
+            - $ref: "#/components/schemas/OperationsAppointmentRef"
+            - type: "null"
+      required: [id, patient, appointment]
+    OperationsList:
+      type: object
+      properties:
+        total:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsItem"
+      required: [total, items]
+    InboxChannelState:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: [string, "null"]
+        provider:
+          type: [string, "null"]
+        status:
+          type: [string, "null"]
+        isEnabled:
+          type: boolean
+        displayName:
+          type: string
+      required: [id, isEnabled, displayName]
+    InboxConversationState:
+      type: object
+      properties:
+        id:
+          type: string
+        patient_id:
+          type: [string, "null"]
+          description: Not currently emitted by the server; kept optional for callers that read it
+        name:
+          type: string
+        phone:
+          type: [string, "null"]
+          description: Not currently emitted by the server; kept optional for callers that read it
+        channel:
+          type: string
+        channelId:
+          type: [string, "null"]
+        channelType:
+          type: string
+        channelProvider:
+          type: [string, "null"]
+        channelStatus:
+          type: string
+        mode:
+          type: string
+          enum: [AI, Human]
+        lastActivityAt:
+          type: [string, "null"]
+        lastMessage:
+          type: [string, "null"]
+        assignedStaffId:
+          type: [string, "null"]
+        needsStaff:
+          type: boolean
+        status:
+          type: string
+        priority:
+          type: string
+      required: [id, name, channel, channelId, channelType, channelProvider, channelStatus, mode, lastActivityAt, lastMessage, assignedStaffId, needsStaff, status, priority]
+    InboxMessageState:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: [string, "null"]
+        content:
+          type: [string, "null"]
+        direction:
+          type: string
+        sender_type:
+          type: [string, "null"]
+        created_at:
+          type: string
+        message_status:
+          type: [string, "null"]
+      required: [id, conversation_id, content, direction, sender_type, created_at, message_status]
+    InboxPayload:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxChannelState"
+        channelCounts:
+          type: object
+          additionalProperties:
+            type: number
+        conversations:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxConversationState"
+        selectedConversationId:
+          type: [string, "null"]
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxMessageState"
+      required: [channels, channelCounts, conversations, selectedConversationId, messages]
+    SavedReply:
+      type: object
+      properties:
+        id:
+          type: string
+        template_key:
+          type: string
+        language:
+          type: string
+        body_template:
+          type: string
+        enabled:
+          type: [boolean, "null"]
+        updated_at:
+          type: [string, "null"]
+      required: [id, template_key, language, body_template, enabled, updated_at]
+    ConversationOperation:
+      type: object
+      properties:
+        id:
+          type: string
+        event_type:
+          type: string
+        actor_type:
+          type: [string, "null"]
+        metadata:
+          oneOf:
+            - type: object
+              properties:
+                content:
+                  type: [string, "null"]
+                outcome:
+                  type: [string, "null"]
+                note:
+                  type: [string, "null"]
+                snoozed_until:
+                  type: [string, "null"]
+                reason:
+                  type: [string, "null"]
+              additionalProperties: true
+            - type: "null"
+        occurred_at:
+          type: [string, "null"]
+        created_at:
+          type: [string, "null"]
+      required: [id, event_type, actor_type, metadata, occurred_at, created_at]
 
 
 

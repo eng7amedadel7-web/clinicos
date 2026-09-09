@@ -223,7 +223,7 @@ export default function LiveDashboard({ session }: { session: Session }) {
   const nowTick = useNow(1000);
   const summaryQuery = useQuery({
     queryKey: ["operations", "summary", "dashboard"],
-    queryFn: ({ signal }) => getOperationsSummary(signal),
+    queryFn: ({ signal }) => getOperationsSummary(undefined, { signal }),
     staleTime: 30_000,
     refetchInterval: false,
     refetchOnWindowFocus: true,

@@ -21,17 +21,26 @@ import type {
 
 import type {
   AuthSession,
+  ConversationOperation,
   DashboardSummary,
   ErrorResponse,
+  GetInboxPayloadParams,
+  GetOperationsListParams,
+  GetOperationsSummaryParams,
   HealthStatus,
   InboundMessageInput,
   InboundMessageResponse,
+  InboxPayload,
+  ListSavedRepliesParams,
   LoginInput,
+  OperationsList,
+  OperationsSummary,
   PasswordRecoveryInput,
   PasswordRecoveryResponse,
   PasswordResetResponse,
   RegisterInput,
   ResetPasswordInput,
+  SavedReply,
   UpdateClinicSettingsInput
 } from './api.schemas';
 
@@ -867,4 +876,422 @@ export const useReceiveInboundMessage = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getReceiveInboundMessageMutationOptions(options));
     }
+
+export const getGetOperationsSummaryUrl = (params?: GetOperationsSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/operations/summary?${stringifiedParams}` : `/api/operations/summary`
+}
+
+/**
+ * @summary Aggregated live operations summary for the clinic workspace
+ */
+export const getOperationsSummary = async (params?: GetOperationsSummaryParams, options?: Parameters<typeof customFetch>[1]): Promise<OperationsSummary> => {
+
+  return customFetch<OperationsSummary>(getGetOperationsSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOperationsSummaryQueryKey = (params?: GetOperationsSummaryParams,) => {
+    return [
+    `/api/operations/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetOperationsSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getOperationsSummary>>, TError = ErrorType<ErrorResponse>>(params?: GetOperationsSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOperationsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOperationsSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOperationsSummary>>> = ({ signal }) => getOperationsSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOperationsSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOperationsSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getOperationsSummary>>>
+export type GetOperationsSummaryQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Aggregated live operations summary for the clinic workspace
+ */
+
+export function useGetOperationsSummary<TData = Awaited<ReturnType<typeof getOperationsSummary>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetOperationsSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOperationsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOperationsSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOperationsListUrl = (kind: 'waitlist' | 'follow-ups' | 'no-shows',
+    params?: GetOperationsListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/operations/${kind}?${stringifiedParams}` : `/api/operations/${kind}`
+}
+
+/**
+ * @summary List waitlist, follow-up or no-show cases for the clinic
+ */
+export const getOperationsList = async (kind: 'waitlist' | 'follow-ups' | 'no-shows',
+    params?: GetOperationsListParams, options?: Parameters<typeof customFetch>[1]): Promise<OperationsList> => {
+
+  return customFetch<OperationsList>(getGetOperationsListUrl(kind,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOperationsListQueryKey = (kind: 'waitlist' | 'follow-ups' | 'no-shows',
+    params?: GetOperationsListParams,) => {
+    return [
+    `/api/operations/${kind}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetOperationsListQueryOptions = <TData = Awaited<ReturnType<typeof getOperationsList>>, TError = ErrorType<ErrorResponse>>(kind: 'waitlist' | 'follow-ups' | 'no-shows',
+    params?: GetOperationsListParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOperationsList>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOperationsListQueryKey(kind,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOperationsList>>> = ({ signal }) => getOperationsList(kind,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: kind !== null && kind !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOperationsList>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOperationsListQueryResult = NonNullable<Awaited<ReturnType<typeof getOperationsList>>>
+export type GetOperationsListQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List waitlist, follow-up or no-show cases for the clinic
+ */
+
+export function useGetOperationsList<TData = Awaited<ReturnType<typeof getOperationsList>>, TError = ErrorType<ErrorResponse>>(
+ kind: 'waitlist' | 'follow-ups' | 'no-shows',
+    params?: GetOperationsListParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOperationsList>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOperationsListQueryOptions(kind,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetInboxPayloadUrl = (params?: GetInboxPayloadParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/inbox?${stringifiedParams}` : `/api/inbox`
+}
+
+/**
+ * @summary Unified inbox payload (channels, conversations, selected thread)
+ */
+export const getInboxPayload = async (params?: GetInboxPayloadParams, options?: Parameters<typeof customFetch>[1]): Promise<InboxPayload> => {
+
+  return customFetch<InboxPayload>(getGetInboxPayloadUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetInboxPayloadQueryKey = (params?: GetInboxPayloadParams,) => {
+    return [
+    `/api/inbox`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetInboxPayloadQueryOptions = <TData = Awaited<ReturnType<typeof getInboxPayload>>, TError = ErrorType<ErrorResponse>>(params?: GetInboxPayloadParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInboxPayload>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInboxPayloadQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInboxPayload>>> = ({ signal }) => getInboxPayload(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInboxPayload>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetInboxPayloadQueryResult = NonNullable<Awaited<ReturnType<typeof getInboxPayload>>>
+export type GetInboxPayloadQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Unified inbox payload (channels, conversations, selected thread)
+ */
+
+export function useGetInboxPayload<TData = Awaited<ReturnType<typeof getInboxPayload>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetInboxPayloadParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getInboxPayload>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetInboxPayloadQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListSavedRepliesUrl = (params?: ListSavedRepliesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/inbox/saved-replies?${stringifiedParams}` : `/api/inbox/saved-replies`
+}
+
+/**
+ * @summary Enabled inbox quick replies for one language
+ */
+export const listSavedReplies = async (params?: ListSavedRepliesParams, options?: Parameters<typeof customFetch>[1]): Promise<SavedReply[]> => {
+
+  return customFetch<SavedReply[]>(getListSavedRepliesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSavedRepliesQueryKey = (params?: ListSavedRepliesParams,) => {
+    return [
+    `/api/inbox/saved-replies`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSavedRepliesQueryOptions = <TData = Awaited<ReturnType<typeof listSavedReplies>>, TError = ErrorType<ErrorResponse>>(params?: ListSavedRepliesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedReplies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSavedRepliesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSavedReplies>>> = ({ signal }) => listSavedReplies(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSavedReplies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSavedRepliesQueryResult = NonNullable<Awaited<ReturnType<typeof listSavedReplies>>>
+export type ListSavedRepliesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Enabled inbox quick replies for one language
+ */
+
+export function useListSavedReplies<TData = Awaited<ReturnType<typeof listSavedReplies>>, TError = ErrorType<ErrorResponse>>(
+ params?: ListSavedRepliesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSavedReplies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSavedRepliesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetConversationOperationsUrl = (conversationId: string,) => {
+
+
+
+
+  return `/api/inbox/${conversationId}/operations`
+}
+
+/**
+ * @summary Domain-event audit trail for one conversation
+ */
+export const getConversationOperations = async (conversationId: string, options?: Parameters<typeof customFetch>[1]): Promise<ConversationOperation[]> => {
+
+  return customFetch<ConversationOperation[]>(getGetConversationOperationsUrl(conversationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConversationOperationsQueryKey = (conversationId: string,) => {
+    return [
+    `/api/inbox/${conversationId}/operations`
+    ] as const;
+    }
+
+
+export const getGetConversationOperationsQueryOptions = <TData = Awaited<ReturnType<typeof getConversationOperations>>, TError = ErrorType<ErrorResponse>>(conversationId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversationOperations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConversationOperationsQueryKey(conversationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConversationOperations>>> = ({ signal }) => getConversationOperations(conversationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: conversationId !== null && conversationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConversationOperations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConversationOperationsQueryResult = NonNullable<Awaited<ReturnType<typeof getConversationOperations>>>
+export type GetConversationOperationsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Domain-event audit trail for one conversation
+ */
+
+export function useGetConversationOperations<TData = Awaited<ReturnType<typeof getConversationOperations>>, TError = ErrorType<ErrorResponse>>(
+ conversationId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConversationOperations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConversationOperationsQueryOptions(conversationId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
