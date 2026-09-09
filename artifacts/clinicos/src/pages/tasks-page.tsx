@@ -26,7 +26,6 @@ type Task = {
 };
 
 function displayPatient(item: OperationsItem, en?: boolean) {
-  if (item.patientName) return item.patientName;
   const p = item.patient;
   return p?.name || [p?.first_name, p?.last_name].filter(Boolean).join(" ") || (en ? "Unnamed patient" : "مريض بدون اسم");
 }
@@ -146,17 +145,17 @@ export default function TasksPage() {
 
   const followUpsQuery = useQuery({
     queryKey: ["operations", "follow-ups", selectedBranchId],
-    queryFn: ({ signal }) => getOperationsList("follow-ups", signal, selectedBranchId === "all" ? undefined : selectedBranchId),
+    queryFn: ({ signal }) => getOperationsList("follow-ups", selectedBranchId === "all" ? undefined : { branchId: selectedBranchId }, { signal }),
     staleTime: 15_000, refetchInterval: false,
   });
   const noShowsQuery = useQuery({
     queryKey: ["operations", "no-shows", selectedBranchId],
-    queryFn: ({ signal }) => getOperationsList("no-shows", signal, selectedBranchId === "all" ? undefined : selectedBranchId),
+    queryFn: ({ signal }) => getOperationsList("no-shows", selectedBranchId === "all" ? undefined : { branchId: selectedBranchId }, { signal }),
     staleTime: 15_000, refetchInterval: false,
   });
   const waitlistQuery = useQuery({
     queryKey: ["operations", "waitlist", selectedBranchId],
-    queryFn: ({ signal }) => getOperationsList("waitlist", signal, selectedBranchId === "all" ? undefined : selectedBranchId),
+    queryFn: ({ signal }) => getOperationsList("waitlist", selectedBranchId === "all" ? undefined : { branchId: selectedBranchId }, { signal }),
     staleTime: 15_000, refetchInterval: false,
   });
 

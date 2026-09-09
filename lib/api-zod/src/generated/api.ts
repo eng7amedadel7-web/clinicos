@@ -31,7 +31,8 @@ export const GetAuthSessionResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "status": zod.string(),
-  "city": zod.string()
+  "city": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone of the clinic (multi-tenant Gulf markets)')
 })
 })
 
@@ -60,7 +61,8 @@ export const LoginResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "status": zod.string(),
-  "city": zod.string()
+  "city": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone of the clinic (multi-tenant Gulf markets)')
 })
 })
 
@@ -125,7 +127,8 @@ export const RegisterResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "status": zod.string(),
-  "city": zod.string()
+  "city": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone of the clinic (multi-tenant Gulf markets)')
 })
 })
 
@@ -150,7 +153,8 @@ export const GetClinicSettingsResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "status": zod.string(),
-  "city": zod.string()
+  "city": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone of the clinic (multi-tenant Gulf markets)')
 })
 })
 
@@ -185,7 +189,8 @@ export const UpdateClinicSettingsResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "status": zod.string(),
-  "city": zod.string()
+  "city": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone of the clinic (multi-tenant Gulf markets)')
 })
 })
 
@@ -198,7 +203,8 @@ export const GetDashboardSummaryResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "status": zod.string(),
-  "city": zod.string()
+  "city": zod.string(),
+  "timezone": zod.string().optional().describe('IANA timezone of the clinic (multi-tenant Gulf markets)')
 }),
   "stats": zod.array(zod.object({
   "label": zod.string(),
@@ -238,5 +244,266 @@ export const ReceiveInboundMessageResponse = zod.object({
   "patientId": zod.string().optional(),
   "isHandoff": zod.boolean().optional()
 })
+
+
+/**
+ * @summary Aggregated live operations summary for the clinic workspace
+ */
+export const GetOperationsSummaryQueryParams = zod.object({
+  "branchId": zod.coerce.string().optional().describe('Optional branch scope; validated against the session clinic')
+})
+
+export const GetOperationsSummaryResponse = zod.object({
+  "generatedAt": zod.string(),
+  "stats": zod.object({
+  "appointmentsToday": zod.number().nullable(),
+  "appointmentsYesterday": zod.number().nullable(),
+  "activePatients": zod.number().nullable(),
+  "conversationsNeedingStaff": zod.number().nullable(),
+  "openFollowUps": zod.number().nullable(),
+  "openNoShows": zod.number().nullable(),
+  "activeWaitlist": zod.number().nullable(),
+  "connectedChannels": zod.number().nullable()
+}).describe('All counters are present in the payload; null means the source table failed'),
+  "queue": zod.object({
+  "nowServing": zod.number().nullable(),
+  "waiting": zod.number().nullable()
+}),
+  "todayAppointments": zod.array(zod.object({
+  "id": zod.string(),
+  "patient_id": zod.string().nullish(),
+  "scheduled_at": zod.string().nullish(),
+  "appointment_status": zod.string().nullish(),
+  "booking_number": zod.string().nullish(),
+  "queue_number": zod.number().nullish(),
+  "patientName": zod.string()
+})),
+  "recentConversations": zod.array(zod.object({
+  "id": zod.string(),
+  "patient_id": zod.string().nullish(),
+  "channel_id": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "last_intent": zod.string().nullish(),
+  "last_patient_message": zod.string().nullish(),
+  "last_activity_at": zod.string().nullish(),
+  "assigned_staff_id": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "is_handoff": zod.boolean().nullish(),
+  "is_archived": zod.boolean().nullish(),
+  "ai_status": zod.string().nullish(),
+  "patientName": zod.string()
+})),
+  "recovery": zod.object({
+  "followUps": zod.array(zod.object({
+  "id": zod.string(),
+  "patient_id": zod.string().nullish(),
+  "appointment_id": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "next_due_at": zod.string().nullish(),
+  "followup_goal": zod.string().nullish(),
+  "updated_at": zod.string().nullish(),
+  "patientName": zod.string()
+})),
+  "noShows": zod.array(zod.object({
+  "id": zod.string(),
+  "patient_id": zod.string().nullish(),
+  "appointment_id": zod.string().nullish(),
+  "case_status": zod.string().nullish(),
+  "risk_level": zod.string().nullish(),
+  "last_activity_at": zod.string().nullish(),
+  "recovery_eligibility": zod.boolean().nullish(),
+  "patientName": zod.string()
+}))
+}),
+  "waitlist": zod.array(zod.object({
+  "id": zod.string(),
+  "patient_id": zod.string().nullish(),
+  "service_id": zod.string().nullish(),
+  "doctor_id": zod.string().nullish(),
+  "branch_id": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "priority": zod.number().nullish(),
+  "created_at": zod.string().nullish(),
+  "patientName": zod.string()
+})),
+  "systemStatus": zod.record(zod.string(), zod.enum(['ready', 'unavailable'])).describe('Per-source Supabase availability at generation time')
+})
+
+
+/**
+ * @summary List waitlist, follow-up or no-show cases for the clinic
+ */
+export const GetOperationsListParamsSchema = zod.object({
+  "kind": zod.enum(['waitlist', 'follow-ups', 'no-shows'])
+})
+
+export const GetOperationsListQueryParams = zod.object({
+  "branchId": zod.coerce.string().optional(),
+  "status": zod.coerce.string().optional().describe('Optional status filter forwarded to the underlying table')
+})
+
+export const GetOperationsListResponse = zod.object({
+  "total": zod.number(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "clinic_id": zod.string().nullish(),
+  "branch_id": zod.string().nullish(),
+  "patient_id": zod.string().nullish(),
+  "appointment_id": zod.string().nullish(),
+  "conversation_id": zod.string().nullish(),
+  "doctor_id": zod.string().nullish(),
+  "service_id": zod.string().nullish(),
+  "created_by_staff_id": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "case_status": zod.string().nullish(),
+  "priority": zod.number().nullish(),
+  "preferred_date_from": zod.string().nullish(),
+  "preferred_date_to": zod.string().nullish(),
+  "preferred_time_from": zod.string().nullish(),
+  "preferred_time_to": zod.string().nullish(),
+  "expires_at": zod.string().nullish(),
+  "fulfilled_at": zod.string().nullish(),
+  "current_step": zod.string().nullish(),
+  "attempt_number": zod.number().nullish(),
+  "anchor_at": zod.string().nullish(),
+  "next_due_at": zod.string().nullish(),
+  "last_sent_at": zod.string().nullish(),
+  "last_inbound_at": zod.string().nullish(),
+  "closed_at": zod.string().nullish(),
+  "close_reason": zod.string().nullish(),
+  "employee_approved": zod.boolean().nullish(),
+  "intake_source": zod.string().nullish(),
+  "case_summary": zod.string().nullish(),
+  "followup_start_at": zod.string().nullish(),
+  "followup_goal": zod.string().nullish(),
+  "classification": zod.string().nullish(),
+  "risk_level": zod.string().nullish(),
+  "detection_reason": zod.string().nullish(),
+  "recovery_eligibility": zod.boolean().nullish(),
+  "recovery_deadline": zod.string().nullish(),
+  "current_attempt_number": zod.number().nullish(),
+  "max_attempts": zod.number().nullish(),
+  "opened_at": zod.string().nullish(),
+  "confirmed_at": zod.string().nullish(),
+  "last_activity_at": zod.string().nullish(),
+  "recovered_at": zod.string().nullish(),
+  "recovery_outcome": zod.string().nullish(),
+  "closure_reason": zod.string().nullish(),
+  "created_at": zod.string().nullish(),
+  "updated_at": zod.string().nullish(),
+  "patient": zod.union([zod.object({
+  "id": zod.string(),
+  "name": zod.string().nullish(),
+  "first_name": zod.string().nullish(),
+  "last_name": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "contact_phone": zod.string().nullish()
+}),zod.null()]),
+  "appointment": zod.union([zod.object({
+  "id": zod.string(),
+  "clinic_id": zod.string().nullish(),
+  "patient_id": zod.string().nullish(),
+  "branch_id": zod.string().nullish(),
+  "conversation_id": zod.string().nullish(),
+  "scheduled_at": zod.string().nullish(),
+  "appointment_status": zod.string().nullish(),
+  "booking_source": zod.string().nullish(),
+  "booking_number": zod.string().nullish()
+}),zod.null()])
+}).describe('Superset of waitlist, follow-up and no-show rows; kind-specific columns are null elsewhere'))
+})
+
+
+/**
+ * @summary Unified inbox payload (channels, conversations, selected thread)
+ */
+export const GetInboxPayloadQueryParams = zod.object({
+  "conversationId": zod.coerce.string().optional(),
+  "channelType": zod.enum(['whatsapp', 'instagram', 'messenger', 'telegram']).optional()
+})
+
+export const GetInboxPayloadResponse = zod.object({
+  "channels": zod.array(zod.object({
+  "id": zod.string(),
+  "type": zod.string().nullish(),
+  "provider": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "isEnabled": zod.boolean(),
+  "displayName": zod.string()
+})),
+  "channelCounts": zod.record(zod.string(), zod.number()),
+  "conversations": zod.array(zod.object({
+  "id": zod.string(),
+  "patient_id": zod.string().nullish().describe('Not currently emitted by the server; kept optional for callers that read it'),
+  "name": zod.string(),
+  "phone": zod.string().nullish().describe('Not currently emitted by the server; kept optional for callers that read it'),
+  "channel": zod.string(),
+  "channelId": zod.string().nullable(),
+  "channelType": zod.string(),
+  "channelProvider": zod.string().nullable(),
+  "channelStatus": zod.string(),
+  "mode": zod.enum(['AI', 'Human']),
+  "lastActivityAt": zod.string().nullable(),
+  "lastMessage": zod.string().nullable(),
+  "assignedStaffId": zod.string().nullable(),
+  "needsStaff": zod.boolean(),
+  "status": zod.string(),
+  "priority": zod.string()
+})),
+  "selectedConversationId": zod.string().nullable(),
+  "messages": zod.array(zod.object({
+  "id": zod.string(),
+  "conversation_id": zod.string().nullable(),
+  "content": zod.string().nullable(),
+  "direction": zod.string(),
+  "sender_type": zod.string().nullable(),
+  "created_at": zod.string(),
+  "message_status": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Enabled inbox quick replies for one language
+ */
+export const listSavedRepliesQueryLanguageDefault = `ar`;
+
+export const ListSavedRepliesQueryParams = zod.object({
+  "language": zod.enum(['ar', 'en']).default(listSavedRepliesQueryLanguageDefault)
+})
+
+export const ListSavedRepliesResponseItem = zod.object({
+  "id": zod.string(),
+  "template_key": zod.string(),
+  "language": zod.string(),
+  "body_template": zod.string(),
+  "enabled": zod.boolean().nullable(),
+  "updated_at": zod.string().nullable()
+})
+export const ListSavedRepliesResponse = zod.array(ListSavedRepliesResponseItem)
+
+
+/**
+ * @summary Domain-event audit trail for one conversation
+ */
+export const GetConversationOperationsParams = zod.object({
+  "conversationId": zod.coerce.string()
+})
+
+export const GetConversationOperationsResponseItem = zod.object({
+  "id": zod.string(),
+  "event_type": zod.string(),
+  "actor_type": zod.string().nullable(),
+  "metadata": zod.union([zod.object({
+  "content": zod.string().nullish(),
+  "outcome": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "snoozed_until": zod.string().nullish(),
+  "reason": zod.string().nullish()
+}),zod.null()]),
+  "occurred_at": zod.string().nullable(),
+  "created_at": zod.string().nullable()
+})
+export const GetConversationOperationsResponse = zod.array(GetConversationOperationsResponseItem)
 
 

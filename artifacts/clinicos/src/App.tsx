@@ -502,10 +502,9 @@ function ProtectedShell() {
   const realtimeStatus = useRealtimeSync(sessionQuery.data?.clinic.id);
 
   // Multi-tenant Gulf markets: the timezone belongs to the CLINIC, and every
-  // date/time display reads it through lib/datetime. The OpenAPI Clinic type
-  // predates the field, hence the narrow cast.
+  // date/time display reads it through lib/datetime.
   useEffect(() => {
-    const tz = (sessionQuery.data?.clinic as { timezone?: string } | undefined)?.timezone;
+    const tz = sessionQuery.data?.clinic.timezone;
     if (tz) setClinicTimezone(tz);
   }, [sessionQuery.data]);
 

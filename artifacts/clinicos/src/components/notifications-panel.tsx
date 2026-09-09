@@ -61,7 +61,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
   const summaryQuery = useQuery({
     queryKey: ["operations", "summary", "notifications-panel", selectedBranchId],
     queryFn: ({ signal }) =>
-      getOperationsSummary(signal, selectedBranchId === "all" ? undefined : selectedBranchId),
+      getOperationsSummary(selectedBranchId === "all" ? undefined : { branchId: selectedBranchId }, { signal }),
     staleTime: 30_000,
   });
 

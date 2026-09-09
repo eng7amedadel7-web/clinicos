@@ -11,4 +11,6 @@ export interface Clinic {
   name: string;
   status: string;
   city: string;
+  /** IANA timezone of the clinic (multi-tenant Gulf markets) */
+  timezone?: string;
 }
